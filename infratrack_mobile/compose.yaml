@@ -1,0 +1,6 @@
+services:
+  infratrackmobile:
+    image: infratrackmobile
+    build:
+      context: .
+      dockerfile: ./Dockerfile

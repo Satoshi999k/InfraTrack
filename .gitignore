@@ -1,0 +1,23 @@
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Node.js dependencies and generated output
+**/node_modules/
+**/dist/
+
+# Logs
+**/*.log
+
+# Local admin data, backups, and user-uploaded files
+/infratrack_admin/backups/
+/infratrack_admin/data/
+/infratrack_admin/uploads/
+
+# Flutter/Dart generated files
+**/.dart_tool/
+**/build/
+**/.flutter-plugins-dependencies
+**/.packages

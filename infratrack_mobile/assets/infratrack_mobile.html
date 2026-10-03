@@ -1,0 +1,2575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>InfraTrack — Mati City</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Expanded:wght@600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  :root{
+    --navy:#0E3A4C;
+    --navy-deep:#092732;
+    --teal:#1B8A83;
+    --teal-soft:#E4F2F0;
+    --clay:#C1592B;
+    --clay-soft:#FBE9DF;
+    --sand:#F3EFE6;
+    --ink:#17231F;
+    --ink-soft:#5B6B67;
+    --line:#DDD8CB;
+    --white:#FFFFFF;
+    --amber:#D99A2B;
+    --amber-soft:#FBEED6;
+    --green:#3C8A5F;
+    --green-soft:#E3F1E8;
+    --red:#B33A3A;
+    --red-soft:#F8E3E1;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background: transparent;
+    font-family:'Inter',sans-serif;
+    color:var(--ink);
+    display:flex;
+    justify-content:center;
+    align-items:flex-start;
+    min-height:100vh;
+  }
+
+  .msy{
+    width:1em;
+    height:1em;
+    font-size:22px;
+    line-height:1;
+    display:inline-block;
+    vertical-align:middle;
+    flex-shrink:0;
+  }
+  .msy.lucide{ stroke-width:2.1; }
+  .lucide{ stroke-width:2.1; }
+
+  .stage{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:0;
+  }
+  .stage-label{
+    display:none;
+  }
+
+  .phone{
+    width:390px;
+    height:844px;
+    background:var(--navy-deep);
+    border-radius:52px;
+    padding:14px;
+    box-shadow: 0 30px 60px -20px rgba(9,39,50,.45), 0 0 0 2px #000 inset;
+    position:relative;
+  }
+  .screen{
+    width:100%;
+    height:100%;
+    background:var(--sand);
+    border-radius:38px;
+    overflow:hidden;
+    position:relative;
+    display:flex;
+    flex-direction:column;
+  }
+  .notch{
+    position:absolute;
+    top:14px; left:50%; transform:translateX(-50%);
+    width:120px; height:28px;
+    background:var(--navy-deep);
+    border-radius:0 0 18px 18px;
+    z-index:150;
+  }
+  .statusbar{
+    height:48px;
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    padding:0 26px 6px;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    font-weight:500;
+    color:var(--ink);
+    flex-shrink:0;
+  }
+  .statusbar.on-dark{ color:#fff; }
+
+  /* ---- App bar ---- */
+  .appbar{
+    padding:6px 20px 16px;
+    flex-shrink:0;
+  }
+  .appbar-top-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+  .appbar .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10.5px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--teal);
+    font-weight:500;
+  }
+  .appbar h1{
+    font-family:'Archivo Expanded',sans-serif;
+    font-size:23px;
+    font-weight:800;
+    letter-spacing:-.01em;
+    color:var(--navy);
+    margin-top:2px;
+  }
+  .appbar .back-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:10px;
+  }
+  .back-btn{
+    width:34px; height:34px;
+    border-radius:11px;
+    background:var(--white);
+    border:1px solid var(--line);
+    display:flex; align-items:center; justify-content:center;
+    color:var(--navy);
+    flex-shrink:0;
+  }
+  .back-btn .msy{font-size:19px;}
+
+  .bell-btn{ position:relative; width:38px; height:38px; border-radius:12px; background:var(--white); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; color:var(--navy); flex-shrink:0; margin-top:2px; cursor:pointer; }
+  .bell-btn .msy{ font-size:20px; }
+  .bell-dot{ position:absolute; top:-5px; right:-5px; min-width:17px; height:17px; padding:0 4px; border-radius:100px; background:var(--clay); color:#fff; font-family:'IBM Plex Mono',monospace; font-size:9.5px; font-weight:700; display:flex; align-items:center; justify-content:center; border:2px solid var(--sand); }
+  .bell-dot.hidden{ display:none; }
+
+  /* ---- Content scroll area ---- */
+  .content{
+    flex:1;
+    overflow-y:auto;
+    padding:0 20px 100px;
+  }
+  .content::-webkit-scrollbar{display:none;}
+
+  /* ================= HOME ================= */
+  .tourist-banner{ display:flex; align-items:center; gap:10px; background:var(--amber-soft); border:1px solid #EAD9A8; border-radius:14px; padding:11px 13px; margin-bottom:16px; }
+  .tourist-banner .msy{ font-size:19px; color:#93641A; flex-shrink:0; }
+  .tourist-banner p{ font-size:11.5px; color:#6B5320; line-height:1.4; font-weight:500; }
+  .tourist-banner a{ color:var(--teal); font-weight:700; }
+
+  .update-spotlight{ display:flex; gap:12px; align-items:flex-start; background:var(--white); border:1px solid var(--line); border-left:4px solid var(--teal); border-radius:16px; padding:14px; margin-bottom:16px; cursor:pointer; }
+  .update-spotlight .ic{ width:36px; height:36px; border-radius:11px; background:var(--teal-soft); color:var(--teal); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .update-spotlight .ic .msy{font-size:19px;}
+  .update-spotlight .body{flex:1; min-width:0;}
+  .update-spotlight .tag{ font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--teal); margin-bottom:3px; }
+  .update-spotlight .t1{ font-size:12.5px; font-weight:700; color:var(--ink); line-height:1.4; }
+  .update-spotlight .t2{ font-size:11px; color:var(--ink-soft); margin-top:3px; }
+  .update-spotlight .arrow{ color:#B7BDB9; flex-shrink:0; margin-top:2px; }
+
+  .stat-row{ display:flex; gap:10px; margin-bottom:20px; }
+  .stat-card{ flex:1; background:var(--white); border:1px solid var(--line); border-radius:16px; padding:14px 14px 12px; }
+  .stat-card .num{ font-family:'Archivo Expanded',sans-serif; font-size:26px; font-weight:800; color:var(--navy); line-height:1; }
+  .stat-card .lbl{ font-size:11.5px; color:var(--ink-soft); margin-top:6px; font-weight:500; }
+  .stat-card.accent{background:var(--navy);}
+  .stat-card.accent .num{color:#fff;}
+  .stat-card.accent .lbl{color:#B9CBD1;}
+
+  .section-head{ display:flex; justify-content:space-between; align-items:baseline; margin:22px 0 12px; }
+  .section-head h2{ font-family:'Archivo Expanded',sans-serif; font-size:16px; font-weight:700; color:var(--navy); }
+  .section-head a{ font-size:12px; color:var(--teal); font-weight:600; text-decoration:none; }
+
+  .filter-row{ display:flex; gap:8px; overflow-x:auto; padding-bottom:2px; margin-bottom:4px; }
+  .chip{ flex-shrink:0; font-size:12px; font-weight:600; padding:7px 14px; border-radius:100px; border:1px solid var(--line); background:var(--white); color:var(--ink-soft); white-space:nowrap; }
+  .chip.active{ background:var(--navy); border-color:var(--navy); color:#fff; }
+
+  .report-card{ background:var(--white); border:1px solid var(--line); border-radius:18px; padding:14px; margin-bottom:12px; display:flex; gap:12px; cursor:pointer; transition:transform .12s ease, box-shadow .12s ease; }
+  .report-card:active{ transform:scale(.98); }
+  .thumb{ width:56px; height:56px; border-radius:12px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+  .thumb .msy{font-size:26px;}
+  .thumb.road{background:var(--clay-soft); color:var(--clay);}
+  .thumb.water{background:var(--teal-soft); color:var(--teal);}
+  .thumb.drain{background:var(--amber-soft); color:#93641A;}
+  .thumb.light{background:#EFEAF6; color:#7A5FBF;}
+
+  .report-body{flex:1; min-width:0;}
+  .report-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:6px; }
+  .report-title{ font-size:13.5px; font-weight:700; color:var(--ink); line-height:1.3; }
+  .pill{ font-size:10px; font-weight:700; padding:3px 8px; border-radius:100px; white-space:nowrap; letter-spacing:.02em; }
+  .pill.pending{background:var(--amber-soft); color:#93641A;}
+  .pill.progress{background:var(--teal-soft); color:var(--teal);}
+  .pill.resolved{background:var(--green-soft); color:var(--green);}
+  .pill.urgent{background:var(--red-soft); color:var(--red);}
+  .pill.verified{background:var(--green-soft); color:var(--green);}
+  .pill.notif{background:var(--clay-soft); color:var(--clay); display:inline-flex; align-items:center;}
+
+  .geo{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--ink-soft); margin-top:5px; }
+  .report-meta{ display:flex; gap:14px; margin-top:8px; font-size:11px; color:var(--ink-soft); font-weight:500; }
+  .report-meta span{ display:inline-flex; align-items:center; gap:3px; }
+  .report-meta .msy{font-size:14px;}
+
+  /* ================= MY REPORTS (mini photo thumbs) ================= */
+  .mini-photo{ width:60px; height:60px; border-radius:14px; position:relative; overflow:hidden; flex-shrink:0; }
+  .mini-photo .tex{ position:absolute; inset:0; }
+  .mini-photo.road{ background:linear-gradient(155deg,#9c7a52 0%,#6b4f34 45%,#332720 100%); }
+  .mini-photo.road .tex{
+    background:
+      linear-gradient(105deg, transparent 40%, rgba(0,0,0,.28) 41%, rgba(0,0,0,.28) 43%, transparent 44%),
+      linear-gradient(70deg, transparent 60%, rgba(0,0,0,.2) 61%, rgba(0,0,0,.2) 63%, transparent 64%);
+  }
+  .mini-photo.water{ background:linear-gradient(155deg,#5FAEBE 0%,#2A6C7C 55%,#123B46 100%); }
+  .mini-photo.water .tex{ background: radial-gradient(circle at 30% 28%, rgba(255,255,255,.4) 0, transparent 40%), radial-gradient(circle at 72% 68%, rgba(255,255,255,.22) 0, transparent 35%); }
+  .mini-photo.drain{ background:linear-gradient(155deg,#B99A56 0%,#7A5E2C 55%,#3A2C10 100%); }
+  .mini-photo.drain .tex{ background: repeating-linear-gradient(115deg, rgba(0,0,0,.18) 0 3px, transparent 3px 9px); }
+  .mini-photo.light{ background:linear-gradient(155deg,#3B3B63 0%,#20203D 60%,#0F0F22 100%); }
+  .mini-photo.light .tex{ background: radial-gradient(circle at 65% 30%, rgba(255,224,130,.6) 0, rgba(255,224,130,0) 45%); }
+  .mini-photo .status-badge{ position:absolute; bottom:-2px; right:-2px; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:2px solid var(--white); }
+  .mini-photo .status-badge .msy{ font-size:12px; color:#fff; }
+  .mini-photo .status-badge.urgent{ background:var(--red); }
+  .mini-photo .status-badge.progress{ background:var(--teal); }
+  .mini-photo .status-badge.pending{ background:var(--amber); }
+  .mini-photo .status-badge.resolved{ background:var(--green); }
+
+  /* ================= ISSUE DETAIL ================= */
+  .issue-hero{ position:relative; width:100%; height:190px; border-radius:18px; overflow:hidden; margin-bottom:16px; }
+  .issue-hero .tex{ position:absolute; inset:0; }
+  .issue-status-pill{ position:absolute; top:12px; right:12px; display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; padding:6px 12px; border-radius:100px; box-shadow:0 4px 10px rgba(0,0,0,.18); }
+  .issue-status-pill .msy{font-size:14px;}
+  .issue-status-pill.progress{ background:var(--amber); color:#fff; }
+  .issue-status-pill.urgent{ background:var(--red); color:#fff; }
+  .issue-status-pill.pending{ background:var(--navy); color:#fff; }
+  .issue-status-pill.resolved{ background:var(--green); color:#fff; }
+
+  .issue-title{ font-family:'Archivo Expanded',sans-serif; font-size:19px; font-weight:800; color:var(--navy); line-height:1.3; }
+  .issue-loc{ display:flex; align-items:center; gap:5px; font-size:12px; color:var(--ink-soft); font-weight:500; margin-top:6px; }
+  .issue-loc .msy{font-size:15px;}
+  .issue-idline{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--ink-soft); margin-top:8px; }
+  .issue-stats{ display:flex; gap:16px; margin-top:10px; padding-bottom:18px; border-bottom:1px solid var(--line); margin-bottom:20px; }
+  .issue-stats span{ display:inline-flex; align-items:center; gap:5px; font-size:12px; color:var(--ink-soft); font-weight:600; }
+  .issue-stats .msy{font-size:16px;}
+
+  .progress-timeline{ display:flex; flex-direction:column; margin-bottom:24px; }
+  .progress-timeline .step{ display:flex; gap:12px; }
+  .progress-timeline .marker{ display:flex; flex-direction:column; align-items:center; }
+  .progress-timeline .marker .dot{ width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .progress-timeline .marker .dot .msy{ font-size:14px; }
+  .progress-timeline .marker .dot.done{ background:var(--green); color:#fff; }
+  .progress-timeline .marker .dot.current{ background:var(--navy); color:#fff; }
+  .progress-timeline .marker .dot.upcoming{ background:var(--white); color:#B7BDB9; border:2px solid var(--line); }
+  .progress-timeline .marker .bar{ width:2px; flex:1; min-height:22px; background:var(--line); margin:2px 0; }
+  .progress-timeline .marker .bar.done{ background:var(--green); }
+  .progress-timeline .step:last-child .marker .bar{ display:none; }
+  .progress-timeline .txt{ padding-bottom:22px; }
+  .progress-timeline .txt .t1{ font-size:13px; font-weight:700; color:var(--ink); }
+  .progress-timeline .txt .t1.muted{ color:var(--ink-soft); font-weight:600; }
+  .progress-timeline .txt .t2{ font-size:11px; color:var(--ink-soft); margin-top:2px; }
+
+  .discussion-tag{ display:inline-flex; align-items:center; gap:4px; font-size:9.5px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-soft); background:var(--sand); border:1px solid var(--line); padding:3px 9px; border-radius:100px; }
+  .discussion-msg{ background:var(--white); border:1px solid var(--line); border-radius:14px; padding:12px 14px; margin-top:12px; }
+  .discussion-msg .head{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:5px; }
+  .discussion-msg .head .name{ font-size:12.5px; font-weight:700; color:var(--navy); }
+  .discussion-msg .head .time{ font-size:10px; color:var(--ink-soft); font-weight:500; }
+  .discussion-msg p{ font-size:12px; color:var(--ink); line-height:1.55; }
+  .discussion-lock{ display:flex; flex-direction:column; align-items:center; gap:8px; background:var(--sand); border:1px dashed #C7C1AE; border-radius:14px; padding:16px; text-align:center; margin-top:12px; margin-bottom:22px; }
+  .discussion-lock .msy{ font-size:20px; color:var(--ink-soft); }
+  .discussion-lock p{ font-size:11px; color:var(--ink-soft); line-height:1.5; }
+  .issue-comment-row{ display:flex; gap:10px; align-items:center; margin-top:-6px; margin-bottom:22px; }
+  .issue-comment-row .input-field{ flex:1; padding:11px 14px; }
+  .issue-comment-row .input-field input{ font-size:12.5px; }
+
+  .timelog-item{ display:flex; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); }
+  .timelog-item:last-child{ border-bottom:none; }
+  .timelog-item .bar{ width:3px; border-radius:2px; background:var(--teal); flex-shrink:0; }
+  .timelog-item .body{ flex:1; min-width:0; }
+  .timelog-item .top{ display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .timelog-item .top .t1{ font-size:12.5px; font-weight:700; color:var(--ink); }
+  .timelog-item .top .date{ font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--ink-soft); white-space:nowrap; }
+  .timelog-item p{ font-size:11.5px; color:var(--ink-soft); margin-top:3px; line-height:1.55; }
+
+  .before-after{ display:flex; flex-direction:column; gap:12px; margin-bottom:22px; }
+  .ba-frame{ position:relative; border-radius:16px; overflow:hidden; height:150px; }
+  .ba-frame .mini-photo{ width:100%; height:100%; border-radius:16px; }
+  .ba-frame.before .mini-photo{ filter:brightness(.55) saturate(.7); }
+  .ba-frame.after .mini-photo{ filter:brightness(1.12) saturate(1.08); }
+  .ba-tag{ position:absolute; left:12px; bottom:12px; background:rgba(9,39,50,.75); color:#fff; font-size:11px; font-weight:700; padding:4px 11px; border-radius:8px; letter-spacing:.03em; }
+  .ba-tag.after{ background:var(--teal); }
+
+  .resolution-note{ display:flex; gap:11px; background:var(--teal-soft); border-left:4px solid var(--teal); border-radius:12px; padding:14px; margin-bottom:22px; }
+  .resolution-note .msy{ font-size:19px; color:var(--teal); flex-shrink:0; margin-top:1px; }
+  .resolution-note .rn-head{ font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--teal); margin-bottom:5px; }
+  .resolution-note p{ font-size:12px; color:#0E4F49; line-height:1.55; font-weight:500; }
+
+  .rate-card{ background:var(--white); border:1px solid var(--line); border-radius:18px; padding:18px; margin-bottom:8px; }
+  .rate-card h3{ font-family:'Archivo Expanded',sans-serif; font-size:15px; font-weight:700; color:var(--navy); margin-bottom:14px; text-align:center; }
+  .star-row{ display:flex; justify-content:center; gap:8px; margin-bottom:16px; }
+  .star-row .star{ font-size:32px; color:#D8D2C2; cursor:pointer; transition:color .1s ease, transform .1s ease; }
+  .star-row .star.active{ color:var(--amber); }
+  .star-row .star:active{ transform:scale(.88); }
+  .rate-card textarea{ width:100%; height:70px; border:1.5px solid var(--line); border-radius:12px; padding:11px 13px; font-family:'Inter',sans-serif; font-size:12.5px; color:var(--ink); resize:none; margin-bottom:14px; background:var(--sand); }
+  .rate-card textarea::placeholder{ color:#A2ADA8; }
+  .rate-card .submit-btn{ margin-bottom:0; }
+
+  /* ================= MAP ================= */
+  .map-wrap{ position:relative; flex:1; background:#EAE7DD; overflow:hidden; }
+  .map-svg{ position:absolute; top:0; left:0; width:100%; height:100%; display:block; }
+  .map-label{ font-family:'Inter',sans-serif; fill:#6B6456; font-weight:600; letter-spacing:.01em; }
+  .map-label.hwy{fill:#8A6A2A; font-weight:700;}
+  .map-poi-dot{fill:#B7B09C;}
+  .pin{ position:absolute; width:30px; height:30px; border-radius:50% 50% 50% 0; transform:rotate(-45deg); display:flex; align-items:center; justify-content:center; box-shadow:0 4px 10px rgba(0,0,0,.2); border:2px solid #fff; }
+  .pin .msy{transform:rotate(45deg); font-size:15px; color:#fff;}
+  .pin.p1{background:var(--clay); top:120px; left:60px;}
+  .pin.p2{background:var(--amber); top:210px; left:180px;}
+  .pin.p3{background:var(--teal); top:90px; left:230px;}
+  .pin.p4{background:var(--green); top:290px; left:90px;}
+  .pin.p5{background:var(--red); top:340px; left:210px;}
+  .pin.p6{background:var(--clay); top:400px; left:130px;}
+
+  .map-search{ position:absolute; top:14px; left:14px; right:14px; background:var(--white); border-radius:14px; padding:12px 14px; display:flex; align-items:center; gap:10px; box-shadow:0 6px 18px rgba(9,39,50,.12); font-size:13px; color:var(--ink-soft); font-weight:500; z-index:10; }
+  .map-search .msy{font-size:18px; color:var(--ink-soft);}
+  .locate-btn{ position:absolute; bottom:224px; right:16px; width:44px; height:44px; background:var(--navy); border-radius:14px; display:flex; align-items:center; justify-content:center; color:#fff; box-shadow:0 6px 16px rgba(9,39,50,.3); z-index:10; }
+  .locate-btn .msy{font-size:22px;}
+  .map-legend{ position:absolute; bottom:100px; left:14px; right:14px; background:var(--white); border-radius:16px; padding:12px 14px; box-shadow:0 6px 18px rgba(9,39,50,.12); z-index:20; }
+  .map-legend .row{display:flex; align-items:center; gap:8px; font-size:11.5px; color:var(--ink); font-weight:500; margin-top:6px;}
+  .map-legend .row:first-child{margin-top:0;}
+  .dot{width:9px; height:9px; border-radius:50%; flex-shrink:0;}
+
+  /* ================= REPORT (form) ================= */
+  .photo-upload{ height:150px; border:1.5px dashed #B9C6BE; border-radius:18px; background:var(--white); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; margin-bottom:18px; }
+  .photo-upload .ic{ width:44px; height:44px; background:var(--teal-soft); border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--teal); }
+  .photo-upload .ic .msy{font-size:22px;}
+  .photo-upload .t1{font-size:13px; font-weight:700; color:var(--navy);}
+  .photo-upload .t2{font-size:11px; color:var(--ink-soft);}
+
+  .field-label{ font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:8px; display:block; }
+  .cat-grid{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:18px; }
+  .cat-item{ background:var(--white); border:1.5px solid var(--line); border-radius:14px; padding:12px 6px; text-align:center; font-size:11px; font-weight:600; color:var(--ink-soft); }
+  .cat-item .msy{font-size:20px; display:block; margin:0 auto 4px;}
+  .cat-item.selected{ border-color:var(--clay); background:var(--clay-soft); color:var(--clay); }
+
+  .gps-box{ background:var(--navy); border-radius:14px; padding:14px; display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
+  .gps-box .coord{ font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:#fff; font-weight:500; }
+  .gps-box .coord-lbl{ font-size:9.5px; color:#9FC2C9; text-transform:uppercase; letter-spacing:.08em; margin-bottom:3px; }
+  .gps-refresh{ background:var(--teal); color:#fff; font-size:11px; font-weight:700; padding:8px 12px; border-radius:10px; display:flex; align-items:center; gap:5px; }
+  .gps-refresh .msy{font-size:15px;}
+
+  .similar-block{ margin-bottom:6px; }
+  .similar-hint{ font-size:11px; color:var(--ink-soft); line-height:1.5; margin:-2px 0 12px; }
+  .similar-card{ display:flex; align-items:center; gap:11px; background:var(--white); border:1px solid var(--line); border-radius:14px; padding:10px 11px; margin-bottom:9px; cursor:pointer; }
+  .similar-body{flex:1; min-width:0;}
+  .similar-body .t1{ font-size:12px; font-weight:700; color:var(--ink); }
+  .similar-body .t2{ font-size:10.5px; color:var(--ink-soft); margin-top:2px; }
+  .follow-btn{ flex-shrink:0; font-size:11px; font-weight:700; color:var(--teal); border:1px solid var(--teal); padding:6px 12px; border-radius:100px; white-space:nowrap; }
+  .follow-btn.following{ background:var(--teal); color:#fff; }
+
+  textarea.desc{ width:100%; height:88px; border:1.5px solid var(--line); border-radius:14px; padding:12px 14px; font-family:'Inter',sans-serif; font-size:13px; color:var(--ink); resize:none; margin-bottom:20px; background:var(--white); }
+  textarea.desc::placeholder{color:#A2ADA8;}
+
+  .submit-btn{ background:var(--clay); color:#fff; text-align:center; padding:15px; border-radius:16px; font-weight:700; font-size:14.5px; box-shadow:0 8px 18px -4px rgba(193,89,43,.5); margin-bottom:8px; cursor:pointer; }
+
+  /* ================= NEWS ================= */
+  .advisory-card{ border-radius:18px; padding:16px; margin-bottom:12px; position:relative; overflow:hidden; }
+  .advisory-card.alert{background:var(--red-soft);}
+  .advisory-card.maint{background:var(--teal-soft);}
+  .advisory-card.gen{background:var(--white); border:1px solid var(--line);}
+  .adv-tag{ display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; padding:4px 9px; border-radius:7px; margin-bottom:9px; }
+  .adv-tag .msy{font-size:13px;}
+  .adv-tag.alert{background:var(--red); color:#fff;}
+  .adv-tag.maint{background:var(--teal); color:#fff;}
+  .adv-tag.gen{background:var(--navy); color:#fff;}
+  .advisory-card h3{ font-family:'Archivo Expanded',sans-serif; font-size:14.5px; font-weight:700; color:var(--navy); margin-bottom:6px; line-height:1.3; }
+  .advisory-card p{ font-size:12px; color:var(--ink-soft); line-height:1.5; }
+  .adv-time{ font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--ink-soft); margin-top:10px; display:block; }
+
+  /* ---- News: multimedia infrastructure updates ---- */
+  .news-filter-row{ margin-bottom:16px; }
+  .news-section-lbl{ font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-soft); margin:4px 2px 10px; }
+
+  .media-post-card{ background:var(--white); border:1px solid var(--line); border-radius:18px; overflow:hidden; margin-bottom:14px; cursor:pointer; transition:transform .12s ease; }
+  .media-post-card:active{ transform:scale(.985); }
+  .media-post-frame{ position:relative; width:100%; height:170px; overflow:hidden; background:var(--navy-deep); }
+  .media-post-frame img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
+  .media-post-frame.gif-loop img{ animation:gifKenBurns 5.5s ease-in-out infinite alternate; }
+  @keyframes gifKenBurns{
+    0%{ transform:scale(1) translate(0,0); filter:brightness(1) saturate(1); }
+    100%{ transform:scale(1.09) translate(-1.5%,-1%); filter:brightness(1.06) saturate(1.14); }
+  }
+
+  .media-type-badge{ position:absolute; top:11px; left:11px; display:inline-flex; align-items:center; gap:4px; font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:4px 9px 4px 7px; border-radius:100px; background:rgba(9,39,50,.68); backdrop-filter:blur(4px); color:#fff; z-index:2; }
+  .media-type-badge .msy{ font-size:12px; }
+  .media-type-badge.gif{ background:rgba(193,89,43,.85); }
+
+  .media-cat-badge{ position:absolute; top:11px; right:11px; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:4px 9px; border-radius:100px; background:rgba(255,255,255,.92); color:var(--navy); z-index:2; }
+
+  .media-post-frame-overlay{ position:absolute; inset:0; background:linear-gradient(180deg, rgba(9,39,50,0) 55%, rgba(9,39,50,.6) 100%); z-index:1; pointer-events:none; }
+
+  /* rotating multi-photo gallery embedded inside a media-post-frame */
+  .post-gallery{ position:absolute; inset:0; }
+  .post-gallery-slide{ position:absolute; inset:0; opacity:0; transform:scale(1.03); transition:opacity .7s ease, transform 6s ease; }
+  .post-gallery-slide.active{ opacity:1; transform:scale(1); }
+  .post-gallery-slide img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
+  .post-gallery-dots{ position:absolute; bottom:11px; left:14px; display:flex; gap:5px; z-index:3; }
+  .post-gallery-dots .pgd{ width:5px; height:5px; border-radius:50%; background:rgba(255,255,255,.5); transition:background .2s ease, width .2s ease; }
+  .post-gallery-dots .pgd.active{ background:#fff; width:15px; border-radius:100px; }
+
+  .media-post-body{ padding:13px 14px 14px; }
+  .media-post-body h3{ font-family:'Archivo Expanded',sans-serif; font-size:14px; font-weight:700; color:var(--navy); line-height:1.3; margin-bottom:5px; }
+  .media-post-body p{ font-size:11.5px; color:var(--ink-soft); line-height:1.5; }
+  .media-post-meta{ display:flex; align-items:center; justify-content:space-between; margin-top:10px; }
+  .media-post-meta .adv-time{ margin-top:0; }
+  .media-post-meta .views{ display:inline-flex; align-items:center; gap:4px; font-size:10.5px; color:var(--ink-soft); font-weight:600; }
+  .media-post-meta .views .msy{ font-size:14px; }
+
+  .news-empty{ display:none; flex-direction:column; align-items:center; text-align:center; gap:10px; padding:40px 20px; color:var(--ink-soft); }
+  .news-empty.show{ display:flex; }
+  .news-empty .msy{ font-size:32px; color:#C7C1AE; }
+  .news-empty p{ font-size:12.5px; line-height:1.5; }
+
+  /* ================= NOTIFICATIONS ================= */
+  .notif-filter-row{ margin-bottom:14px; }
+  .notif-count-chip{ display:inline-flex; align-items:center; justify-content:center; min-width:16px; height:16px; padding:0 4px; border-radius:100px; background:rgba(255,255,255,.25); color:#fff; font-size:9.5px; font-weight:800; margin-left:6px; }
+  .chip:not(.active) .notif-count-chip{ background:var(--sand); color:var(--ink-soft); }
+
+  .notif-empty{ display:none; flex-direction:column; align-items:center; text-align:center; gap:10px; padding:48px 20px; color:var(--ink-soft); }
+  .notif-empty .msy{ font-size:34px; color:#C7C1AE; }
+  .notif-empty p{ font-size:12.5px; line-height:1.5; }
+  .notif-empty.show{ display:flex; }
+
+  .notif-group-lbl{ display:none; font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-soft); margin:20px 2px 10px; }
+  .notif-group-lbl:first-of-type{ margin-top:0; }
+  .notif-group-lbl.show{ display:block; }
+
+  .notif-item{
+    display:flex; gap:12px; padding:13px 12px 13px 13px; margin-bottom:8px;
+    border:1px solid var(--line); border-left:3px solid var(--line);
+    border-radius:14px; background:var(--white);
+    cursor:pointer; align-items:flex-start; position:relative;
+    transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .notif-item:active{ transform:scale(.98); }
+  .notif-item[data-category="progress"]{ border-left-color:var(--teal); }
+  .notif-item[data-category="similar"]{ border-left-color:var(--clay); }
+  .notif-item[data-category="resolved"]{ border-left-color:var(--green); }
+  .notif-item[data-category="advisory"]{ border-left-color:var(--navy); }
+
+  .notif-item.unread{ box-shadow:0 3px 10px -4px rgba(9,39,50,.18); }
+  .notif-item.unread::before{ content:''; position:absolute; top:15px; right:12px; width:7px; height:7px; border-radius:50%; background:var(--clay); }
+
+  .notif-body{flex:1; min-width:0;}
+  .notif-body .t1{ font-size:12.5px; font-weight:600; color:var(--ink); line-height:1.4; padding-right:14px; }
+  .notif-body .t2{ font-size:11px; color:var(--ink-soft); margin-top:3px; line-height:1.4; }
+  .notif-body .t3{ font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:#9AA6A1; margin-top:7px; }
+
+  .notif-cat-tag{ display:inline-flex; align-items:center; gap:4px; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.045em; padding:3px 8px 3px 7px; border-radius:100px; margin-top:8px; }
+  .notif-cat-tag .msy{ font-size:11px; }
+  .notif-cat-tag.progress{ background:var(--teal-soft); color:var(--teal); }
+  .notif-cat-tag.similar{ background:var(--clay-soft); color:var(--clay); }
+  .notif-cat-tag.resolved{ background:var(--green-soft); color:var(--green); }
+  .notif-cat-tag.advisory{ background:var(--sand); color:var(--navy); border:1px solid var(--line); }
+
+  /* ================= PROFILE ================= */
+  .profile-hero{
+    background:linear-gradient(155deg, var(--navy) 0%, var(--navy-deep) 100%);
+    margin:0 -20px 0; padding:18px 20px 56px; position:relative; overflow:hidden;
+  }
+  .profile-hero::before{ content:''; position:absolute; top:-60px; right:-50px; width:200px; height:200px; border-radius:50%; background:rgba(255,255,255,.05); }
+  .profile-hero::after{ content:''; position:absolute; bottom:-70px; left:-40px; width:160px; height:160px; border-radius:50%; background:rgba(27,138,131,.14); }
+  .profile-hero-top{ display:flex; justify-content:space-between; align-items:center; position:relative; z-index:1; }
+  .profile-hero-top .eyebrow-lt{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:#7FA6AE; font-weight:600; }
+  .hero-icon-btn{ width:34px; height:34px; border-radius:11px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.14); display:flex; align-items:center; justify-content:center; color:#fff; }
+  .hero-icon-btn .msy{font-size:18px;}
+
+  .profile-hero-body{ display:flex; align-items:center; gap:14px; margin-top:18px; position:relative; z-index:1; }
+  .avatar-wrap{ position:relative; flex-shrink:0; }
+  .avatar-lg{ width:72px; height:72px; border-radius:50%; background:linear-gradient(155deg,#2A6C7C,#123B46); color:#fff; display:flex; align-items:center; justify-content:center; font-family:'Archivo Expanded',sans-serif; font-size:24px; font-weight:800; border:2.5px solid rgba(255,255,255,.25); }
+  .avatar-edit{ position:absolute; bottom:-2px; right:-2px; width:24px; height:24px; border-radius:50%; background:var(--clay); border:2.5px solid var(--navy-deep); display:flex; align-items:center; justify-content:center; }
+  .avatar-edit .msy{ font-size:12px; color:#fff; }
+  .profile-name2{ font-family:'Archivo Expanded',sans-serif; font-size:18px; font-weight:800; color:#fff; display:flex; align-items:center; gap:6px; }
+  .profile-name2 .msy.verified-tick{ font-size:16px; color:#5FD9C7; }
+  .profile-sub{ font-size:11.5px; color:#9FC2C9; font-weight:500; margin-top:4px; }
+  .profile-chip-row{ display:flex; gap:7px; margin-top:11px; flex-wrap:wrap; position:relative; z-index:1; }
+  .chip-outline{ display:inline-flex; align-items:center; gap:5px; font-size:10.5px; font-weight:700; color:#D9E7E9; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.16); padding:5px 11px; border-radius:100px; }
+  .chip-outline .msy{ font-size:13px; }
+  .chip-outline.gold{ background:rgba(217,154,43,.16); border-color:rgba(217,154,43,.35); color:#F4D48A; }
+
+  .stat-mini-row{ display:flex; gap:10px; margin:-40px 0 20px; position:relative; z-index:2; }
+  .stat-mini{ flex:1; background:var(--white); border:1px solid var(--line); border-radius:16px; padding:13px 10px; text-align:center; box-shadow:0 10px 24px -14px rgba(9,39,50,.35); }
+  .stat-mini .msy{ font-size:17px; color:var(--teal); margin-bottom:5px; }
+  .stat-mini .num{ font-family:'Archivo Expanded',sans-serif; font-size:18px; font-weight:800; color:var(--navy); line-height:1; }
+  .stat-mini .lbl{ font-size:9.5px; color:var(--ink-soft); margin-top:4px; font-weight:600; line-height:1.3; }
+
+  .section-lbl2{ font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-soft); margin:20px 4px 9px; }
+  .section-lbl2:first-of-type{ margin-top:0; }
+  .menu-card{ background:var(--white); border:1px solid var(--line); border-radius:16px; overflow:hidden; }
+  .menu-row{ display:flex; align-items:center; gap:12px; padding:13px 14px; font-size:13px; font-weight:600; color:var(--ink); border-bottom:1px solid var(--line); cursor:pointer; }
+  .menu-row:last-child{ border-bottom:none; }
+  .menu-row:active{ background:var(--sand); }
+  .icon-sq{ width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .icon-sq .msy{ font-size:17px; }
+  .icon-sq.teal{ background:var(--teal-soft); color:var(--teal); }
+  .icon-sq.clay{ background:var(--clay-soft); color:var(--clay); }
+  .icon-sq.amber{ background:var(--amber-soft); color:#93641A; }
+  .icon-sq.purple{ background:#EFEAF6; color:#7A5FBF; }
+  .icon-sq.green{ background:var(--green-soft); color:var(--green); }
+  .icon-sq.navy{ background:var(--sand); color:var(--navy); }
+  .icon-sq.red{ background:var(--red-soft); color:var(--red); }
+  .menu-row-txt{ flex:1; min-width:0; }
+  .menu-row-txt .t1{ font-size:13px; font-weight:700; color:var(--ink); }
+  .menu-row-txt .t2{ font-size:10.5px; color:var(--ink-soft); font-weight:500; margin-top:1px; }
+  .menu-row .arrow{ color:#B7BDB9; flex-shrink:0; }
+  .menu-row .arrow .msy{ font-size:19px; }
+
+  .verify-card{ display:flex; align-items:center; gap:12px; background:var(--green-soft); border:1px solid #BFE0CC; border-radius:16px; padding:14px; margin-bottom:8px; }
+  .verify-card .msy.big{ font-size:26px; color:var(--green); flex-shrink:0; }
+  .verify-card .t1{ font-size:13px; font-weight:800; color:#1E5A3B; }
+  .verify-card .t2{ font-size:11px; color:#3A6E52; margin-top:2px; font-weight:500; }
+
+  /* ---- Bottom Nav ---- */
+  .bottomnav{ position:absolute; bottom:0; left:0; right:0; height:88px; background:rgba(243,239,230,.92); backdrop-filter:blur(8px); border-top:1px solid var(--line); display:flex; align-items:flex-start; justify-content:space-around; padding-top:10px; z-index:100; }
+  .navitem{ display:flex; flex-direction:column; align-items:center; gap:4px; width:56px; cursor:pointer; }
+  .navitem .ic{ color:#9AA6A1; }
+  .navitem .ic .msy{font-size:22px;}
+  .navitem .lbl{ font-size:10px; font-weight:600; color:#9AA6A1; }
+  .navitem.active .ic{color:var(--navy);}
+  .navitem.active .lbl{color:var(--navy);}
+  .navitem.report{ margin-top:-26px; }
+  .navitem.report .ic{ width:52px; height:52px; background:var(--clay); border-radius:50%; color:#fff; display:flex; align-items:center; justify-content:center; box-shadow:0 8px 16px -4px rgba(193,89,43,.55), 0 0 0 5px var(--sand); }
+  .navitem.report .ic .msy{font-size:24px;}
+  .navitem.report .lbl{color:var(--clay); font-weight:700;}
+  .navitem.locked .ic{ opacity:.45; }
+  .navitem.locked .lbl{ opacity:.45; }
+  .navitem.report.locked .ic{ background:#B7BDB9; box-shadow:none; }
+  .navitem.report.locked .lbl{ color:#B7BDB9; }
+
+  .screen-panel{display:none; flex-direction:column; height:100%;}
+  .screen-panel.active{display:flex;}
+
+  /* ================= CHATBOT (sticky) ================= */
+  .chat-fab{ position:absolute; right:16px; bottom:104px; width:52px; height:52px; border-radius:50%; background:var(--navy); color:#fff; display:flex; align-items:center; justify-content:center; box-shadow:0 10px 20px -6px rgba(9,39,50,.5), 0 0 0 4px var(--sand); z-index:140; cursor:pointer; transition:transform .18s ease; }
+  .chat-fab .msy{font-size:24px;}
+  .chat-fab:active{transform:scale(.92);}
+  .chat-fab .dot{ position:absolute; top:1px; right:1px; width:12px; height:12px; border-radius:50%; background:var(--clay); border:2px solid var(--sand); }
+
+  .chat-panel{ position:absolute; left:0; right:0; bottom:0; height:0; background:var(--white); border-radius:24px 24px 0 0; box-shadow:0 -12px 30px -8px rgba(9,39,50,.28); z-index:160; display:flex; flex-direction:column; overflow:hidden; transition:height .28s cubic-bezier(.32,.72,.35,1); }
+  .chat-panel.open{ height:78%; }
+
+  .chat-head{ flex-shrink:0; display:flex; align-items:center; gap:10px; padding:16px 16px 14px; background:var(--navy); color:#fff; }
+  .chat-head .bot-avatar{ width:36px; height:36px; border-radius:50%; background:var(--teal); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .chat-head .bot-avatar .msy{font-size:19px;}
+  .chat-head .bot-meta{flex:1; min-width:0;}
+  .chat-head .bot-name{ font-family:'Archivo Expanded',sans-serif; font-size:13.5px; font-weight:700; }
+  .chat-head .bot-status{ font-size:10.5px; color:#9FC2C9; display:flex; align-items:center; gap:5px; margin-top:2px; }
+  .chat-head .bot-status .pulse{ width:6px; height:6px; border-radius:50%; background:var(--green); display:inline-block; }
+  .chat-close{ width:28px; height:28px; border-radius:50%; background:rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center; color:#fff; cursor:pointer; flex-shrink:0; }
+  .chat-close .msy{font-size:16px;}
+
+  .chat-body{ flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px; background:var(--sand); }
+  .chat-body::-webkit-scrollbar{display:none;}
+
+  .msg{ max-width:78%; padding:10px 13px; border-radius:16px; font-size:12.5px; line-height:1.45; }
+  .msg.bot{ align-self:flex-start; background:var(--white); border:1px solid var(--line); color:var(--ink); border-bottom-left-radius:4px; }
+  .msg.user{ align-self:flex-end; background:var(--navy); color:#fff; border-bottom-right-radius:4px; }
+
+  .chat-quick{ display:flex; gap:8px; overflow-x:auto; padding:0 16px 12px; flex-shrink:0; background:var(--sand); }
+  .chat-quick .qchip{ flex-shrink:0; display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:600; padding:8px 13px; border-radius:100px; background:var(--white); border:1px solid var(--line); color:var(--teal); white-space:nowrap; cursor:pointer; }
+  .chat-quick .qchip .msy{font-size:15px;}
+
+  .chat-input-row{ flex-shrink:0; display:flex; align-items:center; gap:10px; padding:12px 14px; background:var(--white); border-top:1px solid var(--line); padding-bottom:calc(12px + env(safe-area-inset-bottom)); }
+  .chat-input{ flex:1; border:1.5px solid var(--line); border-radius:100px; padding:11px 16px; font-family:'Inter',sans-serif; font-size:12.5px; color:var(--ink); background:var(--sand); }
+  .chat-input:empty::before{ content:attr(data-placeholder); color:#A2ADA8; }
+  .chat-send{ width:38px; height:38px; border-radius:50%; background:var(--clay); color:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 6px 14px -4px rgba(193,89,43,.5); cursor:pointer; }
+  .chat-send .msy{font-size:18px;}
+
+  /* ================= AUTH / ONBOARDING ================= */
+  .auth-panel{ background:var(--sand); }
+  .auth-panel.dark{ background:var(--navy-deep); }
+
+  .splash-wrap{ flex:1; display:flex; flex-direction:column; padding:0 28px 40px; position:relative; overflow:hidden; }
+  .splash-art{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; position:relative; }
+  .splash-ring{ width:190px; height:190px; border-radius:50%; border:1.5px solid rgba(255,255,255,.14); display:flex; align-items:center; justify-content:center; position:relative; }
+  .splash-ring::before{ content:''; position:absolute; inset:22px; border-radius:50%; border:1.5px solid rgba(255,255,255,.10); }
+  .splash-mark{ width:92px; height:92px; border-radius:26px; background:var(--clay); display:flex; align-items:center; justify-content:center; box-shadow:0 16px 34px -10px rgba(193,89,43,.65); }
+  .splash-mark .msy{font-size:44px; color:#fff;}
+  .splash-word{ font-family:'Archivo Expanded',sans-serif; font-size:26px; font-weight:800; color:#fff; letter-spacing:-.01em; }
+  .splash-tag{ font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:#7FA6AE; text-align:center; }
+  .splash-pins{ position:absolute; inset:0; pointer-events:none; }
+  .splash-pins span{ position:absolute; width:9px; height:9px; border-radius:50%; opacity:.9; }
+
+  .splash-actions{ flex-shrink:0; display:flex; flex-direction:column; gap:10px; }
+  .btn-primary{ background:var(--clay); color:#fff; text-align:center; padding:15px; border-radius:16px; font-weight:700; font-size:14.5px; box-shadow:0 8px 18px -4px rgba(193,89,43,.5); cursor:pointer; }
+  .btn-outline-dark{ background:rgba(255,255,255,.06); border:1.5px solid rgba(255,255,255,.22); color:#fff; text-align:center; padding:14.5px; border-radius:16px; font-weight:700; font-size:14.5px; cursor:pointer; }
+  .btn-secondary{ background:var(--white); border:1.5px solid var(--line); color:var(--navy); text-align:center; padding:14.5px; border-radius:16px; font-weight:700; font-size:14.5px; cursor:pointer; }
+  .btn-ghost-dark{ text-align:center; padding:6px; font-weight:700; font-size:12.5px; color:#8FB4BB; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; }
+  .btn-ghost-dark .msy{ font-size:16px; }
+  .splash-foot{ text-align:center; font-size:10.5px; color:#6E8E95; margin-top:6px; line-height:1.5; }
+  .splash-foot b{ color:#A9C6CB; font-weight:600; }
+
+  .auth-content{ flex:1; overflow-y:auto; padding:4px 24px 40px; }
+  .auth-content::-webkit-scrollbar{display:none;}
+  .auth-hero{ margin-bottom:22px; }
+  .auth-hero .icon-badge{ width:46px; height:46px; border-radius:14px; background:var(--teal-soft); color:var(--teal); display:flex; align-items:center; justify-content:center; margin-bottom:14px; }
+  .auth-hero .icon-badge.clay{ background:var(--clay-soft); color:var(--clay); }
+  .auth-hero .icon-badge.amber{ background:var(--amber-soft); color:#93641A; }
+  .auth-hero .icon-badge .msy{font-size:23px;}
+  .auth-hero h1{ font-family:'Archivo Expanded',sans-serif; font-size:21px; font-weight:800; color:var(--navy); line-height:1.25; }
+  .auth-hero p{ font-size:12.5px; color:var(--ink-soft); margin-top:7px; line-height:1.5; }
+
+  .input-group{ margin-bottom:14px; }
+  .input-label{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:7px; display:block; }
+  .input-field{ display:flex; align-items:center; gap:10px; background:var(--white); border:1.5px solid var(--line); border-radius:14px; padding:13px 14px; }
+  .input-field .msy{ font-size:18px; color:#9AA6A1; flex-shrink:0; }
+  .input-field input, .input-field select{ border:none; outline:none; background:transparent; font-family:'Inter',sans-serif; font-size:13px; color:var(--ink); width:100%; }
+  .input-field input::placeholder{color:#A2ADA8;}
+  .input-field.focus{ border-color:var(--teal); }
+  .input-hint{ font-size:10.5px; color:var(--ink-soft); margin-top:6px; line-height:1.4; }
+  .row-2{ display:flex; gap:10px; }
+  .row-2 .input-group{ flex:1; }
+
+  .divider-row{ display:flex; align-items:center; gap:12px; margin:18px 0; }
+  .divider-row .line{ flex:1; height:1px; background:var(--line); }
+  .divider-row span{ font-size:11px; color:var(--ink-soft); font-weight:600; }
+
+  .link-row{ text-align:center; margin-top:16px; font-size:12.5px; color:var(--ink-soft); }
+  .link-row a{ color:var(--teal); font-weight:700; text-decoration:none; }
+
+  /* progress steps */
+  .progress-steps{ display:flex; align-items:center; gap:6px; margin-bottom:20px; }
+  .progress-steps .seg{ flex:1; height:4px; border-radius:100px; background:var(--line); }
+  .progress-steps .seg.done{ background:var(--teal); }
+  .progress-caption{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--teal); font-weight:600; margin-bottom:6px; }
+
+  /* verification info note */
+  .info-note{ display:flex; gap:11px; background:var(--teal-soft); border-radius:14px; padding:13px 14px; margin-bottom:20px; }
+  .info-note .msy{ font-size:19px; color:var(--teal); flex-shrink:0; margin-top:1px; }
+  .info-note p{ font-size:11.5px; color:#0E4F49; line-height:1.5; font-weight:500; }
+  .info-note.amber{ background:var(--amber-soft); }
+  .info-note.amber .msy{ color:#93641A; }
+  .info-note.amber p{ color:#6B5320; }
+
+  /* ID type chip row */
+  .idtype-row{ display:flex; gap:8px; overflow-x:auto; margin-bottom:18px; padding-bottom:2px; }
+  .idtype-chip{ flex-shrink:0; display:flex; align-items:center; gap:6px; font-size:12px; font-weight:600; padding:9px 14px; border-radius:100px; border:1.5px solid var(--line); background:var(--white); color:var(--ink-soft); white-space:nowrap; cursor:pointer; }
+  .idtype-chip .msy{font-size:16px;}
+  .idtype-chip.selected{ background:var(--navy); border-color:var(--navy); color:#fff; }
+
+  .upload-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:8px; }
+  .upload-box{ height:110px; border:1.5px dashed #B9C6BE; border-radius:16px; background:var(--white); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; cursor:pointer; text-align:center; padding:8px; }
+  .upload-box.filled{ border-style:solid; border-color:var(--green); background:var(--green-soft); }
+  .upload-box .ic{ width:34px; height:34px; background:var(--sand); border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--ink-soft); }
+  .upload-box.filled .ic{ background:var(--green); color:#fff; }
+  .upload-box .ic .msy{font-size:17px;}
+  .upload-box .t1{ font-size:11px; font-weight:700; color:var(--navy); }
+  .upload-box .t2{ font-size:9.5px; color:var(--ink-soft); }
+
+  .checklist{ margin:18px 0; display:flex; flex-direction:column; gap:10px; }
+  .checklist .item{ display:flex; align-items:flex-start; gap:10px; font-size:12px; color:var(--ink); line-height:1.4; }
+  .checklist .item .msy{ font-size:17px; color:var(--teal); flex-shrink:0; margin-top:1px; }
+
+  /* selfie capture screen */
+  .selfie-stage{ flex:1; display:flex; flex-direction:column; background:var(--navy-deep); position:relative; overflow:hidden; }
+  .selfie-cam{ flex:1; position:relative; display:flex; align-items:center; justify-content:center; background:linear-gradient(160deg,#1A4655,#0C2A35); }
+  .selfie-oval{ width:224px; height:288px; border-radius:50% / 42%; border:3px solid rgba(255,255,255,.85); position:relative; display:flex; align-items:center; justify-content:center; }
+  .selfie-oval::before{ content:''; position:absolute; inset:-10px; border-radius:50% / 42%; border:1.5px dashed rgba(255,255,255,.3); }
+  .selfie-oval .msy{ font-size:96px; color:rgba(255,255,255,.28); }
+  .selfie-corner{ position:absolute; width:26px; height:26px; border-color:var(--clay); }
+  .selfie-hint-badge{ position:absolute; top:18px; left:50%; transform:translateX(-50%); background:rgba(9,39,50,.72); backdrop-filter:blur(6px); color:#fff; font-size:11.5px; font-weight:600; padding:9px 16px; border-radius:100px; display:flex; align-items:center; gap:7px; white-space:nowrap; }
+  .selfie-hint-badge .msy{font-size:15px; color:var(--amber);}
+  .selfie-tips-strip{ position:absolute; bottom:150px; left:20px; right:20px; background:rgba(255,255,255,.08); backdrop-filter:blur(6px); border:1px solid rgba(255,255,255,.14); border-radius:14px; padding:12px 14px; }
+  .selfie-tips-strip .row{ display:flex; align-items:center; gap:8px; font-size:11px; color:#D9E7E9; font-weight:500; margin-top:6px; }
+  .selfie-tips-strip .row:first-child{margin-top:0;}
+  .selfie-tips-strip .row .msy{font-size:14px; color:var(--teal);}
+  .selfie-controls{ flex-shrink:0; padding:20px 24px calc(26px + env(safe-area-inset-bottom)); display:flex; align-items:center; justify-content:center; position:relative; }
+  .capture-btn{ width:70px; height:70px; border-radius:50%; background:#fff; border:4px solid rgba(255,255,255,.35); display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .capture-btn .dot{ width:56px; height:56px; border-radius:50%; background:var(--clay); }
+  .selfie-back{ position:absolute; left:24px; top:16px; z-index:20; width:36px; height:36px; border-radius:50%; background:rgba(9,39,50,.55); display:flex; align-items:center; justify-content:center; color:#fff; }
+  .selfie-back .msy{font-size:19px;}
+
+  /* review / pending */
+  .review-thumbs{ display:flex; gap:12px; margin-bottom:20px; }
+  .review-thumb{ flex:1; background:var(--white); border:1px solid var(--line); border-radius:16px; padding:12px; text-align:center; }
+  .review-thumb .box{ height:78px; border-radius:11px; background:var(--sand); display:flex; align-items:center; justify-content:center; color:var(--ink-soft); margin-bottom:8px; }
+  .review-thumb .box .msy{font-size:26px;}
+  .review-thumb .lbl{ font-size:11px; font-weight:700; color:var(--navy); }
+  .review-thumb .sub{ font-size:9.5px; color:var(--ink-soft); margin-top:2px; }
+
+  .status-card{ background:var(--white); border:1px solid var(--line); border-radius:18px; padding:18px; margin-bottom:20px; text-align:center; }
+  .status-ring{ width:64px; height:64px; border-radius:50%; margin:0 auto 12px; display:flex; align-items:center; justify-content:center; position:relative; }
+  .status-ring.pending{ background:var(--amber-soft); }
+  .status-ring .msy{ font-size:30px; color:#93641A; }
+  .status-ring .spin{ position:absolute; inset:-4px; border-radius:50%; border:2.5px solid transparent; border-top-color:var(--amber); animation:spin 1.1s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  .status-card h3{ font-family:'Archivo Expanded',sans-serif; font-size:15.5px; font-weight:700; color:var(--navy); margin-bottom:6px; }
+  .status-card p{ font-size:12px; color:var(--ink-soft); line-height:1.5; }
+  .status-eta{ display:inline-block; margin-top:12px; font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:#93641A; background:var(--amber-soft); padding:5px 11px; border-radius:100px; font-weight:600; }
+
+  .mini-timeline{ display:flex; flex-direction:column; gap:0; margin-bottom:22px; }
+  .mini-timeline .step{ display:flex; gap:12px; }
+  .mini-timeline .marker{ display:flex; flex-direction:column; align-items:center; }
+  .mini-timeline .marker .dot{ width:22px; height:22px; border-radius:50%; background:var(--green); color:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .mini-timeline .marker .dot .msy{ font-size:13px; }
+  .mini-timeline .marker .dot.wait{ background:var(--amber-soft); color:#93641A; }
+  .mini-timeline .marker .bar{ width:2px; flex:1; background:var(--line); margin:2px 0; }
+  .mini-timeline .step:last-child .marker .bar{ display:none; }
+  .mini-timeline .txt{ padding-bottom:20px; }
+  .mini-timeline .txt .t1{ font-size:12.5px; font-weight:700; color:var(--ink); }
+  .mini-timeline .txt .t2{ font-size:10.5px; color:var(--ink-soft); margin-top:2px; }
+
+  /* tourist upsell card (profile) */
+  .upsell-card{ background:linear-gradient(135deg, var(--navy) 0%, var(--navy-deep) 100%); border-radius:18px; padding:20px; margin-bottom:18px; position:relative; overflow:hidden; }
+  .upsell-card .msy.badge-ic{ font-size:26px; color:var(--amber); margin-bottom:10px; display:block; }
+  .upsell-card h3{ font-family:'Archivo Expanded',sans-serif; font-size:15px; font-weight:800; color:#fff; margin-bottom:6px; }
+  .upsell-card p{ font-size:12px; color:#B9CBD1; line-height:1.5; margin-bottom:14px; }
+  .upsell-card .btn-primary{ padding:12px; font-size:13px; }
+
+  /* ================= HOME MEDIA CAROUSEL (real photos) ================= */
+  .home-media{
+    flex-shrink:0;
+    margin-top:2px;
+    margin-bottom:20px;
+  }
+  .home-media-label{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10px;
+    letter-spacing:.13em;
+    text-transform:uppercase;
+    color:var(--teal);
+    font-weight:600;
+    margin-bottom:9px;
+  }
+  .media-track{
+    position:relative;
+    height:150px;
+    border-radius:18px;
+    overflow:hidden;
+    box-shadow:0 14px 26px -14px rgba(14,58,76,.35);
+  }
+  #news-hero-track{ height:170px; }
+  .media-slide{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:flex-end;
+    opacity:0;
+    transform:scale(1.04);
+    transition:opacity .6s ease, transform 6s ease;
+    pointer-events:none;
+  }
+  .media-slide.active{
+    opacity:1;
+    transform:scale(1);
+    pointer-events:auto;
+  }
+  .media-slide img{
+    position:absolute; inset:0;
+    width:100%; height:100%;
+    object-fit:cover;
+    display:block;
+  }
+  .media-slide-overlay{
+    position:absolute; inset:0;
+    background:linear-gradient(180deg, rgba(9,39,50,0) 42%, rgba(9,39,50,.82) 100%);
+  }
+  .media-cap{
+    position:relative; z-index:2;
+    padding:12px 14px 13px;
+    width:100%;
+  }
+  .media-cap .t1{ font-size:12.5px; font-weight:700; color:#fff; line-height:1.3; }
+  .media-cap .t2{ font-size:10px; color:#D9E7E9; font-weight:600; margin-top:3px; display:flex; align-items:center; gap:4px; }
+  .media-cap .t2 .msy{ font-size:12px; color:#5FD9C7; }
+  .media-dots{ display:flex; justify-content:center; gap:6px; margin-top:10px; }
+  .media-dots .md{ width:5px; height:5px; border-radius:50%; background:var(--line); transition:background .25s ease, width .25s ease; }
+  .media-dots .md.active{ background:var(--clay); width:16px; border-radius:100px; }
+
+  @media (max-width:430px){
+    .phone{width:100%; max-width:390px; height:100vh; max-height:844px; border-radius:0; padding:0;}
+    .screen{border-radius:0;}
+    body{padding:0;}
+    .stage{gap:0;}
+    .stage-label{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="stage-label">InfraTrack — Mati City · Flutter mobile prototype</div>
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="screen">
+
+      <div class="statusbar" id="statusbar">
+        <span>9:41</span>
+        <span>InfraTrack</span>
+        <span>100%</span>
+      </div>
+
+      <!-- ============ SPLASH ============ -->
+      <div class="screen-panel active auth-panel dark" id="panel-splash">
+        <div class="splash-wrap">
+          <div class="splash-art">
+            <div class="splash-pins">
+              <span style="background:var(--clay); top:14%; left:18%;"></span>
+              <span style="background:var(--teal); top:22%; right:14%;"></span>
+              <span style="background:var(--amber); bottom:20%; left:12%;"></span>
+              <span style="background:var(--green); bottom:14%; right:20%;"></span>
+            </div>
+            <div class="splash-ring">
+              <div class="splash-mark"><span class="msy fill">add_location_alt</span></div>
+            </div>
+            <div class="splash-word">InfraTrack</div>
+            <div class="splash-tag">Mati City · Davao Oriental</div>
+          </div>
+          <div class="splash-actions">
+            <div class="btn-primary" data-goto="signup">Create an account</div>
+            <div class="btn-outline-dark" data-goto="login">I already have an account</div>
+            <div class="btn-ghost-dark" data-goto="home" data-tourist="1"><span class="msy">travel_explore</span>Continue as tourist</div>
+            <div class="splash-foot">Reporting requires <b>ID and selfie verification</b> to keep reports credible and prevent fake accounts. Tourists can browse reports and advisories without an account.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ LOGIN ============ -->
+      <div class="screen-panel auth-panel" id="panel-login">
+        <div class="appbar">
+          <div class="back-row">
+            <div class="back-btn" data-goto="splash"><span class="msy">arrow_back</span></div>
+          </div>
+        </div>
+        <div class="auth-content">
+          <div class="auth-hero">
+            <div class="icon-badge"><span class="msy">lock_open</span></div>
+            <h1>Welcome back</h1>
+            <p>Log in to track your reports and get updates from the City Engineering Office.</p>
+          </div>
+
+          <div class="input-group">
+            <span class="input-label">Email or mobile number</span>
+            <div class="input-field"><span class="msy">mail</span><input type="text" placeholder="you@example.com"></div>
+          </div>
+          <div class="input-group">
+            <span class="input-label">Password</span>
+            <div class="input-field"><span class="msy">key</span><input type="password" placeholder="••••••••"><span class="msy" style="font-size:16px;">visibility_off</span></div>
+            <div class="input-hint" style="text-align:right;"><a style="color:var(--teal); font-weight:700; text-decoration:none;">Forgot password?</a></div>
+          </div>
+
+          <div class="btn-primary" style="margin-top:8px;" data-goto="home" data-finish="1">Log in</div>
+
+          <div class="divider-row"><div class="line"></div><span>OR</span><div class="line"></div></div>
+          <div class="btn-secondary"><span class="msy" style="vertical-align:middle; font-size:17px; margin-right:6px;">fingerprint</span>Log in with fingerprint</div>
+          <div class="btn-ghost-dark" style="color:var(--teal); margin-top:6px;" data-goto="home" data-tourist="1"><span class="msy">travel_explore</span>Continue as tourist instead</div>
+
+          <div class="link-row">Don't have an account? <a data-goto="signup">Sign up</a></div>
+        </div>
+      </div>
+
+      <!-- ============ SIGNUP: ACCOUNT DETAILS ============ -->
+      <div class="screen-panel auth-panel" id="panel-signup">
+        <div class="appbar">
+          <div class="back-row">
+            <div class="back-btn" data-goto="splash"><span class="msy">arrow_back</span></div>
+          </div>
+        </div>
+        <div class="auth-content">
+          <div class="progress-caption">Step 1 of 3 — Account</div>
+          <div class="progress-steps">
+            <div class="seg done"></div><div class="seg"></div><div class="seg"></div>
+          </div>
+
+          <div class="auth-hero" style="margin-bottom:18px;">
+            <h1>Create your citizen account</h1>
+            <p>Every account is verified with a valid ID and a live selfie so reports stay trustworthy and duplicate or fake accounts are filtered out.</p>
+          </div>
+
+          <div class="input-group">
+            <span class="input-label">Full legal name</span>
+            <div class="input-field"><span class="msy">badge</span><input type="text" placeholder="As shown on your ID"></div>
+          </div>
+          <div class="input-group">
+            <span class="input-label">Email address</span>
+            <div class="input-field"><span class="msy">mail</span><input type="text" placeholder="you@example.com"></div>
+          </div>
+          <div class="input-group">
+            <span class="input-label">Mobile number</span>
+            <div class="input-field"><span class="msy">call</span><input type="text" placeholder="09XX XXX XXXX"></div>
+          </div>
+          <div class="input-group">
+            <span class="input-label">Barangay</span>
+            <div class="input-field"><span class="msy">place</span>
+              <select>
+                <option>Barangay Central</option>
+                <option>Purok 3</option>
+                <option>Dawan</option>
+                <option>Sainz</option>
+                <option>Bobon</option>
+              </select>
+            </div>
+          </div>
+          <div class="row-2">
+            <div class="input-group">
+              <span class="input-label">Password</span>
+              <div class="input-field"><span class="msy">key</span><input type="password" placeholder="min. 8 characters"></div>
+            </div>
+            <div class="input-group">
+              <span class="input-label">Confirm</span>
+              <div class="input-field"><span class="msy">key</span><input type="password" placeholder="repeat"></div>
+            </div>
+          </div>
+
+          <div class="btn-primary" style="margin-top:6px;" data-goto="verify-id">Continue to ID verification</div>
+          <div class="link-row">Already verified? <a data-goto="login">Log in</a></div>
+        </div>
+      </div>
+
+      <!-- ============ SIGNUP: ID VERIFICATION ============ -->
+      <div class="screen-panel auth-panel" id="panel-verify-id">
+        <div class="appbar">
+          <div class="back-row">
+            <div class="back-btn" data-goto="signup"><span class="msy">arrow_back</span></div>
+          </div>
+        </div>
+        <div class="auth-content">
+          <div class="progress-caption">Step 2 of 3 — ID verification</div>
+          <div class="progress-steps">
+            <div class="seg done"></div><div class="seg done"></div><div class="seg"></div>
+          </div>
+
+          <div class="auth-hero" style="margin-bottom:16px;">
+            <div class="icon-badge clay"><span class="msy">badge</span></div>
+            <h1>Verify a government ID</h1>
+            <p>This confirms you're a real resident before you can file reports.</p>
+          </div>
+
+          <div class="info-note">
+            <span class="msy">shield</span>
+            <p>Your ID is used only to confirm your identity and is never shown publicly on reports or your profile.</p>
+          </div>
+
+          <span class="field-label">Select ID type</span>
+          <div class="idtype-row">
+            <div class="idtype-chip selected"><span class="msy">badge</span>National ID</div>
+            <div class="idtype-chip"><span class="msy">directions_car</span>Driver's License</div>
+            <div class="idtype-chip"><span class="msy">how_to_vote</span>Voter's ID</div>
+            <div class="idtype-chip"><span class="msy">flight</span>Passport</div>
+            <div class="idtype-chip"><span class="msy">school</span>UMID/SSS</div>
+          </div>
+
+          <span class="field-label">Upload photos of your ID</span>
+          <div class="upload-grid">
+            <div class="upload-box" id="id-front">
+              <div class="ic"><span class="msy">add_a_photo</span></div>
+              <div class="t1">Front side</div>
+              <div class="t2">Clear, no glare</div>
+            </div>
+            <div class="upload-box" id="id-back">
+              <div class="ic"><span class="msy">add_a_photo</span></div>
+              <div class="t1">Back side</div>
+              <div class="t2">If applicable</div>
+            </div>
+          </div>
+
+          <div class="checklist">
+            <div class="item"><span class="msy">check_circle</span>All four corners of the ID are visible</div>
+            <div class="item"><span class="msy">check_circle</span>Name and photo are clear and unedited</div>
+            <div class="item"><span class="msy">check_circle</span>ID is valid and not expired</div>
+          </div>
+
+          <div class="btn-primary" data-goto="verify-selfie">Continue to selfie verification</div>
+        </div>
+      </div>
+
+      <!-- ============ SIGNUP: SELFIE VERIFICATION ============ -->
+      <div class="screen-panel auth-panel dark" id="panel-verify-selfie">
+        <div class="selfie-stage">
+          <div class="selfie-back" data-goto="verify-id"><span class="msy">arrow_back</span></div>
+          <div class="selfie-cam">
+            <div class="selfie-hint-badge"><span class="msy fill">visibility</span> Center your face in the frame</div>
+            <div class="selfie-oval"><span class="msy">face</span></div>
+            <div class="selfie-tips-strip">
+              <div class="row"><span class="msy">wb_sunny</span>Face a well-lit area</div>
+              <div class="row"><span class="msy">block</span>Remove sunglasses or masks</div>
+              <div class="row"><span class="msy">crop_free</span>Hold your phone at eye level</div>
+            </div>
+          </div>
+          <div class="selfie-controls">
+            <div class="capture-btn" id="selfie-capture" data-goto="verify-review"><div class="dot"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ SIGNUP: REVIEW / PENDING ============ -->
+      <div class="screen-panel auth-panel" id="panel-verify-review">
+        <div class="appbar">
+          <div class="eyebrow">Step 3 of 3</div>
+          <h1>Verifying your identity</h1>
+        </div>
+        <div class="auth-content">
+          <div class="review-thumbs">
+            <div class="review-thumb">
+              <div class="box"><span class="msy">badge</span></div>
+              <div class="lbl">ID submitted</div>
+              <div class="sub">National ID · front &amp; back</div>
+            </div>
+            <div class="review-thumb">
+              <div class="box"><span class="msy">face</span></div>
+              <div class="lbl">Selfie captured</div>
+              <div class="sub">Liveness check passed</div>
+            </div>
+          </div>
+
+          <div class="status-card">
+            <div class="status-ring pending"><div class="spin"></div><span class="msy">hourglass_top</span></div>
+            <h3>Under review</h3>
+            <p>We're matching your selfie against your ID photo to confirm you're a real resident. This keeps InfraTrack free of fake and duplicate accounts.</p>
+            <span class="status-eta">Usually takes less than 2 minutes</span>
+          </div>
+
+          <div class="mini-timeline">
+            <div class="step">
+              <div class="marker"><div class="dot"><span class="msy">check</span></div><div class="bar"></div></div>
+              <div class="txt"><div class="t1">Account details</div><div class="t2">Completed</div></div>
+            </div>
+            <div class="step">
+              <div class="marker"><div class="dot"><span class="msy">check</span></div><div class="bar"></div></div>
+              <div class="txt"><div class="t1">ID submitted</div><div class="t2">Completed</div></div>
+            </div>
+            <div class="step">
+              <div class="marker"><div class="dot"><span class="msy">check</span></div><div class="bar"></div></div>
+              <div class="txt"><div class="t1">Selfie &amp; liveness check</div><div class="t2">Completed</div></div>
+            </div>
+            <div class="step">
+              <div class="marker"><div class="dot wait"><span class="msy">sync</span></div></div>
+              <div class="txt"><div class="t1">Identity match review</div><div class="t2">In progress — you'll get a notification once approved</div></div>
+            </div>
+          </div>
+
+          <div class="btn-primary" data-goto="home" data-finish="1">Continue to InfraTrack</div>
+          <div class="link-row">You can browse reports and advisories while verification is pending. Filing a report requires an approved ID.</div>
+        </div>
+      </div>
+
+      <!-- ============ HOME ============ -->
+      <div class="screen-panel" id="panel-home">
+        <div class="appbar">
+          <div class="appbar-top-row">
+            <div>
+              <div class="eyebrow">Mati City · Davao Oriental</div>
+              <h1 id="home-greeting">Good morning, Elena</h1>
+            </div>
+            <div class="bell-btn" data-goto="notifications" id="bell-btn">
+              <span class="msy">notifications</span>
+              <span class="bell-dot" id="bell-dot">3</span>
+            </div>
+          </div>
+        </div>
+        <div class="content">
+          <div class="home-media">
+            <div class="home-media-label">Recently fixed in Mati</div>
+            <div class="media-track" id="media-track">
+              <div class="media-slide active" data-cat="road">
+                <img src="https://images.unsplash.com/photo-1558690194-5aaa922b59b6?auto=format&fit=crop&w=800&q=70" alt="Road crew repairing a pothole">
+                <div class="media-slide-overlay"></div>
+                <div class="media-cap">
+                  <div class="t1">Chapel St. pothole repaired</div>
+                  <div class="t2"><span class="msy fill">task_alt</span> Resolved in 13 days</div>
+                </div>
+              </div>
+              <div class="media-slide" data-cat="light">
+                <img src="https://images.unsplash.com/photo-1543518360-68b9612a7c8c?auto=format&fit=crop&w=800&q=70" alt="Streetlight lit above an empty road">
+                <div class="media-slide-overlay"></div>
+                <div class="media-cap">
+                  <div class="t1">J.P. Laurel streetlights restored</div>
+                  <div class="t2"><span class="msy fill">task_alt</span> 4 fixtures replaced this week</div>
+                </div>
+              </div>
+              <div class="media-slide" data-cat="drain">
+                <img src="https://images.unsplash.com/photo-1577558678587-4a8af447679c?auto=format&fit=crop&w=800&q=70" alt="Open drainage hole being cleared">
+                <div class="media-slide-overlay"></div>
+                <div class="media-cap">
+                  <div class="t1">Purok 3 canal desilted</div>
+                  <div class="t2"><span class="msy fill">task_alt</span> Reported and cleared by residents</div>
+                </div>
+              </div>
+              <div class="media-slide" data-cat="water">
+                <img src="https://images.unsplash.com/photo-1727703435736-d3b5f2cc113c?auto=format&fit=crop&w=800&q=70" alt="Water flowing from a street hydrant">
+                <div class="media-slide-overlay"></div>
+                <div class="media-cap">
+                  <div class="t1">128 issues resolved this month</div>
+                  <div class="t2"><span class="msy fill">groups</span> Tracked live by the community</div>
+                </div>
+              </div>
+            </div>
+            <div class="media-dots" id="media-dots"></div>
+          </div>
+
+          <div class="tourist-banner" id="tourist-banner" style="display:none;">
+            <span class="msy">travel_explore</span>
+            <p>You're browsing as a <b>tourist</b>. You can view reports and city advisories, but filing a report needs a verified citizen account. <a data-goto="signup">Create one</a></p>
+          </div>
+
+          <div class="update-spotlight" id="update-spotlight" data-issue-id="MT-2026-881">
+            <div class="ic"><span class="msy fill">sync</span></div>
+            <div class="body">
+              <div class="tag">Report update · 2h ago</div>
+              <div class="t1">Deep pothole along Rizal St. is now Scheduled for repair</div>
+              <div class="t2">Work order issued to Team Alpha — tap to see the full timeline.</div>
+            </div>
+            <div class="arrow"><span class="msy">chevron_right</span></div>
+          </div>
+
+          <div class="stat-row">
+            <div class="stat-card accent">
+              <div class="num">3</div>
+              <div class="lbl">Your open reports</div>
+            </div>
+            <div class="stat-card">
+              <div class="num">128</div>
+              <div class="lbl">Resolved this month</div>
+            </div>
+          </div>
+
+          <div class="section-head">
+            <h2>Nearby reports</h2>
+            <a href="#">See map</a>
+          </div>
+          <div class="filter-row">
+            <div class="chip active">All</div>
+            <div class="chip">Roads</div>
+            <div class="chip">Water</div>
+            <div class="chip">Drainage</div>
+            <div class="chip">Lighting</div>
+          </div>
+
+          <div class="report-card" data-status="urgent" data-cat="road" data-title="Deep pothole along Rizal St." data-loc="Near City Hall, Brgy. Central" data-id="MT-2026-881" data-date="Aug 2, 2026" data-followers="214" data-views="1,045">
+            <div class="thumb road"><span class="msy">construction</span></div>
+            <div class="report-body">
+              <div class="report-top">
+                <div class="report-title">Deep pothole along Rizal St.</div>
+                <div class="pill urgent">Urgent</div>
+              </div>
+              <div class="geo">6.9530° N, 126.2280° E</div>
+              <div class="report-meta">
+                <span><span class="msy">visibility</span> 214 watching</span>
+                <span>2h ago</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="report-card" data-status="progress" data-cat="water" data-title="No water supply, Purok 3" data-loc="Purok 3, Brgy. Dawan" data-id="MT-2026-879" data-date="Jul 30, 2026" data-followers="87" data-views="512">
+            <div class="thumb water"><span class="msy">water_drop</span></div>
+            <div class="report-body">
+              <div class="report-top">
+                <div class="report-title">No water supply, Purok 3</div>
+                <div class="pill progress">In progress</div>
+              </div>
+              <div class="geo">6.9482° N, 126.2311° E</div>
+              <div class="report-meta">
+                <span><span class="msy">visibility</span> 87 watching</span>
+                <span>5h ago</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="report-card" data-status="pending" data-cat="drain" data-title="Clogged drainage near market" data-loc="Public Market, Brgy. Central" data-id="MT-2026-884" data-date="Aug 5, 2026" data-followers="43" data-views="240">
+            <div class="thumb drain"><span class="msy">water_damage</span></div>
+            <div class="report-body">
+              <div class="report-top">
+                <div class="report-title">Clogged drainage near market</div>
+                <div class="pill pending">Reported</div>
+              </div>
+              <div class="geo">6.9511° N, 126.2249° E</div>
+              <div class="report-meta">
+                <span><span class="msy">visibility</span> 43 watching</span>
+                <span>1d ago</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="report-card" data-status="resolved" data-cat="light" data-title="Streetlight repaired, J.P. Laurel" data-loc="J.P. Laurel Ave., Brgy. Sainz" data-id="MT-2026-860" data-date="Jul 20, 2026" data-fixed="Aug 4, 2026" data-followers="19" data-views="133" data-note="Maintenance Team Delta replaced the faulty wiring and upgraded the bulb to a high-efficiency LED unit. Thank you for your report!">
+            <div class="thumb light"><span class="msy">lightbulb</span></div>
+            <div class="report-body">
+              <div class="report-top">
+                <div class="report-title">Streetlight repaired, J.P. Laurel</div>
+                <div class="pill resolved">Resolved</div>
+              </div>
+              <div class="geo">6.9498° N, 126.2295° E</div>
+              <div class="report-meta">
+                <span><span class="msy">visibility</span> 19 watching</span>
+                <span>2d ago</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ MAP ============ -->
+      <div class="screen-panel" id="panel-map">
+        <div class="map-wrap">
+          <svg class="map-svg" viewBox="0 0 390 700" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="0" y="0" width="390" height="700" fill="#EAE7DD"/>
+            <path d="M0,470 L95,455 L130,510 L110,590 L20,610 L-10,560 Z" fill="#D3E4C6"/>
+            <path d="M0,470 L95,455 L130,510 L110,590 L20,610 L-10,560 Z" fill="none" stroke="#C1D7AF" stroke-width="2"/>
+            <g opacity=".55">
+              <circle cx="35" cy="500" r="4" fill="#9FBE83"/>
+              <circle cx="60" cy="530" r="5" fill="#9FBE83"/>
+              <circle cx="45" cy="560" r="4" fill="#9FBE83"/>
+              <circle cx="80" cy="500" r="3.5" fill="#9FBE83"/>
+              <circle cx="95" cy="550" r="4.5" fill="#9FBE83"/>
+            </g>
+            <path d="M170,-20 C150,80 210,150 185,240 C160,330 220,400 200,480 C182,555 235,610 215,720" fill="none" stroke="#AAD1DC" stroke-width="46" stroke-linecap="round"/>
+            <path d="M170,-20 C150,80 210,150 185,240 C160,330 220,400 200,480 C182,555 235,610 215,720" fill="none" stroke="#8FC0CE" stroke-width="46" stroke-linecap="round" stroke-dasharray="0.5 46" opacity=".4"/>
+            <g fill="#F4F1E8" stroke="#DFD9C8" stroke-width="1.5">
+              <rect x="20" y="30" width="90" height="70"/>
+              <rect x="120" y="30" width="60" height="70"/>
+              <rect x="250" y="20" width="80" height="80"/>
+              <rect x="340" y="20" width="60" height="90"/>
+              <rect x="20" y="115" width="55" height="90"/>
+              <rect x="250" y="115" width="70" height="60"/>
+              <rect x="330" y="115" width="70" height="70"/>
+              <rect x="20" y="230" width="70" height="60"/>
+              <rect x="240" y="200" width="60" height="55"/>
+              <rect x="310" y="200" width="80" height="80"/>
+              <rect x="230" y="270" width="55" height="70"/>
+              <rect x="300" y="300" width="95" height="60"/>
+              <rect x="20" y="310" width="65" height="55"/>
+              <rect x="140" y="330" width="45" height="60"/>
+              <rect x="230" y="390" width="60" height="55"/>
+              <rect x="300" y="390" width="90" height="65"/>
+              <rect x="130" y="420" width="55" height="50"/>
+              <rect x="230" y="460" width="70" height="55"/>
+              <rect x="310" y="475" width="80" height="60"/>
+              <rect x="140" y="500" width="50" height="55"/>
+              <rect x="230" y="530" width="60" height="60"/>
+              <rect x="300" y="555" width="90" height="60"/>
+              <rect x="150" y="570" width="50" height="60"/>
+              <rect x="240" y="605" width="65" height="65"/>
+              <rect x="315" y="630" width="75" height="60"/>
+            </g>
+            <g stroke="#FFFFFF" stroke-width="7" opacity=".9">
+              <line x1="0" y1="30" x2="390" y2="30"/>
+              <line x1="0" y1="112" x2="390" y2="112"/>
+              <line x1="0" y1="200" x2="390" y2="200"/>
+              <line x1="0" y1="292" x2="390" y2="292"/>
+              <line x1="0" y1="388" x2="390" y2="388"/>
+              <line x1="0" y1="458" x2="390" y2="458"/>
+              <line x1="0" y1="528" x2="390" y2="528"/>
+              <line x1="0" y1="598" x2="390" y2="598"/>
+              <line x1="18" y1="0" x2="18" y2="700"/>
+              <line x1="112" y1="0" x2="112" y2="700"/>
+              <line x1="228" y1="0" x2="228" y2="700"/>
+              <line x1="298" y1="0" x2="298" y2="700"/>
+              <line x1="332" y1="0" x2="332" y2="700"/>
+            </g>
+            <g stroke="#E3DECE" stroke-width="1" opacity=".8">
+              <line x1="0" y1="30" x2="390" y2="30"/>
+              <line x1="0" y1="112" x2="390" y2="112"/>
+              <line x1="0" y1="200" x2="390" y2="200"/>
+              <line x1="0" y1="292" x2="390" y2="292"/>
+              <line x1="0" y1="388" x2="390" y2="388"/>
+              <line x1="0" y1="458" x2="390" y2="458"/>
+              <line x1="0" y1="528" x2="390" y2="528"/>
+              <line x1="0" y1="598" x2="390" y2="598"/>
+              <line x1="18" y1="0" x2="18" y2="700"/>
+              <line x1="112" y1="0" x2="112" y2="700"/>
+              <line x1="228" y1="0" x2="228" y2="700"/>
+              <line x1="298" y1="0" x2="298" y2="700"/>
+              <line x1="332" y1="0" x2="332" y2="700"/>
+            </g>
+            <path d="M-10,120 C90,140 160,90 260,150 C340,195 360,260 400,300" fill="none" stroke="#F4CE7E" stroke-width="11" stroke-linecap="round"/>
+            <path d="M-10,120 C90,140 160,90 260,150 C340,195 360,260 400,300" fill="none" stroke="#E0AC3F" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M0,420 C80,410 150,440 240,410 C310,388 350,410 400,395" fill="none" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round"/>
+            <path d="M0,420 C80,410 150,440 240,410 C310,388 350,410 400,395" fill="none" stroke="#DCD5C1" stroke-width="1.3" stroke-linecap="round"/>
+            <text class="map-label hwy" font-size="10.5" transform="translate(96,132) rotate(6)">Rizal St.</text>
+            <text class="map-label" font-size="9.5" transform="translate(238,402) rotate(-5)">J.P. Laurel Ave.</text>
+            <text class="map-label" font-size="9" transform="translate(232,297) rotate(90)">Chapel St.</text>
+            <text class="map-label" font-size="9" transform="translate(26,270) rotate(90)">Purok 3 Rd.</text>
+            <text class="map-label" font-size="8.5" fill="#7FA9B5" transform="translate(196,140) rotate(78)">Mati River</text>
+            <text class="map-label" font-size="9" fill="#7E9E68" transform="translate(30,480)">Rizal Park</text>
+            <g class="map-poi-dot">
+              <circle cx="55" cy="55" r="2.2"/>
+              <circle cx="290" cy="45" r="2.2"/>
+              <circle cx="365" cy="60" r="2.2"/>
+              <circle cx="45" cy="150" r="2.2"/>
+              <circle cx="270" cy="230" r="2.2"/>
+              <circle cx="360" cy="240" r="2.2"/>
+              <circle cx="255" cy="310" r="2.2"/>
+              <circle cx="45" cy="335" r="2.2"/>
+              <circle cx="255" cy="420" r="2.2"/>
+              <circle cx="255" cy="555" r="2.2"/>
+              <circle cx="335" cy="600" r="2.2"/>
+              <circle cx="165" cy="545" r="2.2"/>
+            </g>
+          </svg>
+
+          <div class="map-search"><span class="msy">search</span> Search street or barangay</div>
+          <div class="pin p1"><span class="msy fill">construction</span></div>
+          <div class="pin p2"><span class="msy fill">water_damage</span></div>
+          <div class="pin p3"><span class="msy fill">water_drop</span></div>
+          <div class="pin p4"><span class="msy fill">lightbulb</span></div>
+          <div class="pin p5"><span class="msy fill">warning</span></div>
+          <div class="pin p6"><span class="msy fill">construction</span></div>
+          <div class="locate-btn"><span class="msy">my_location</span></div>
+          <div class="map-legend">
+            <div class="row"><span class="dot" style="background:var(--clay)"></span> Road damage — 14 open</div>
+            <div class="row"><span class="dot" style="background:var(--teal)"></span> Water service — 6 open</div>
+            <div class="row"><span class="dot" style="background:var(--amber)"></span> Drainage — 9 open</div>
+            <div class="row"><span class="dot" style="background:var(--red)"></span> Urgent / safety — 2 open</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ REPORT ============ -->
+      <div class="screen-panel" id="panel-report">
+        <div class="appbar">
+          <div class="eyebrow">New submission</div>
+          <h1>Report an issue</h1>
+        </div>
+        <div class="content">
+          <div class="photo-upload">
+            <div class="ic"><span class="msy">add_a_photo</span></div>
+            <div class="t1">Add photo or video</div>
+            <div class="t2">Attach evidence of the issue</div>
+          </div>
+
+          <span class="field-label">Category</span>
+          <div class="cat-grid">
+            <div class="cat-item selected"><span class="msy">construction</span>Road</div>
+            <div class="cat-item"><span class="msy">water_drop</span>Water</div>
+            <div class="cat-item"><span class="msy">water_damage</span>Drainage</div>
+            <div class="cat-item"><span class="msy">lightbulb</span>Lighting</div>
+            <div class="cat-item"><span class="msy">park</span>Debris</div>
+          </div>
+
+          <span class="field-label">Location</span>
+          <div class="gps-box">
+            <div>
+              <div class="coord-lbl">Detected coordinates</div>
+              <div class="coord">6.9530° N, 126.2280° E</div>
+            </div>
+            <div class="gps-refresh"><span class="msy">refresh</span> Refresh</div>
+          </div>
+
+          <div class="similar-block">
+            <span class="field-label">Similar reports nearby</span>
+            <p class="similar-hint">These recent reports are close to your location. Follow one instead of filing a duplicate — you'll get the same status updates.</p>
+
+            <div class="similar-card" data-issue-id="MT-2026-881">
+              <div class="thumb road" style="width:44px;height:44px;"><span class="msy" style="font-size:20px;">construction</span></div>
+              <div class="similar-body">
+                <div class="t1">Deep pothole along Rizal St.</div>
+                <div class="t2">62m away · Filed 2h ago · 214 watching</div>
+              </div>
+              <div class="follow-btn">Follow</div>
+            </div>
+
+            <div class="similar-card" data-issue-id="MT-2026-884">
+              <div class="thumb drain" style="width:44px;height:44px;"><span class="msy" style="font-size:20px;">water_damage</span></div>
+              <div class="similar-body">
+                <div class="t1">Clogged drainage near market</div>
+                <div class="t2">180m away · Filed 1d ago · 43 watching</div>
+              </div>
+              <div class="follow-btn">Follow</div>
+            </div>
+          </div>
+
+          <div class="divider-row" style="margin:16px 0 18px;"><div class="line"></div><span>OR DESCRIBE A NEW ISSUE</span><div class="line"></div></div>
+
+          <span class="field-label">Description</span>
+          <textarea class="desc" placeholder="Describe what you saw — size, severity, and any safety risk..."></textarea>
+
+          <div class="submit-btn">Submit report</div>
+        </div>
+      </div>
+
+      <!-- ============ REPORT LOCKED (tourist) ============ -->
+      <div class="screen-panel" id="panel-report-locked">
+        <div class="appbar">
+          <div class="eyebrow">New submission</div>
+          <h1>Report an issue</h1>
+        </div>
+        <div class="content">
+          <div class="auth-hero" style="margin-top:14px;">
+            <div class="icon-badge amber"><span class="msy">travel_explore</span></div>
+            <h1>Create a citizen account to report</h1>
+            <p>Tourists can browse infrastructure reports, the map, and city advisories freely. Filing a report requires a verified citizen account so the City Engineering Office can trust and follow up on submissions.</p>
+          </div>
+          <div class="info-note amber">
+            <span class="msy">info</span>
+            <p>Verification only takes a couple of minutes — a valid ID and a live selfie is all it takes.</p>
+          </div>
+          <div class="btn-primary" data-goto="signup">Create an account</div>
+          <div class="btn-secondary" style="margin-top:10px;" data-goto="login">I already have an account</div>
+        </div>
+      </div>
+
+      <!-- ============ NEWS ============ -->
+      <div class="screen-panel" id="panel-news">
+        <div class="appbar">
+          <div class="eyebrow">Public advisory · Infrastructure media</div>
+          <h1>City updates</h1>
+        </div>
+        <div class="content">
+          <div class="home-media" style="margin-bottom:18px;">
+            <div class="home-media-label">Featured this week</div>
+            <div class="media-track" id="news-hero-track">
+              <div class="media-slide active">
+                <img src="https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=800&q=70" alt="Road resurfacing construction equipment on Rizal Street">
+                <div class="media-slide-overlay"></div>
+                <div class="media-cap">
+                  <div class="t1">Rizal Street resurfacing enters week 2</div>
+                  <div class="t2"><span class="msy fill">construction</span> Ongoing construction</div>
+                </div>
+              </div>
+              <div class="media-slide">
+                <img src="https://images.unsplash.com/photo-1577558678587-4a8af447679c?auto=format&fit=crop&w=800&q=70" alt="Drainage canal cleared in Purok 3">
+                <div class="media-slide-overlay"></div>
+                <div class="media-cap">
+                  <div class="t1">Purok 3 canal fully cleared</div>
+                  <div class="t2"><span class="msy fill">task_alt</span> Completed maintenance</div>
+                </div>
+              </div>
+              <div class="media-slide">
+                <img src="https://images.unsplash.com/photo-1543518360-68b9612a7c8c?auto=format&fit=crop&w=800&q=70" alt="J.P. Laurel Avenue streetlights lit at night">
+                <div class="media-slide-overlay"></div>
+                <div class="media-cap">
+                  <div class="t1">J.P. Laurel streetlights back on</div>
+                  <div class="t2"><span class="msy fill">task_alt</span> Completed maintenance</div>
+                </div>
+              </div>
+              <div class="media-slide">
+                <img src="https://images.unsplash.com/photo-1558690194-5aaa922b59b6?auto=format&fit=crop&w=800&q=70" alt="Road crew repairing a pothole on Chapel Street">
+                <div class="media-slide-overlay"></div>
+                <div class="media-cap">
+                  <div class="t1">Chapel St. pothole repair completed</div>
+                  <div class="t2"><span class="msy fill">task_alt</span> Completed repair</div>
+                </div>
+              </div>
+            </div>
+            <div class="media-dots" id="news-hero-dots"></div>
+          </div>
+
+          <div class="filter-row news-filter-row" id="news-filter-row">
+            <div class="chip active" data-news-filter="all">All</div>
+            <div class="chip" data-news-filter="repair"><span class="msy" style="font-size:14px; vertical-align:-2px; margin-right:2px;">construction</span>Repairs</div>
+            <div class="chip" data-news-filter="construction"><span class="msy" style="font-size:14px; vertical-align:-2px; margin-right:2px;">engineering</span>Construction</div>
+            <div class="chip" data-news-filter="maintenance"><span class="msy" style="font-size:14px; vertical-align:-2px; margin-right:2px;">build</span>Maintenance</div>
+            <div class="chip" data-news-filter="advisory"><span class="msy" style="font-size:14px; vertical-align:-2px; margin-right:2px;">campaign</span>Advisories</div>
+          </div>
+
+          <div class="news-section-lbl" data-news-group="media">Infrastructure updates</div>
+
+          <div class="media-post-card" data-category="repair" data-news-group="media">
+            <div class="media-post-frame gif-loop">
+              <img src="https://images.unsplash.com/photo-1558690194-5aaa922b59b6?auto=format&fit=crop&w=800&q=70" alt="Road crew repairing a pothole on Chapel Street">
+              <div class="media-post-frame-overlay"></div>
+              <span class="media-type-badge gif"><span class="msy fill">gif_box</span>GIF · from 0:14 video</span>
+              <span class="media-cat-badge">Completed repair</span>
+            </div>
+            <div class="media-post-body">
+              <h3>Chapel St. pothole repair, looping preview</h3>
+              <p>Auto-converted from the crew's submitted clip so it plays instantly in the feed. Original video available on request.</p>
+              <div class="media-post-meta">
+                <span class="adv-time">1 day ago · City Engineering Office</span>
+                <span class="views"><span class="msy">visibility</span> 402</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="media-post-card" data-category="maintenance" data-news-group="media">
+            <div class="media-post-frame gif-loop">
+              <img src="https://images.unsplash.com/photo-1577558678587-4a8af447679c?auto=format&fit=crop&w=800&q=70" alt="Drainage canal being cleared in Purok 3">
+              <div class="media-post-frame-overlay"></div>
+              <span class="media-type-badge gif"><span class="msy fill">gif_box</span>GIF · from 0:09 video</span>
+              <span class="media-cat-badge">Completed maintenance</span>
+            </div>
+            <div class="media-post-body">
+              <h3>Purok 3 canal desilting, before-to-after loop</h3>
+              <p>Auto-generated looping preview of the desilting work, trimmed and resized using the standard media template.</p>
+              <div class="media-post-meta">
+                <span class="adv-time">2 days ago · Drainage & Maintenance Div.</span>
+                <span class="views"><span class="msy">visibility</span> 315</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="media-post-card" data-category="construction" data-news-group="media">
+            <div class="media-post-frame">
+              <div class="post-gallery" id="gallery-rizal">
+                <div class="post-gallery-slide active"><img src="https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=800&q=70" alt="Rizal Street resurfacing day 1"></div>
+                <div class="post-gallery-slide"><img src="https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&w=800&q=70" alt="Rizal Street resurfacing day 3"></div>
+                <div class="post-gallery-slide"><img src="https://images.unsplash.com/photo-1519455953755-af066f52f1a6?auto=format&fit=crop&w=800&q=70" alt="Rizal Street resurfacing day 5"></div>
+              </div>
+              <div class="media-post-frame-overlay"></div>
+              <span class="media-type-badge"><span class="msy fill">collections</span>Photo gallery · 3</span>
+              <span class="media-cat-badge">Ongoing construction</span>
+              <div class="post-gallery-dots" id="gallery-rizal-dots"></div>
+            </div>
+            <div class="media-post-body">
+              <h3>Rizal Street resurfacing, day-by-day progress</h3>
+              <p>A rotating set of site photos from the City Engineering Office, updated as the resurfacing work advances.</p>
+              <div class="media-post-meta">
+                <span class="adv-time">2 days ago · City Engineering Office</span>
+                <span class="views"><span class="msy">visibility</span> 268</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="media-post-card" data-category="maintenance" data-news-group="media">
+            <div class="media-post-frame">
+              <img src="https://images.unsplash.com/photo-1543518360-68b9612a7c8c?auto=format&fit=crop&w=800&q=70" alt="J.P. Laurel Avenue streetlights lit at night">
+              <div class="media-post-frame-overlay"></div>
+              <span class="media-type-badge"><span class="msy fill">photo_camera</span>Photo</span>
+              <span class="media-cat-badge">Completed maintenance</span>
+            </div>
+            <div class="media-post-body">
+              <h3>J.P. Laurel streetlights back on</h3>
+              <p>4 damaged fixtures were replaced with high-efficiency LED units along the avenue this week.</p>
+              <div class="media-post-meta">
+                <span class="adv-time">3 days ago · City Engineering Office</span>
+                <span class="views"><span class="msy">visibility</span> 187</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="news-section-lbl" data-news-group="advisory">Advisories</div>
+
+          <div class="advisory-card maint" data-category="advisory" data-news-group="advisory">
+            <div class="adv-tag maint"><span class="msy">build</span> Maintenance</div>
+            <h3>Water interruption, Barangay Central</h3>
+            <p>Scheduled pipe repair will suspend water supply from 1:00 PM to 6:00 PM today.</p>
+            <span class="adv-time">Issued yesterday · Mati Water District</span>
+          </div>
+
+          <div class="advisory-card gen" data-category="advisory" data-news-group="advisory">
+            <div class="adv-tag gen"><span class="msy">campaign</span> Announcement</div>
+            <h3>Road resurfacing begins on Rizal Street</h3>
+            <p>Expect single-lane traffic near the public market from Monday. Motorists are asked to use the Chapel Street alternate.</p>
+            <span class="adv-time">2 days ago · City Engineering Office</span>
+          </div>
+
+          <div class="advisory-card gen" data-category="advisory" data-news-group="advisory">
+            <div class="adv-tag gen"><span class="msy">campaign</span> Announcement</div>
+            <h3>Report follow-up: J.P. Laurel streetlight</h3>
+            <p>Repair crew completed replacement of 4 damaged fixtures reported by residents this week.</p>
+            <span class="adv-time">3 days ago · City Engineering Office</span>
+          </div>
+
+          <div class="news-empty" id="news-empty">
+            <span class="msy">image_search</span>
+            <p>No posts in this category yet.<br>New repair, construction, and maintenance updates will show up here.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ NOTIFICATIONS ============ -->
+      <div class="screen-panel" id="panel-notifications">
+        <div class="appbar">
+          <div class="back-row">
+            <div class="back-btn" id="notif-back"><span class="msy">arrow_back</span></div>
+          </div>
+          <div class="eyebrow">Account</div>
+          <h1>Notifications</h1>
+        </div>
+        <div class="content">
+          <div class="filter-row notif-filter-row" id="notif-filter-row">
+            <div class="chip active" data-notif-filter="all">All<span class="notif-count-chip" data-count-for="all">5</span></div>
+            <div class="chip" data-notif-filter="progress"><span class="msy" style="font-size:14px; vertical-align:-2px; margin-right:2px;">sync</span>Report updates<span class="notif-count-chip" data-count-for="progress">2</span></div>
+            <div class="chip" data-notif-filter="similar"><span class="msy" style="font-size:14px; vertical-align:-2px; margin-right:2px;">groups</span>Similar reports<span class="notif-count-chip" data-count-for="similar">1</span></div>
+            <div class="chip" data-notif-filter="resolved"><span class="msy" style="font-size:14px; vertical-align:-2px; margin-right:2px;">task_alt</span>Resolved<span class="notif-count-chip" data-count-for="resolved">1</span></div>
+            <div class="chip" data-notif-filter="advisory"><span class="msy" style="font-size:14px; vertical-align:-2px; margin-right:2px;">campaign</span>Advisories<span class="notif-count-chip" data-count-for="advisory">1</span></div>
+          </div>
+
+          <div class="notif-group-lbl" data-group="today">Today</div>
+          <div class="notif-item unread" data-category="progress" data-group="today" data-issue-id="MT-2026-881">
+            <div class="icon-sq teal"><span class="msy">sync</span></div>
+            <div class="notif-body">
+              <div class="t1">Your report moved to <b>Scheduled for repair</b></div>
+              <div class="t2">Deep pothole along Rizal St. · Work order issued to Team Alpha</div>
+              <span class="notif-cat-tag progress"><span class="msy">sync</span>Report progress</span>
+              <div class="t3">2h ago</div>
+            </div>
+          </div>
+          <div class="notif-item unread" data-category="similar" data-group="today" data-issue-id="MT-2026-879">
+            <div class="icon-sq clay"><span class="msy">groups</span></div>
+            <div class="notif-body">
+              <div class="t1">32 more residents are watching your report</div>
+              <div class="t2">No water supply, Purok 3 · now 87 watching</div>
+              <span class="notif-cat-tag similar"><span class="msy">groups</span>Community activity</span>
+              <div class="t3">5h ago</div>
+            </div>
+          </div>
+
+          <div class="notif-group-lbl" data-group="yesterday">Yesterday</div>
+          <div class="notif-item unread" data-category="similar" data-group="yesterday" data-issue-id="MT-2026-884">
+            <div class="icon-sq amber"><span class="msy">groups</span></div>
+            <div class="notif-body">
+              <div class="t1">A similar report was spotted near yours</div>
+              <div class="t2">Clogged drainage near market · 2 reports merged into one ticket</div>
+              <span class="notif-cat-tag similar"><span class="msy">merge</span>Similar report</span>
+              <div class="t3">1d ago</div>
+            </div>
+          </div>
+          <div class="notif-item" data-category="resolved" data-group="yesterday" data-issue-id="MT-2026-860">
+            <div class="icon-sq green"><span class="msy">check</span></div>
+            <div class="notif-body">
+              <div class="t1">Your report was marked <b>Resolved</b></div>
+              <div class="t2">Streetlight repaired, J.P. Laurel · Rate the repair</div>
+              <span class="notif-cat-tag resolved"><span class="msy">task_alt</span>Resolved</span>
+              <div class="t3">2d ago</div>
+            </div>
+          </div>
+
+          <div class="notif-group-lbl" data-group="earlier">Earlier</div>
+          <div class="notif-item" data-category="advisory" data-group="earlier" data-panel="news">
+            <div class="icon-sq navy"><span class="msy">campaign</span></div>
+            <div class="notif-body">
+              <div class="t1">Road resurfacing begins on Rizal Street</div>
+              <div class="t2">City Engineering Office · single-lane traffic near the public market</div>
+              <span class="notif-cat-tag advisory"><span class="msy">campaign</span>City advisory</span>
+              <div class="t3">3d ago</div>
+            </div>
+          </div>
+
+          <div class="notif-empty" id="notif-empty">
+            <span class="msy">notifications_off</span>
+            <p>No notifications in this category yet.<br>Updates on your reports and nearby activity will show up here.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ MY REPORTS ============ -->
+      <div class="screen-panel" id="panel-myreports">
+        <div class="appbar">
+          <div class="back-row">
+            <div class="back-btn" data-goto="profile"><span class="msy">arrow_back</span></div>
+          </div>
+          <div class="eyebrow">Account</div>
+          <h1>My reports</h1>
+        </div>
+        <div class="content">
+          <div class="filter-row">
+            <div class="chip active">All (12)</div>
+            <div class="chip">Open (3)</div>
+            <div class="chip">Resolved (9)</div>
+          </div>
+
+          <div class="report-card" data-status="urgent" data-cat="road" data-title="Deep pothole along Rizal St." data-loc="Near City Hall, Brgy. Central" data-id="MT-2026-881" data-date="Aug 2, 2026" data-followers="214" data-views="1,045">
+            <div class="mini-photo road">
+              <div class="tex"></div>
+              <div class="status-badge urgent"><span class="msy fill">priority_high</span></div>
+            </div>
+            <div class="report-body">
+              <div class="report-top">
+                <div class="report-title">Deep pothole along Rizal St.</div>
+                <div class="pill urgent">Urgent</div>
+              </div>
+              <div class="geo">6.9530° N, 126.2280° E</div>
+              <div class="report-meta">
+                <span><span class="msy">visibility</span> 214 watching</span>
+                <span>2h ago</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="report-card" data-status="progress" data-cat="water" data-title="No water supply, Purok 3" data-loc="Purok 3, Brgy. Dawan" data-id="MT-2026-879" data-date="Jul 30, 2026" data-followers="87" data-views="512">
+            <div class="mini-photo water">
+              <div class="tex"></div>
+              <div class="status-badge progress"><span class="msy fill">build</span></div>
+            </div>
+            <div class="report-body">
+              <div class="report-top">
+                <div class="report-title">No water supply, Purok 3</div>
+                <div class="pill progress">In progress</div>
+              </div>
+              <div class="geo">6.9482° N, 126.2311° E</div>
+              <div class="report-meta">
+                <span><span class="msy">visibility</span> 87 watching</span>
+                <span>5h ago</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="report-card" data-status="pending" data-cat="drain" data-title="Clogged drainage near market" data-loc="Public Market, Brgy. Central" data-id="MT-2026-884" data-date="Aug 5, 2026" data-followers="43" data-views="240">
+            <div class="mini-photo drain">
+              <div class="tex"></div>
+              <div class="status-badge pending"><span class="msy fill">schedule</span></div>
+            </div>
+            <div class="report-body">
+              <div class="report-top">
+                <div class="report-title">Clogged drainage near market</div>
+                <div class="pill pending">Reported</div>
+              </div>
+              <div class="geo">6.9511° N, 126.2249° E</div>
+              <div class="report-meta">
+                <span><span class="msy">visibility</span> 43 watching</span>
+                <span>1d ago</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="report-card" data-status="resolved" data-cat="light" data-title="Streetlight repaired, J.P. Laurel" data-loc="J.P. Laurel Ave., Brgy. Sainz" data-id="MT-2026-860" data-date="Jul 20, 2026" data-fixed="Aug 4, 2026" data-followers="19" data-views="133" data-note="Maintenance Team Delta replaced the faulty wiring and upgraded the bulb to a high-efficiency LED unit. Thank you for your report!">
+            <div class="mini-photo light">
+              <div class="tex"></div>
+              <div class="status-badge resolved"><span class="msy fill">check</span></div>
+            </div>
+            <div class="report-body">
+              <div class="report-top">
+                <div class="report-title">Streetlight repaired, J.P. Laurel</div>
+                <div class="pill resolved">Resolved</div>
+              </div>
+              <div class="geo">6.9498° N, 126.2295° E</div>
+              <div class="report-meta">
+                <span><span class="msy">visibility</span> 19 watching</span>
+                <span>2d ago</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="report-card" data-status="resolved" data-cat="road" data-title="Cracked pavement, Chapel St." data-loc="Chapel St., Brgy. Central" data-id="MT-2026-842" data-date="Jul 15, 2026" data-fixed="Jul 28, 2026" data-followers="31" data-views="205" data-note="City Engineering Office patched and resurfaced the affected section of Chapel Street. Thank you for helping keep our roads safe!">
+            <div class="mini-photo road">
+              <div class="tex"></div>
+              <div class="status-badge resolved"><span class="msy fill">check</span></div>
+            </div>
+            <div class="report-body">
+              <div class="report-top">
+                <div class="report-title">Cracked pavement, Chapel St.</div>
+                <div class="pill resolved">Resolved</div>
+              </div>
+              <div class="geo">6.9503° N, 126.2264° E</div>
+              <div class="report-meta">
+                <span><span class="msy">visibility</span> 31 watching</span>
+                <span>1w ago</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="report-card" data-status="resolved" data-cat="drain" data-title="Overflowing canal, Purok 3" data-loc="Purok 3, Brgy. Dawan" data-id="MT-2026-830" data-date="Jul 10, 2026" data-fixed="Jul 22, 2026" data-followers="22" data-views="168" data-note="Drainage crew cleared debris and desilted the canal along Purok 3. Regular maintenance has been scheduled to prevent recurrence.">
+            <div class="mini-photo drain">
+              <div class="tex"></div>
+              <div class="status-badge resolved"><span class="msy fill">check</span></div>
+            </div>
+            <div class="report-body">
+              <div class="report-top">
+                <div class="report-title">Overflowing canal, Purok 3</div>
+                <div class="pill resolved">Resolved</div>
+              </div>
+              <div class="geo">6.9489° N, 126.2318° E</div>
+              <div class="report-meta">
+                <span><span class="msy">visibility</span> 22 watching</span>
+                <span>2w ago</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ ISSUE DETAIL ============ -->
+      <div class="screen-panel" id="panel-issue">
+        <div class="appbar">
+          <div class="back-row">
+            <div class="back-btn" id="issue-back"><span class="msy">arrow_back</span></div>
+          </div>
+          <h1 style="font-size:19px;">Issue Details</h1>
+        </div>
+        <div class="content">
+          <div class="issue-hero">
+            <div class="mini-photo road" id="issue-hero-photo" style="width:100%; height:100%; border-radius:18px;">
+              <div class="tex"></div>
+            </div>
+            <div class="issue-status-pill progress" id="issue-status-pill"><span class="msy fill">build</span> In Progress</div>
+          </div>
+
+          <div class="issue-title" id="issue-title">Deep pothole along Rizal St.</div>
+          <div class="issue-loc" id="issue-loc"><span class="msy">location_on</span> Near City Hall, Brgy. Central</div>
+          <div class="issue-idline" id="issue-idline">Report ID: #MT-2026-881 · Filed Aug 2, 2026</div>
+          <div class="issue-stats">
+            <span id="issue-followers"><span class="msy">group</span> 214 followers</span>
+            <span id="issue-views"><span class="msy">visibility</span> 1,045 views</span>
+          </div>
+
+          <div id="issue-progress-block">
+          <div class="section-head" style="margin-top:0;">
+            <h2>Repair progress</h2>
+          </div>
+          <div class="progress-timeline">
+            <div class="step">
+              <div class="marker"><div class="dot done"><span class="msy">check</span></div><div class="bar done"></div></div>
+              <div class="txt"><div class="t1">Reported &amp; logged</div><div class="t2">Ticket created by citizen · Aug 2, 09:20 AM</div></div>
+            </div>
+            <div class="step">
+              <div class="marker"><div class="dot done"><span class="msy">check</span></div><div class="bar done"></div></div>
+              <div class="txt"><div class="t1">Verified by inspector</div><div class="t2">Site inspection completed · Aug 3, 02:45 PM</div></div>
+            </div>
+            <div class="step">
+              <div class="marker"><div class="dot current"><span class="msy">sync</span></div><div class="bar"></div></div>
+              <div class="txt"><div class="t1">Scheduled for repair</div><div class="t2">Work order issued to Team Alpha · Aug 5</div></div>
+            </div>
+            <div class="step">
+              <div class="marker"><div class="dot upcoming"><span class="msy">radio_button_unchecked</span></div></div>
+              <div class="txt"><div class="t1 muted">Completion &amp; audit</div><div class="t2">Final review and closure</div></div>
+            </div>
+          </div>
+
+          <div class="section-head" style="margin-top:0;">
+            <h2>Official discussion</h2>
+            <span class="discussion-tag"><span class="msy" style="font-size:12px;">visibility</span>Semi-public</span>
+          </div>
+          <div class="discussion-msg">
+            <div class="head"><span class="name">LGU Admin</span><span class="time">1h ago</span></div>
+            <p>We have received your report. A maintenance crew has been scheduled for Aug 8. Please let us know if you have any other concerns.</p>
+          </div>
+          <div class="discussion-lock">
+            <span class="msy">lock</span>
+            <p>This discussion is read-only for other residents. Only the reporter and LGU Admin can send messages.</p>
+          </div>
+          <div class="issue-comment-row">
+            <div class="input-field"><span class="msy">edit</span><input type="text" placeholder="Send a message to LGU Admin…"></div>
+            <div class="chat-send"><span class="msy fill">send</span></div>
+          </div>
+          </div>
+
+          <div id="issue-resolved-block" style="display:none;">
+            <div class="section-head" style="margin-top:0;">
+              <h2>Before &amp; after</h2>
+            </div>
+            <div class="before-after">
+              <div class="ba-frame before">
+                <div class="mini-photo road" id="ba-before-photo"><div class="tex"></div></div>
+                <div class="ba-tag">Before</div>
+              </div>
+              <div class="ba-frame after">
+                <div class="mini-photo road" id="ba-after-photo"><div class="tex"></div></div>
+                <div class="ba-tag after">After</div>
+              </div>
+            </div>
+
+            <div class="resolution-note">
+              <span class="msy fill">verified</span>
+              <div>
+                <div class="rn-head">Official resolution note</div>
+                <p id="resolution-note-text">Maintenance Team Delta replaced the faulty wiring and upgraded the bulb to a high-efficiency LED unit. Thank you for your report!</p>
+              </div>
+            </div>
+
+            <div class="rate-card">
+              <h3>Rate the resolution</h3>
+              <div class="star-row" id="star-row">
+                <span class="msy fill star" data-val="1">star</span>
+                <span class="msy fill star" data-val="2">star</span>
+                <span class="msy fill star" data-val="3">star</span>
+                <span class="msy fill star" data-val="4">star</span>
+                <span class="msy fill star" data-val="5">star</span>
+              </div>
+              <textarea placeholder="Tell us more about the repair..."></textarea>
+              <div class="submit-btn">Submit feedback</div>
+            </div>
+          </div>
+
+          <div class="section-head" style="margin-top:0;">
+            <h2>Timeline logs</h2>
+            <a href="#">See all</a>
+          </div>
+          <div class="timelog-item">
+            <div class="bar"></div>
+            <div class="body">
+              <div class="top"><span class="t1">Maintenance crew scheduled</span><span class="date">Aug 5</span></div>
+              <p>Repair team assigned to sector B-12. Target start date: Aug 8.</p>
+            </div>
+          </div>
+          <div class="timelog-item">
+            <div class="bar"></div>
+            <div class="body">
+              <div class="top"><span class="t1">Inspector assigned</span><span class="date">Aug 3</span></div>
+              <p>Engr. Santos has been assigned to verify this report.</p>
+            </div>
+          </div>
+          <div class="timelog-item">
+            <div class="bar"></div>
+            <div class="body">
+              <div class="top"><span class="t1">Report submitted</span><span class="date">Aug 2</span></div>
+              <p>Citizen report filed with photo evidence and GPS coordinates.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ PROFILE ============ -->
+      <div class="screen-panel" id="panel-profile">
+        <div class="content" id="profile-content" style="padding-top:0;">
+          <div class="profile-hero">
+            <div class="profile-hero-top">
+              <span class="eyebrow-lt">Account</span>
+              <div class="hero-icon-btn"><span class="msy">settings</span></div>
+            </div>
+            <div class="profile-hero-body">
+              <div class="avatar-wrap">
+                <div class="avatar-lg">EM</div>
+                <div class="avatar-edit"><span class="msy fill">photo_camera</span></div>
+              </div>
+              <div>
+                <div class="profile-name2">Elena Marasigan <span class="msy fill verified-tick" title="Identity verified">verified</span></div>
+                <div class="profile-sub">Member since Feb 2026</div>
+              </div>
+            </div>
+            <div class="profile-chip-row">
+              <span class="chip-outline"><span class="msy">location_on</span>Barangay Central</span>
+              <span class="chip-outline gold"><span class="msy fill">military_tech</span>Top reporter</span>
+            </div>
+          </div>
+
+          <div class="stat-mini-row">
+            <div class="stat-mini"><span class="msy fill">description</span><div class="num">12</div><div class="lbl">Reports filed</div></div>
+            <div class="stat-mini"><span class="msy fill">task_alt</span><div class="num">9</div><div class="lbl">Resolved</div></div>
+            <div class="stat-mini"><span class="msy fill">star</span><div class="num">4.8</div><div class="lbl">Avg. rating given</div></div>
+          </div>
+
+          <div class="verify-card">
+            <span class="msy fill big">verified_user</span>
+            <div>
+              <div class="t1">Identity verified</div>
+              <div class="t2">ID and selfie match confirmed — your reports carry full trust weight.</div>
+            </div>
+          </div>
+
+          <div class="section-lbl2">Activity</div>
+          <div class="menu-card">
+            <div class="menu-row" data-goto="myreports">
+              <div class="icon-sq clay"><span class="msy">description</span></div>
+              <div class="menu-row-txt"><div class="t1">My reports</div><div class="t2">3 open · 9 resolved</div></div>
+              <div class="arrow"><span class="msy">chevron_right</span></div>
+            </div>
+            <div class="menu-row">
+              <div class="icon-sq amber"><span class="msy">star</span></div>
+              <div class="menu-row-txt"><div class="t1">Rate a completed repair</div><div class="t2">1 repair awaiting your feedback</div></div>
+              <div class="arrow"><span class="msy">chevron_right</span></div>
+            </div>
+            <div class="menu-row" data-goto="notifications">
+              <div class="icon-sq navy"><span class="msy">notifications</span></div>
+              <div class="menu-row-txt"><div class="t1">Notifications</div></div>
+              <span class="pill notif" id="profile-notif-badge">3 new</span>
+              <div class="arrow"><span class="msy">chevron_right</span></div>
+            </div>
+          </div>
+
+          <div class="section-lbl2">Support</div>
+          <div class="menu-card">
+            <div class="menu-row" id="open-chat-menu">
+              <div class="icon-sq teal"><span class="msy">chat</span></div>
+              <div class="menu-row-txt"><div class="t1">Chatbot assistant</div><div class="t2">Online · replies in seconds</div></div>
+              <div class="arrow"><span class="msy">chevron_right</span></div>
+            </div>
+            <div class="menu-row">
+              <div class="icon-sq purple"><span class="msy">verified_user</span></div>
+              <div class="menu-row-txt"><div class="t1">Identity verification</div></div>
+              <span class="pill verified">Verified</span>
+            </div>
+          </div>
+
+          <div class="section-lbl2">Preferences</div>
+          <div class="menu-card">
+            <div class="menu-row">
+              <div class="icon-sq navy"><span class="msy">lock</span></div>
+              <div class="menu-row-txt"><div class="t1">Privacy &amp; security</div></div>
+              <div class="arrow"><span class="msy">chevron_right</span></div>
+            </div>
+            <div class="menu-row">
+              <div class="icon-sq navy"><span class="msy">language</span></div>
+              <div class="menu-row-txt"><div class="t1">Language</div><div class="t2">English</div></div>
+              <div class="arrow"><span class="msy">chevron_right</span></div>
+            </div>
+            <div class="menu-row" data-goto="splash">
+              <div class="icon-sq red"><span class="msy">logout</span></div>
+              <div class="menu-row-txt"><div class="t1">Log out</div></div>
+              <div class="arrow"><span class="msy">chevron_right</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ BOTTOM NAV ============ -->
+      <div class="bottomnav" id="bottomnav" style="display:none;">
+        <div class="navitem active" data-panel="home">
+          <div class="ic"><span class="msy fill">home</span></div>
+          <div class="lbl">Home</div>
+        </div>
+        <div class="navitem" data-panel="map">
+          <div class="ic"><span class="msy">map</span></div>
+          <div class="lbl">Map</div>
+        </div>
+        <div class="navitem report" data-panel="report">
+          <div class="ic"><span class="msy fill">add_location_alt</span></div>
+          <div class="lbl">Report</div>
+        </div>
+        <div class="navitem" data-panel="news">
+          <div class="ic"><span class="msy">newspaper</span></div>
+          <div class="lbl">News</div>
+        </div>
+        <div class="navitem" data-panel="profile">
+          <div class="ic"><span class="msy">person</span></div>
+          <div class="lbl">Profile</div>
+        </div>
+      </div>
+
+      <!-- ============ CHATBOT (sticky, floats above all panels) ============ -->
+      <div class="chat-fab" id="chat-fab" style="display:none;">
+        <span class="msy fill">chat</span>
+        <span class="dot"></span>
+      </div>
+
+      <div class="chat-panel" id="chat-panel">
+        <div class="chat-head">
+          <div class="bot-avatar"><span class="msy fill">smart_toy</span></div>
+          <div class="bot-meta">
+            <div class="bot-name">InfraTrack Assistant</div>
+            <div class="bot-status"><span class="pulse"></span> Online · replies in seconds</div>
+          </div>
+          <div class="chat-close" id="chat-close"><span class="msy">close</span></div>
+        </div>
+
+        <div class="chat-body" id="chat-body">
+          <div class="msg bot">Hi Elena 👋 I can help you track a report, check an advisory, or start a new submission. What do you need?</div>
+          <div class="msg user">Any update on the pothole I reported on Rizal St.?</div>
+          <div class="msg bot">Your report <strong>#RZ-1042</strong> is marked <strong>Urgent</strong> and has been forwarded to the City Engineering Office. 214 residents are watching it — you'll get a push notification the moment it moves to "In progress."</div>
+        </div>
+
+        <div class="chat-quick" id="chat-quick">
+          <div class="qchip"><span class="msy">location_searching</span>Track my report</div>
+          <div class="qchip"><span class="msy">add_location_alt</span>Report a new issue</div>
+          <div class="qchip"><span class="msy">campaign</span>Today's advisories</div>
+          <div class="qchip"><span class="msy">support_agent</span>Talk to a person</div>
+        </div>
+
+        <div class="chat-input-row">
+          <div class="chat-input" contenteditable="true" data-placeholder="Message the assistant…" id="chat-input"></div>
+          <div class="chat-send" id="chat-send"><span class="msy fill">send</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  const LUCIDE_ICON_MAP = {
+    add_location_alt:'map-pin-plus', notifications:'bell', arrow_back:'arrow-left',
+    chevron_right:'chevron-right', home:'house', map:'map', newspaper:'newspaper',
+    person:'user-round', search:'search', my_location:'locate-fixed', location_on:'map-pin',
+    construction:'construction', water_drop:'droplets', water_damage:'waves', lightbulb:'lightbulb',
+    chat:'message-circle', smart_toy:'bot', close:'x', send:'send', settings:'settings',
+    logout:'log-out', lock:'lock', lock_open:'lock-open', mail:'mail', call:'phone', key:'key-round',
+    visibility:'eye', visibility_off:'eye-off', verified:'badge-check', verified_user:'shield-check',
+    check:'check', check_circle:'circle-check', task_alt:'circle-check', warning:'triangle-alert',
+    priority_high:'circle-alert', refresh:'refresh-cw', edit:'pencil', photo_camera:'camera',
+    add_a_photo:'camera-plus', face:'scan-face', groups:'users-round', group:'users-round',
+    campaign:'megaphone', support_agent:'headset', travel_explore:'earth', info:'info', sync:'refresh-cw',
+    schedule:'clock-3', hourglass_top:'hourglass', language:'languages', fingerprint:'fingerprint',
+    badge:'badge', shield:'shield', directions_car:'car-front', how_to_vote:'vote', flight:'plane',
+    school:'school', wb_sunny:'sun', block:'ban', crop_free:'scan', radio_button_unchecked:'circle',
+    build:'wrench', engineering:'hard-hat', gif_box:'file-video', collections:'images',
+    image_search:'image-search', notifications_off:'bell-off', merge:'git-merge', description:'file-text',
+    military_tech:'medal', park:'trees', location_searching:'map-pin'
+  };
+
+  function convertMaterialIcons(root = document){
+    root.querySelectorAll('.msy').forEach(icon => {
+      const name = icon.textContent.trim();
+      const lucideName = LUCIDE_ICON_MAP[name];
+      if (!lucideName) return;
+      icon.dataset.lucide = lucideName;
+      icon.dataset.lucideConverted = 'true';
+    });
+    if (window.lucide) {
+      window.lucide.createIcons({
+        root,
+        attrs:{'stroke-width':'2.1'}
+      });
+    }
+  }
+
+  convertMaterialIcons();
+  const lucideObserver = new MutationObserver(() => convertMaterialIcons());
+  lucideObserver.observe(document.body, {childList:true, subtree:true, characterData:true});
+
+  const DARK_PANELS = new Set(['splash','verify-selfie']);
+  const bottomnav = document.getElementById('bottomnav');
+  const chatFab = document.getElementById('chat-fab');
+  const statusbar = document.getElementById('statusbar');
+  const navItems = document.querySelectorAll('.navitem');
+  const allPanels = document.querySelectorAll('.screen-panel');
+
+  let currentPanel = 'splash';
+  let issueReturnTo = 'home';
+  let notifReturnTo = 'home';
+  let isTourist = false;
+
+  function applyTouristMode(){
+    document.getElementById('tourist-banner').style.display = isTourist ? 'flex' : 'none';
+    document.getElementById('home-greeting').textContent = isTourist ? 'Welcome, explorer' : 'Good morning, Elena';
+    const spotlight = document.getElementById('update-spotlight');
+    if (spotlight) spotlight.style.display = isTourist ? 'none' : 'flex';
+    const bell = document.getElementById('bell-btn');
+    if (bell) bell.style.display = isTourist ? 'none' : 'flex';
+    const reportNav = document.querySelector('.navitem.report');
+    if (reportNav) reportNav.classList.toggle('locked', isTourist);
+  }
+
+  function showPanel(key){
+    allPanels.forEach(p => p.classList.remove('active'));
+    const target = document.getElementById('panel-' + key);
+    if (target) target.classList.add('active');
+
+    statusbar.classList.toggle('on-dark', DARK_PANELS.has(key));
+
+    // main app panels reveal bottom nav + chat fab; detail/auth panels hide them
+    const mainPanels = ['home','map','report','news','profile'];
+    if (mainPanels.includes(key)){
+      bottomnav.style.display = 'flex';
+      chatFab.style.display = 'flex';
+      navItems.forEach(n => n.classList.remove('active'));
+      const navMatch = document.querySelector('.navitem[data-panel="' + key + '"]');
+      if (navMatch) navMatch.classList.add('active');
+    } else {
+      bottomnav.style.display = 'none';
+      chatFab.style.display = 'none';
+      closeChat();
+    }
+
+    currentPanel = key;
+  }
+
+  document.querySelectorAll('[data-goto]').forEach(el => {
+    el.addEventListener('click', () => {
+      if (el.dataset.tourist === '1') isTourist = true;
+      if (el.dataset.finish === '1') isTourist = false;
+      if (el.dataset.goto === 'notifications') notifReturnTo = currentPanel;
+      applyTouristMode();
+      showPanel(el.dataset.goto);
+    });
+  });
+
+  // Bottom nav: tourists tapping "Report" get redirected to the locked/upsell screen
+  navItems.forEach(item => {
+    item.addEventListener('click', () => {
+      if (isTourist && item.dataset.panel === 'report'){
+        showPanel('report-locked');
+        navItems.forEach(n => n.classList.remove('active'));
+        return;
+      }
+      showPanel(item.dataset.panel);
+    });
+  });
+
+  // Report cards (Home + My Reports) open the Issue Details screen
+  const statusMeta = {
+    urgent:   { icon:'warning',  label:'Urgent',      pillClass:'urgent'   },
+    progress: { icon:'build',    label:'In Progress', pillClass:'progress' },
+    pending:  { icon:'schedule', label:'Reported',    pillClass:'pending'  },
+    resolved: { icon:'verified', label:'Resolved',    pillClass:'resolved' }
+  };
+
+  function populateIssue(card){
+    const d = card.dataset;
+    const meta = statusMeta[d.status] || statusMeta.pending;
+
+    document.getElementById('issue-title').textContent = d.title;
+    document.getElementById('issue-loc').innerHTML = '<span class="msy">location_on</span> ' + d.loc;
+    document.getElementById('issue-idline').textContent = 'Report ID: #' + d.id +
+      (d.status === 'resolved' ? ' · Fixed on ' + d.fixed : ' · Filed ' + d.date);
+    document.getElementById('issue-followers').innerHTML = '<span class="msy">group</span> ' + d.followers + ' followers';
+    document.getElementById('issue-views').innerHTML = '<span class="msy">visibility</span> ' + d.views + ' views';
+
+    const heroPhoto = document.getElementById('issue-hero-photo');
+    heroPhoto.className = 'mini-photo ' + d.cat;
+    heroPhoto.style.width = '100%'; heroPhoto.style.height = '100%'; heroPhoto.style.borderRadius = '18px';
+    heroPhoto.innerHTML = '<div class="tex"></div>';
+
+    const pill = document.getElementById('issue-status-pill');
+    pill.className = 'issue-status-pill ' + meta.pillClass;
+    pill.innerHTML = '<span class="msy fill">' + meta.icon + '</span> ' + meta.label;
+
+    const progressBlock = document.getElementById('issue-progress-block');
+    const resolvedBlock = document.getElementById('issue-resolved-block');
+
+    if (d.status === 'resolved'){
+      progressBlock.style.display = 'none';
+      resolvedBlock.style.display = 'block';
+      const before = document.getElementById('ba-before-photo');
+      const after = document.getElementById('ba-after-photo');
+      before.className = 'mini-photo ' + d.cat;
+      after.className = 'mini-photo ' + d.cat;
+      before.innerHTML = '<div class="tex"></div>';
+      after.innerHTML = '<div class="tex"></div>';
+      document.getElementById('resolution-note-text').textContent = d.note || '';
+      document.querySelectorAll('#star-row .star').forEach(s => s.classList.remove('active'));
+    } else {
+      progressBlock.style.display = 'block';
+      resolvedBlock.style.display = 'none';
+    }
+  }
+
+  document.querySelectorAll('.report-card').forEach(card => {
+    card.addEventListener('click', () => {
+      issueReturnTo = currentPanel;
+      populateIssue(card);
+      showPanel('issue');
+    });
+  });
+
+  // Star rating on the resolved-issue feedback card
+  document.querySelectorAll('#star-row .star').forEach(star => {
+    star.addEventListener('click', () => {
+      const val = parseInt(star.dataset.val, 10);
+      document.querySelectorAll('#star-row .star').forEach(s => {
+        s.classList.toggle('active', parseInt(s.dataset.val, 10) <= val);
+      });
+    });
+  });
+
+  const issueBack = document.getElementById('issue-back');
+  if (issueBack) issueBack.addEventListener('click', () => showPanel(issueReturnTo));
+
+  const notifBack = document.getElementById('notif-back');
+  if (notifBack) notifBack.addEventListener('click', () => showPanel(notifReturnTo));
+
+  // Home spotlight card -> jump straight to that report's issue detail
+  const spotlightEl = document.getElementById('update-spotlight');
+  if (spotlightEl) spotlightEl.addEventListener('click', () => {
+    const id = spotlightEl.dataset.issueId;
+    const card = document.querySelector('.report-card[data-id="' + id + '"]');
+    if (card){
+      issueReturnTo = 'home';
+      populateIssue(card);
+      showPanel('issue');
+    }
+  });
+
+  // Notifications list -> mark read, then route to the related issue or news
+  function updateNotifBadge(){
+    const count = document.querySelectorAll('.notif-item.unread').length;
+    const dot = document.getElementById('bell-dot');
+    if (dot){
+      dot.textContent = count;
+      dot.classList.toggle('hidden', count === 0);
+    }
+    const profileBadge = document.getElementById('profile-notif-badge');
+    if (profileBadge){
+      profileBadge.textContent = count + ' new';
+      profileBadge.style.opacity = count === 0 ? '0' : '1';
+    }
+  }
+
+  document.querySelectorAll('.notif-item').forEach(item => {
+    item.addEventListener('click', () => {
+      item.classList.remove('unread');
+      updateNotifBadge();
+      if (item.dataset.panel){
+        showPanel(item.dataset.panel);
+        return;
+      }
+      const id = item.dataset.issueId;
+      const card = document.querySelector('.report-card[data-id="' + id + '"]');
+      if (card){
+        issueReturnTo = 'notifications';
+        populateIssue(card);
+        showPanel('issue');
+      }
+    });
+  });
+  updateNotifBadge();
+
+  // Notification category filtering
+  (function initNotifFilters(){
+    const filterRow = document.getElementById('notif-filter-row');
+    if (!filterRow) return;
+    const chips = Array.from(filterRow.querySelectorAll('.chip'));
+    const items = Array.from(document.querySelectorAll('#panel-notifications .notif-item'));
+    const groupLbls = Array.from(document.querySelectorAll('#panel-notifications .notif-group-lbl'));
+    const emptyState = document.getElementById('notif-empty');
+
+    function countFor(cat){
+      if (cat === 'all') return items.length;
+      return items.filter(i => i.dataset.category === cat).length;
+    }
+    chips.forEach(chip => {
+      const tag = chip.querySelector('.notif-count-chip');
+      if (tag) tag.textContent = countFor(chip.dataset.notifFilter);
+    });
+
+    function applyFilter(cat){
+      let visibleCount = 0;
+      items.forEach(item => {
+        const match = (cat === 'all') || (item.dataset.category === cat);
+        item.style.display = match ? 'flex' : 'none';
+        if (match) visibleCount++;
+      });
+      groupLbls.forEach(lbl => {
+        const group = lbl.dataset.group;
+        const hasVisible = items.some(i => i.dataset.group === group &&
+          ((cat === 'all') || (i.dataset.category === cat)));
+        lbl.classList.toggle('show', hasVisible);
+      });
+      if (emptyState) emptyState.classList.toggle('show', visibleCount === 0);
+    }
+
+    chips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        chips.forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        applyFilter(chip.dataset.notifFilter);
+      });
+    });
+
+    applyFilter('all');
+  })();
+
+  // News page: filter by content category (Repairs / Construction / Maintenance / Advisories)
+  (function initNewsFilters(){
+    const filterRow = document.getElementById('news-filter-row');
+    if (!filterRow) return;
+    const chips = Array.from(filterRow.querySelectorAll('.chip'));
+    const posts = Array.from(document.querySelectorAll('#panel-news [data-category]'));
+    const groupLbls = Array.from(document.querySelectorAll('#panel-news .news-section-lbl'));
+    const emptyState = document.getElementById('news-empty');
+
+    function applyFilter(cat){
+      let visibleCount = 0;
+      posts.forEach(post => {
+        const match = (cat === 'all') || (post.dataset.category === cat);
+        post.style.display = match ? '' : 'none';
+        if (match) visibleCount++;
+      });
+      groupLbls.forEach(lbl => {
+        const group = lbl.dataset.newsGroup;
+        const hasVisible = posts.some(p => p.dataset.newsGroup === group &&
+          ((cat === 'all') || (p.dataset.category === cat)));
+        lbl.style.display = hasVisible ? '' : 'none';
+      });
+      if (emptyState) emptyState.classList.toggle('show', visibleCount === 0);
+    }
+
+    chips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        chips.forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        applyFilter(chip.dataset.newsFilter);
+      });
+    });
+
+    // Tapping a GIF card simulates opening the source video
+    posts.forEach(post => {
+      if (post.querySelector('.media-type-badge.gif')){
+        post.addEventListener('click', () => {
+          post.style.outline = '2px solid var(--clay)';
+          setTimeout(() => { post.style.outline = 'none'; }, 260);
+        });
+      }
+
+    });
+
+    applyFilter('all');
+  })();
+
+  // Similar/duplicate reports on the Report screen
+  document.querySelectorAll('.follow-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const following = btn.classList.toggle('following');
+      btn.textContent = following ? 'Following' : 'Follow';
+    });
+  });
+  document.querySelectorAll('.similar-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const id = card.dataset.issueId;
+      const target = document.querySelector('.report-card[data-id="' + id + '"]');
+      if (target){
+        issueReturnTo = 'report';
+        populateIssue(target);
+        showPanel('issue');
+      }
+    });
+  });
+
+  // ID upload boxes toggle a "filled" state to simulate a captured document
+  ['id-front','id-back'].forEach(id => {
+    const box = document.getElementById(id);
+    if (!box) return;
+    box.addEventListener('click', () => {
+      const filled = box.classList.toggle('filled');
+      box.querySelector('.ic .msy').textContent = filled ? 'check_circle' : 'add_a_photo';
+      box.querySelector('.t1').textContent = filled ? 'Captured' : box.dataset.label || (id === 'id-front' ? 'Front side' : 'Back side');
+    });
+  });
+
+  // category selection toggle on report screen
+  document.querySelectorAll('.cat-item').forEach(cat => {
+    cat.addEventListener('click', () => {
+      document.querySelectorAll('.cat-item').forEach(c => c.classList.remove('selected'));
+      cat.classList.add('selected');
+    });
+  });
+
+  // ID type chip toggle
+  document.querySelectorAll('.idtype-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.idtype-chip').forEach(c => c.classList.remove('selected'));
+      chip.classList.add('selected');
+    });
+  });
+
+  // filter chip toggle (home screen + my reports screen)
+  document.querySelectorAll('.chip').forEach(chip => {
+    if (chip.classList.contains('idtype-chip')) return;
+    if (chip.closest('#notif-filter-row')) return;
+    if (chip.closest('#news-filter-row')) return;
+    chip.addEventListener('click', () => {
+      chip.parentElement.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+    });
+  });
+
+  // ---- Sticky chatbot ----
+  const chatPanel = document.getElementById('chat-panel');
+  const chatClose = document.getElementById('chat-close');
+  const chatBody = document.getElementById('chat-body');
+  const chatInput = document.getElementById('chat-input');
+  const chatSend = document.getElementById('chat-send');
+  const openChatMenu = document.getElementById('open-chat-menu');
+
+  function openChat(){
+    chatPanel.classList.add('open');
+    chatFab.style.display = 'none';
+    chatBody.scrollTop = chatBody.scrollHeight;
+  }
+  function closeChat(){
+    chatPanel.classList.remove('open');
+  }
+
+  chatFab.addEventListener('click', openChat);
+  chatClose.addEventListener('click', closeChat);
+  if (openChatMenu) openChatMenu.addEventListener('click', openChat);
+
+  function addMessage(text, from){
+    const el = document.createElement('div');
+    el.className = 'msg ' + from;
+    el.textContent = text;
+    chatBody.appendChild(el);
+    chatBody.scrollTop = chatBody.scrollHeight;
+  }
+
+  function botReplyTo(text){
+    const t = text.toLowerCase();
+    let reply = "Got it — I've logged that. A city staff member will follow up here shortly.";
+    if (t.includes('track') || t.includes('report')) {
+      reply = "Sure — which report? You can also open the Home tab to see all 3 of your open reports at a glance.";
+    } else if (t.includes('advisor') || t.includes('flood') || t.includes('water')) {
+      reply = "There's a flash flood advisory active for low-lying barangays near Mati River tonight, plus a scheduled water interruption in Barangay Central from 1–6 PM. Check the News tab for details.";
+    } else if (t.includes('person') || t.includes('human') || t.includes('agent')) {
+      reply = "Connecting you to the City Engineering Office helpdesk — they typically respond within office hours (8 AM–5 PM).";
+    } else if (t.includes('verif') || t.includes('id') || t.includes('selfie')) {
+      reply = "Verification checks your ID photo against your selfie so reports can't be filed under fake accounts. It usually finishes in under 2 minutes.";
+    }
+    setTimeout(() => addMessage(reply, 'bot'), 550);
+  }
+
+  function sendMessage(){
+    const text = chatInput.textContent.trim();
+    if (!text) return;
+    addMessage(text, 'user');
+    chatInput.textContent = '';
+    botReplyTo(text);
+  }
+
+  chatSend.addEventListener('click', sendMessage);
+  chatInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  document.querySelectorAll('.qchip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      addMessage(chip.textContent, 'user');
+      botReplyTo(chip.textContent);
+    });
+  });
+
+  // ---- Rotating media carousel (reusable: home "recently fixed" + news "featured") ----
+  function initMediaCarousel(trackId, dotsId, intervalMs){
+    const track = document.getElementById(trackId);
+    const dotsWrap = document.getElementById(dotsId);
+    if (!track || !dotsWrap) return;
+    const slides = Array.from(track.querySelectorAll('.media-slide'));
+    if (!slides.length) return;
+
+    dotsWrap.innerHTML = '';
+    slides.forEach((_, i) => {
+      const d = document.createElement('div');
+      d.className = 'md' + (i === 0 ? ' active' : '');
+      d.addEventListener('click', () => goTo(i));
+      dotsWrap.appendChild(d);
+    });
+    const dots = Array.from(dotsWrap.children);
+
+    let idx = 0;
+    let timer = null;
+
+    function goTo(i){
+      slides[idx].classList.remove('active');
+      dots[idx].classList.remove('active');
+      idx = (i + slides.length) % slides.length;
+      slides[idx].classList.add('active');
+      dots[idx].classList.add('active');
+    }
+
+    function start(){
+      stop();
+      timer = setInterval(() => goTo(idx + 1), intervalMs);
+    }
+    function stop(){
+      if (timer) clearInterval(timer);
+    }
+
+    track.addEventListener('mouseenter', stop);
+    track.addEventListener('mouseleave', start);
+    start();
+  }
+
+  initMediaCarousel('media-track', 'media-dots', 3800);
+  initMediaCarousel('news-hero-track', 'news-hero-dots', 4200);
+
+  // ---- Rotating photo galleries embedded inside News media-post cards ----
+  function initPostGallery(galleryId, dotsId, intervalMs){
+    const gallery = document.getElementById(galleryId);
+    const dotsWrap = document.getElementById(dotsId);
+    if (!gallery || !dotsWrap) return;
+    const slides = Array.from(gallery.querySelectorAll('.post-gallery-slide'));
+    if (!slides.length) return;
+
+    dotsWrap.innerHTML = '';
+    slides.forEach((_, i) => {
+      const d = document.createElement('div');
+      d.className = 'pgd' + (i === 0 ? ' active' : '');
+      dotsWrap.appendChild(d);
+    });
+    const dots = Array.from(dotsWrap.children);
+
+    let idx = 0;
+    setInterval(() => {
+      slides[idx].classList.remove('active');
+      dots[idx].classList.remove('active');
+      idx = (idx + 1) % slides.length;
+      slides[idx].classList.add('active');
+      dots[idx].classList.add('active');
+    }, intervalMs);
+  }
+
+  initPostGallery('gallery-rizal', 'gallery-rizal-dots', 2600);
+
+
+  // start on splash
+  showPanel('splash');
+</script>
+
+</body>
+</html>

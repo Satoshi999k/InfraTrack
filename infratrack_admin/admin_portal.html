@@ -1,0 +1,1767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>InfraTrack Admin — City Engineering Office, Mati</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Expanded:wght@600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#0E3A4C;
+    --navy-deep:#092732;
+    --teal:#1B8A83;
+    --teal-soft:#E4F2F0;
+    --clay:#C1592B;
+    --clay-soft:#FBE9DF;
+    --sand:#F3EFE6;
+    --ink:#17231F;
+    --ink-soft:#5B6B67;
+    --line:#DDD8CB;
+    --white:#FFFFFF;
+    --amber:#D99A2B;
+    --amber-soft:#FBEED6;
+    --green:#3C8A5F;
+    --green-soft:#E3F1E8;
+    --red:#B33A3A;
+    --red-soft:#F8E3E1;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:#EAE6DA;
+    font-family:'Inter',sans-serif;
+    color:var(--ink);
+  }
+  .msy{
+    font-family:'Material Symbols Outlined';
+    font-weight:normal; font-style:normal; font-size:20px; line-height:1;
+    display:inline-block; -webkit-font-smoothing:antialiased;
+    font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 22;
+  }
+  .msy.fill{ font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 22; }
+  a{color:inherit; text-decoration:none;}
+  button{font-family:inherit;}
+
+  /* ============ APP SHELL ============ */
+  .app{
+    display:grid;
+    grid-template-columns:248px 1fr;
+    min-height:100vh;
+  }
+
+  /* ---- Sidebar ---- */
+  .sidebar{
+    background:var(--navy-deep);
+    color:#fff;
+    display:flex;
+    flex-direction:column;
+    padding:22px 14px;
+    position:sticky;
+    top:0;
+    height:100vh;
+  }
+  .brand{ display:flex; align-items:center; gap:11px; padding:6px 8px 22px; }
+  .brand .mark{ width:38px; height:38px; border-radius:11px; background:var(--clay); display:flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 6px 14px -4px rgba(193,89,43,.55); }
+  .brand .mark .msy{ font-size:20px; color:#fff; }
+  .brand .word{ font-family:'Archivo Expanded',sans-serif; font-size:15.5px; font-weight:800; letter-spacing:-.01em; line-height:1.15; }
+  .brand .sub{ font-family:'IBM Plex Mono',monospace; font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:#7FA6AE; margin-top:2px; }
+
+  .nav-group-lbl{ font-family:'IBM Plex Mono',monospace; font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:#4E7078; padding:14px 12px 8px; }
+  .navlink{ display:flex; align-items:center; gap:11px; padding:10px 12px; border-radius:11px; font-size:13px; font-weight:600; color:#B9CBD1; cursor:pointer; }
+  .navlink .msy{ font-size:19px; color:#7FA6AE; }
+  .navlink:hover{ background:rgba(255,255,255,.05); color:#fff; }
+  .navlink.active{ background:var(--teal); color:#fff; box-shadow:0 6px 14px -6px rgba(27,138,131,.7); }
+  .navlink.active .msy{ color:#fff; }
+  .navlink .count{ margin-left:auto; font-family:'IBM Plex Mono',monospace; font-size:10.5px; background:rgba(255,255,255,.1); padding:2px 7px; border-radius:100px; }
+  .navlink.active .count{ background:rgba(255,255,255,.22); }
+
+  .sidebar-spacer{ flex:1; }
+  .sidebar-foot{ border-top:1px solid rgba(255,255,255,.09); padding-top:10px; }
+
+  /* ---- Main column ---- */
+  .main{ display:flex; flex-direction:column; min-width:0; }
+
+  .topbar{
+    display:flex; align-items:center; gap:16px;
+    padding:16px 30px; background:var(--white); border-bottom:1px solid var(--line);
+    position:sticky; top:0; z-index:40;
+  }
+  .topbar h1{ font-family:'Archivo Expanded',sans-serif; font-size:19px; font-weight:800; color:var(--navy); white-space:nowrap; }
+  .topbar .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--teal); font-weight:600; margin-bottom:2px; }
+  .search-box{ flex:1; max-width:380px; display:flex; align-items:center; gap:8px; background:var(--sand); border:1px solid var(--line); border-radius:11px; padding:9px 13px; color:var(--ink-soft); font-size:12.5px; }
+  .search-box .msy{ font-size:17px; }
+  .topbar-actions{ display:flex; align-items:center; gap:10px; margin-left:auto; }
+  .icon-btn{ width:38px; height:38px; border-radius:11px; background:var(--sand); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; color:var(--navy); cursor:pointer; position:relative; }
+  .icon-btn .msy{font-size:19px;}
+  .icon-btn .dot{ position:absolute; top:6px; right:7px; width:7px; height:7px; border-radius:50%; background:var(--clay); border:1.5px solid #fff; }
+  .btn-primary{ background:var(--clay); color:#fff; border:none; display:flex; align-items:center; gap:7px; padding:10px 16px; border-radius:11px; font-weight:700; font-size:13px; cursor:pointer; box-shadow:0 8px 16px -6px rgba(193,89,43,.5); white-space:nowrap; }
+  .btn-primary .msy{font-size:17px;}
+  .btn-secondary{ background:var(--white); border:1.5px solid var(--line); color:var(--navy); display:inline-flex; align-items:center; gap:7px; padding:9px 15px; border-radius:11px; font-weight:700; font-size:12.5px; cursor:pointer; }
+  .btn-secondary .msy{font-size:16px;}
+  .avatar-sm{ width:38px; height:38px; border-radius:11px; background:var(--navy); color:#fff; display:flex; align-items:center; justify-content:center; font-family:'Archivo Expanded',sans-serif; font-weight:700; font-size:13px; flex-shrink:0; }
+
+  .content{ padding:26px 30px 60px; flex:1; }
+  .page{ display:none; }
+  .page.active{ display:block; }
+
+  /* ---- KPI cards ---- */
+  .kpi-row{ display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:22px; }
+  .kpi-card{ background:var(--white); border:1px solid var(--line); border-radius:18px; padding:18px 20px; }
+  .kpi-top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+  .kpi-icon{ width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; }
+  .kpi-icon .msy{ font-size:18px; }
+  .kpi-icon.blue{ background:var(--teal-soft); color:var(--teal); }
+  .kpi-icon.clay{ background:var(--clay-soft); color:var(--clay); }
+  .kpi-icon.green{ background:var(--green-soft); color:var(--green); }
+  .kpi-icon.amber{ background:var(--amber-soft); color:#93641A; }
+  .kpi-tag{ font-size:11px; font-weight:700; padding:3px 9px; border-radius:100px; }
+  .kpi-tag.up{ background:var(--green-soft); color:var(--green); }
+  .kpi-tag.warn{ background:var(--clay-soft); color:var(--clay); }
+  .kpi-tag.info{ background:var(--teal-soft); color:var(--teal); }
+  .kpi-tag.neutral{ background:var(--sand); color:var(--ink-soft); }
+  .kpi-lbl{ font-size:12px; color:var(--ink-soft); font-weight:600; margin-bottom:4px; }
+  .kpi-num{ font-family:'Archivo Expanded',sans-serif; font-size:29px; font-weight:800; color:var(--navy); line-height:1; }
+
+  /* ---- Panels / cards ---- */
+  .grid-2{ display:grid; grid-template-columns:1.7fr 1fr; gap:18px; align-items:start; }
+  .card{ background:var(--white); border:1px solid var(--line); border-radius:18px; padding:20px; }
+  .card-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+  .card-head h2{ font-family:'Archivo Expanded',sans-serif; font-size:15.5px; font-weight:700; color:var(--navy); }
+  .card-head .link{ font-size:12px; color:var(--teal); font-weight:700; cursor:pointer; }
+  .subtle{ font-size:11.5px; color:var(--ink-soft); }
+
+  /* ---- Map ---- */
+  .map-card{ padding:0; overflow:hidden; }
+  .map-toolbar{ display:flex; align-items:center; gap:10px; padding:16px 20px; border-bottom:1px solid var(--line); }
+  .map-toolbar h2{ font-family:'Archivo Expanded',sans-serif; font-size:15.5px; font-weight:700; color:var(--navy); margin-right:auto; }
+  .seg-chip{ font-size:11.5px; font-weight:600; padding:6px 12px; border-radius:100px; border:1px solid var(--line); background:var(--sand); color:var(--ink-soft); cursor:pointer; white-space:nowrap; }
+  .seg-chip.active{ background:var(--navy); border-color:var(--navy); color:#fff; }
+  .map-area{ position:relative; height:460px; background:#EAE7DD; }
+  .map-svg{ position:absolute; inset:0; width:100%; height:100%; display:block; }
+  .map-label{ font-family:'Inter',sans-serif; fill:#6B6456; font-weight:600; }
+  .map-label.hwy{ fill:#8A6A2A; font-weight:700; }
+
+  .pin{ position:absolute; width:40px; height:40px; transform:translate(-50%,-100%); cursor:pointer; }
+  .pin .ring{ width:40px; height:40px; border-radius:50% 50% 50% 4px; transform:rotate(-45deg); display:flex; align-items:center; justify-content:center; box-shadow:0 6px 14px rgba(9,39,50,.28); border:3px solid #fff; overflow:hidden; }
+  .pin .ring .thumb{ width:100%; height:100%; transform:rotate(45deg) scale(1.5); }
+  .pin.critical .ring{ border-color:var(--red); }
+  .pin.high .ring{ border-color:var(--amber); }
+  .pin.medium .ring{ border-color:#E3D08C; }
+  .pin.low .ring{ border-color:var(--green); }
+  .pin .sev-dot{ position:absolute; top:-3px; right:-3px; width:13px; height:13px; border-radius:50%; border:2px solid #fff; }
+  .pin.critical .sev-dot{ background:var(--red); }
+  .pin.high .sev-dot{ background:var(--amber); }
+  .pin.medium .sev-dot{ background:#E3D08C; }
+  .pin.low .sev-dot{ background:var(--green); }
+  .pin:hover .ring{ transform:rotate(-45deg) scale(1.08); }
+
+  .map-search-float{ position:absolute; top:14px; left:14px; width:250px; background:var(--white); border-radius:12px; padding:10px 13px; display:flex; align-items:center; gap:8px; box-shadow:0 6px 18px rgba(9,39,50,.12); font-size:12px; color:var(--ink-soft); font-weight:500; z-index:5; }
+  .map-search-float .msy{font-size:17px;}
+  .map-legend-float{ position:absolute; bottom:14px; left:14px; background:var(--white); border-radius:14px; padding:12px 14px; box-shadow:0 6px 18px rgba(9,39,50,.12); z-index:5; }
+  .map-legend-float .ttl{ font-size:10.5px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:8px; }
+  .map-legend-float .row{ display:flex; align-items:center; gap:8px; font-size:11.5px; color:var(--ink); font-weight:500; margin-top:6px; }
+  .map-legend-float .row:first-of-type{margin-top:0;}
+  .legend-dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+
+  /* ---- Activity feed ---- */
+  .activity-item{ display:flex; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); }
+  .activity-item:last-child{ border-bottom:none; padding-bottom:0; }
+  .activity-item:first-child{ padding-top:0; }
+  .activity-ic{ width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .activity-ic .msy{ font-size:17px; }
+  .activity-ic.done{ background:var(--green-soft); color:var(--green); }
+  .activity-ic.assign{ background:var(--amber-soft); color:#93641A; }
+  .activity-ic.data{ background:var(--teal-soft); color:var(--teal); }
+  .activity-ic.new{ background:var(--clay-soft); color:var(--clay); }
+  .activity-body .t1{ font-size:12.5px; font-weight:700; color:var(--ink); line-height:1.35; }
+  .activity-body .t2{ font-size:11.5px; color:var(--ink-soft); margin-top:2px; line-height:1.4; }
+  .activity-body .t3{ font-family:'IBM Plex Mono',monospace; font-size:10px; color:#93A29D; margin-top:4px; }
+
+  /* ---- Category chart (mini bar) ---- */
+  .bar-row{ display:flex; align-items:center; gap:10px; margin-top:12px; }
+  .bar-row:first-of-type{margin-top:0;}
+  .bar-row .lbl{ width:78px; font-size:11.5px; font-weight:600; color:var(--ink-soft); flex-shrink:0; }
+  .bar-track{ flex:1; height:9px; background:var(--sand); border-radius:100px; overflow:hidden; }
+  .bar-fill{ height:100%; border-radius:100px; }
+  .bar-row .val{ width:32px; text-align:right; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ink-soft); flex-shrink:0; }
+
+  /* ---- Filters row (issue queue) ---- */
+  .filter-bar{ display:flex; align-items:center; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
+  .chip{ font-size:12px; font-weight:600; padding:7px 14px; border-radius:100px; border:1px solid var(--line); background:var(--white); color:var(--ink-soft); cursor:pointer; white-space:nowrap; }
+  .chip.active{ background:var(--navy); border-color:var(--navy); color:#fff; }
+  .filter-spacer{ flex:1; }
+  .select-mini{ border:1px solid var(--line); border-radius:10px; padding:8px 12px; font-size:12px; color:var(--ink); background:var(--white); font-family:'Inter',sans-serif; }
+
+  /* ---- Table ---- */
+  .table-wrap{ overflow-x:auto; }
+  table.data{ width:100%; border-collapse:collapse; min-width:920px; }
+  table.data thead th{ text-align:left; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); padding:0 14px 10px; border-bottom:1px solid var(--line); }
+  table.data tbody td{ padding:13px 14px; font-size:12.5px; color:var(--ink); border-bottom:1px solid var(--line); vertical-align:middle; }
+  table.data tbody tr{ cursor:pointer; }
+  table.data tbody tr:hover td{ background:var(--sand); }
+  table.data tbody tr:last-child td{ border-bottom:none; }
+  .row-issue{ display:flex; align-items:center; gap:11px; }
+  .row-thumb{ width:38px; height:38px; border-radius:9px; flex-shrink:0; }
+  .row-issue .ti{ font-weight:700; font-size:12.5px; color:var(--ink); }
+  .row-issue .tg{ font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--ink-soft); margin-top:2px; }
+  .badge{ display:inline-flex; align-items:center; gap:5px; font-size:10.5px; font-weight:700; padding:4px 10px; border-radius:100px; white-space:nowrap; }
+  .badge .msy{ font-size:12px; }
+  .badge.critical{ background:var(--red-soft); color:var(--red); }
+  .badge.high{ background:var(--amber-soft); color:#93641A; }
+  .badge.medium{ background:#FBF6E2; color:#8C7A2C; }
+  .badge.low{ background:var(--green-soft); color:var(--green); }
+  .badge.pending{ background:var(--sand); color:var(--ink-soft); }
+  .badge.progress{ background:var(--teal-soft); color:var(--teal); }
+  .badge.resolved{ background:var(--green-soft); color:var(--green); }
+  .assignee{ display:flex; align-items:center; gap:9px; }
+  .assignee .av{ width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; flex-shrink:0; border:1px solid transparent; }
+  .assignee .av.alpha{ background:var(--clay-soft); color:var(--clay); }
+  .assignee .av.delta{ background:var(--amber-soft); color:#93641A; }
+  .assignee .av.elec{ background:#EFEAF6; color:#7A5FBF; }
+  .assignee .av.water{ background:var(--teal-soft); color:var(--teal); }
+  .assignee .nm{ font-weight:600; font-size:12.5px; color:var(--ink); }
+  .unassigned{ display:flex; align-items:center; gap:9px; }
+  .unassigned .av-empty{ width:28px; height:28px; border-radius:50%; border:1.5px dashed #C7CFC9; display:flex; align-items:center; justify-content:center; color:#B7BDB9; flex-shrink:0; }
+  .unassigned .av-empty .msy{ font-size:15px; }
+  .unassigned .nm{ font-size:12px; color:#98A29D; font-style:italic; }
+  .quick-assign{ margin-left:auto; font-size:11px; font-weight:700; color:var(--teal); padding:4px 10px; border:1px solid var(--teal); border-radius:100px; white-space:nowrap; }
+  .quick-assign:hover{ background:var(--teal-soft); }
+  .row-more{ width:30px; height:30px; border-radius:9px; display:flex; align-items:center; justify-content:center; color:var(--ink-soft); }
+  .row-more:hover{ background:var(--sand); }
+
+  .pagination{ display:flex; align-items:center; justify-content:space-between; margin-top:16px; font-size:11.5px; color:var(--ink-soft); }
+  .pg-btns{ display:flex; gap:6px; }
+  .pg-btn{ width:30px; height:30px; border-radius:8px; border:1px solid var(--line); background:var(--white); display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .pg-btn.active{ background:var(--navy); color:#fff; border-color:var(--navy); font-weight:700; }
+
+  /* ---- Analytics ---- */
+  .grid-3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-bottom:18px; }
+  .sentiment-gauge{ display:flex; flex-direction:column; align-items:center; padding:6px 0 4px; }
+  .sentiment-ring{ width:110px; height:110px; border-radius:50%; position:relative; display:flex; align-items:center; justify-content:center; background:conic-gradient(var(--green) 0deg 317deg, var(--line) 317deg 360deg); margin-bottom:14px; }
+  .sentiment-ring::before{ content:''; position:absolute; inset:12px; border-radius:50%; background:var(--white); }
+  .sentiment-ring .val{ position:relative; font-family:'Archivo Expanded',sans-serif; font-size:26px; font-weight:800; color:var(--navy); }
+  .sentiment-ring .lbl{ position:relative; font-size:10px; color:var(--ink-soft); font-weight:600; margin-top:-2px; }
+  .sentiment-note{ text-align:center; font-size:11.5px; color:var(--ink-soft); margin-top:10px; line-height:1.5; }
+  .rating-bars{ margin-top:4px; }
+  .rbar-row{ display:flex; align-items:center; gap:8px; margin-top:7px; }
+  .rbar-row:first-child{ margin-top:0; }
+  .rbar-lbl{ width:28px; font-size:11px; font-weight:700; color:var(--ink-soft); display:flex; align-items:center; gap:2px; flex-shrink:0; }
+  .rbar-pct{ width:30px; text-align:right; font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--ink-soft); flex-shrink:0; }
+
+  .trend-svg{ width:100%; height:120px; display:block; }
+  .hotspot-item{ display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--line); }
+  .hotspot-item:last-child{ border-bottom:none; padding-bottom:0; }
+  .hotspot-item .rank{ width:22px; height:22px; border-radius:7px; background:var(--sand); color:var(--ink-soft); font-family:'IBM Plex Mono',monospace; font-size:10.5px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .hotspot-item .nm{ font-size:12.5px; font-weight:700; color:var(--ink); }
+  .hotspot-item .ct{ font-size:11px; color:var(--ink-soft); margin-top:1px; }
+  .hotspot-item .cnt{ margin-left:auto; font-family:'IBM Plex Mono',monospace; font-size:12px; font-weight:700; color:var(--clay); }
+
+  .report-gen{ display:flex; align-items:flex-end; gap:12px; flex-wrap:wrap; }
+  .report-gen .field{ flex:1; min-width:150px; }
+  .report-gen label{ font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:6px; display:block; }
+  .report-gen select, .report-gen input{ width:100%; border:1.5px solid var(--line); border-radius:11px; padding:10px 12px; font-family:'Inter',sans-serif; font-size:12.5px; color:var(--ink); background:var(--sand); }
+
+  /* ---- User management ---- */
+  .tab-row{ display:flex; gap:8px; margin-bottom:18px; border-bottom:1px solid var(--line); }
+  .tab-item{ padding:10px 4px; margin-right:20px; font-size:13px; font-weight:700; color:var(--ink-soft); cursor:pointer; border-bottom:2.5px solid transparent; }
+  .tab-item.active{ color:var(--navy); border-color:var(--clay); }
+  .user-cell{ display:flex; align-items:center; gap:10px; }
+  .user-cell .av{ width:34px; height:34px; border-radius:9px; background:var(--navy); color:#fff; display:flex; align-items:center; justify-content:center; font-family:'Archivo Expanded',sans-serif; font-weight:700; font-size:12px; flex-shrink:0; }
+  .user-cell .nm{ font-weight:700; font-size:12.5px; }
+  .user-cell .em{ font-size:11px; color:var(--ink-soft); margin-top:1px; }
+  .verify-pill{ display:inline-flex; align-items:center; gap:5px; font-size:10.5px; font-weight:700; padding:4px 10px; border-radius:100px; }
+  .verify-pill.verified{ background:var(--green-soft); color:var(--green); }
+  .verify-pill.pending{ background:var(--amber-soft); color:#93641A; }
+  .verify-pill.flagged{ background:var(--red-soft); color:var(--red); }
+  .action-row{ display:flex; gap:8px; }
+  .action-btn{ font-size:11.5px; font-weight:700; color:var(--navy); cursor:pointer; padding:6px 12px; border-radius:9px; border:1.5px solid var(--line); background:var(--white); white-space:nowrap; }
+  .action-btn:hover{ background:var(--sand); }
+  .action-btn.primary{ color:var(--teal); border-color:var(--teal); }
+  .action-btn.primary:hover{ background:var(--teal-soft); }
+  .action-btn.danger{ color:var(--red); border-color:var(--red-soft); background:var(--red-soft); }
+  .action-btn.danger:hover{ background:#F3D2CE; }
+
+  /* ---- Account standing (trust & safety) ---- */
+  .acct-pill{ display:inline-flex; align-items:center; gap:5px; font-size:10.5px; font-weight:700; padding:4px 10px; border-radius:100px; white-space:nowrap; }
+  .acct-pill .msy{ font-size:12px; }
+  .acct-pill.active{ background:var(--green-soft); color:var(--green); }
+  .acct-pill.warned{ background:var(--amber-soft); color:#93641A; }
+  .acct-pill.suspended{ background:var(--clay-soft); color:var(--clay); }
+  .acct-pill.banned{ background:var(--red-soft); color:var(--red); }
+
+  .safety-card{ border:1.5px solid var(--line); border-radius:15px; padding:15px 16px; background:var(--sand); }
+  .safety-card.is-warned{ border-color:#EAD394; background:var(--amber-soft); }
+  .safety-card.is-suspended{ border-color:#E8B79B; background:var(--clay-soft); }
+  .safety-card.is-banned{ border-color:#E3A9A5; background:var(--red-soft); }
+  .safety-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
+  .safety-head .lbl{ font-size:10.5px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-soft); }
+  .safety-note{ font-size:11.5px; color:var(--ink-soft); line-height:1.5; margin-top:6px; }
+
+  .safety-actions{ display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
+  .safety-btn{ flex:1; min-width:110px; display:flex; align-items:center; justify-content:center; gap:6px; font-size:11.5px; font-weight:700; padding:9px 10px; border-radius:10px; cursor:pointer; border:1.5px solid transparent; }
+  .safety-btn .msy{ font-size:16px; }
+  .safety-btn.warn{ background:var(--amber-soft); color:#93641A; border-color:#EAD394; }
+  .safety-btn.warn:hover{ background:#F7E4B8; }
+  .safety-btn.suspend{ background:var(--clay-soft); color:var(--clay); border-color:#E8B79B; }
+  .safety-btn.suspend:hover{ background:#F3D2BB; }
+  .safety-btn.ban{ background:var(--red-soft); color:var(--red); border-color:#E3A9A5; }
+  .safety-btn.ban:hover{ background:#F3C6C2; }
+  .safety-btn.reinstate{ background:var(--teal-soft); color:var(--teal); border-color:#A9D6D1; }
+  .safety-btn.reinstate:hover{ background:#CDEAE6; }
+  .safety-btn.selected{ box-shadow:inset 0 0 0 2px currentColor; }
+
+  .safety-form{ display:none; margin-top:14px; padding-top:14px; border-top:1px dashed var(--line); }
+  .safety-form.open{ display:block; }
+  .safety-form select, .safety-form textarea{ width:100%; border:1.5px solid var(--line); border-radius:10px; padding:9px 11px; font-family:'Inter',sans-serif; font-size:12px; color:var(--ink); background:var(--white); margin-bottom:10px; }
+  .safety-form textarea{ height:64px; resize:none; }
+  .safety-form .confirm-btn{ width:100%; text-align:center; justify-content:center; color:#fff; font-weight:700; font-size:12.5px; padding:10px; border-radius:10px; cursor:pointer; }
+  .safety-form .confirm-btn.warn{ background:var(--amber); color:#4A3200; }
+  .safety-form .confirm-btn.suspend{ background:var(--clay); }
+  .safety-form .confirm-btn.ban{ background:var(--red); }
+  .safety-form .confirm-btn.reinstate{ background:var(--teal); }
+
+  .mod-log-item{ display:flex; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); }
+  .mod-log-item:last-child{ border-bottom:none; padding-bottom:0; }
+  .mod-log-item .ic{ width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .mod-log-item .ic .msy{ font-size:15px; }
+  .mod-log-item .ic.warn{ background:var(--amber-soft); color:#93641A; }
+  .mod-log-item .ic.suspend{ background:var(--clay-soft); color:var(--clay); }
+  .mod-log-item .ic.ban{ background:var(--red-soft); color:var(--red); }
+  .mod-log-item .ic.reinstate{ background:var(--teal-soft); color:var(--teal); }
+  .mod-log-item .t1{ font-size:11.5px; font-weight:700; color:var(--ink); }
+  .mod-log-item .t2{ font-size:11px; color:var(--ink-soft); margin-top:1px; line-height:1.4; }
+  .mod-log-item .t3{ font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:#93A29D; margin-top:3px; }
+  .mod-log-empty{ font-size:11.5px; color:var(--ink-soft); font-style:italic; }
+
+  /* ---- Announcements ---- */
+  .grid-announce{ display:grid; grid-template-columns:1fr 1.3fr; gap:18px; align-items:start; }
+  .adv-card{ border-radius:16px; padding:15px 16px; margin-bottom:12px; position:relative; }
+  .adv-card.alert{ background:var(--red-soft); }
+  .adv-card.maint{ background:var(--teal-soft); }
+  .adv-card.gen{ background:var(--white); border:1px solid var(--line); }
+  .adv-tag{ display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; padding:4px 9px; border-radius:7px; margin-bottom:8px; }
+  .adv-tag .msy{font-size:13px;}
+  .adv-tag.alert{background:var(--red); color:#fff;}
+  .adv-tag.maint{background:var(--teal); color:#fff;}
+  .adv-tag.gen{background:var(--navy); color:#fff;}
+  .adv-card h3{ font-family:'Archivo Expanded',sans-serif; font-size:14px; font-weight:700; color:var(--navy); margin-bottom:5px; }
+  .adv-card p{ font-size:12px; color:var(--ink-soft); line-height:1.5; }
+  .adv-foot{ display:flex; align-items:center; justify-content:space-between; margin-top:10px; }
+  .adv-time{ font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:var(--ink-soft); }
+  .adv-actions{ display:flex; gap:12px; }
+  .adv-actions .msy{ font-size:16px; color:var(--ink-soft); cursor:pointer; }
+  .adv-actions .msy:hover{ color:var(--navy); }
+
+  .adv-media-thumb{ position:relative; width:100%; height:110px; border-radius:12px; overflow:hidden; margin-bottom:11px; }
+  .adv-media-thumb img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
+  .adv-media-thumb.gif img{ animation:admin-gif-kb 5.5s ease-in-out infinite alternate; }
+  .adv-media-badge{ position:absolute; top:8px; left:8px; display:inline-flex; align-items:center; gap:4px; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:3px 8px 3px 6px; border-radius:100px; background:rgba(9,39,50,.68); color:#fff; }
+  .adv-media-badge .msy{ font-size:11px; }
+  .adv-media-badge.gif{ background:rgba(193,89,43,.85); }
+
+  .form-group{ margin-bottom:14px; }
+  .form-label{ font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:7px; display:block; }
+  .form-control{ width:100%; border:1.5px solid var(--line); border-radius:11px; padding:11px 13px; font-family:'Inter',sans-serif; font-size:12.5px; color:var(--ink); background:var(--sand); }
+  textarea.form-control{ height:84px; resize:none; }
+  .type-picker{ display:flex; gap:8px; }
+  .type-opt{ flex:1; text-align:center; padding:10px 6px; border-radius:11px; border:1.5px solid var(--line); background:var(--white); font-size:11.5px; font-weight:700; color:var(--ink-soft); cursor:pointer; }
+  .type-opt.selected.alert{ border-color:var(--red); background:var(--red-soft); color:var(--red); }
+  .type-opt.selected.maint{ border-color:var(--teal); background:var(--teal-soft); color:var(--teal); }
+  .type-opt.selected.gen{ border-color:var(--navy); background:var(--sand); color:var(--navy); }
+
+  /* ---- Media attach + video->GIF converter (advisory form) ---- */
+  .media-attach-row{ display:flex; gap:10px; margin-bottom:4px; }
+  .media-attach-box{ flex:1; display:flex; align-items:center; justify-content:center; gap:7px; padding:12px; border:1.5px dashed var(--line); border-radius:12px; background:var(--sand); font-size:12.5px; font-weight:700; color:var(--ink-soft); cursor:pointer; }
+  .media-attach-box .msy{ font-size:18px; }
+  .media-attach-box:hover{ border-color:var(--teal); color:var(--teal); }
+  .media-attach-box.active{ border-color:var(--teal); background:var(--teal-soft); color:var(--teal); border-style:solid; }
+
+  .convert-status{ display:flex; align-items:center; gap:10px; background:var(--teal-soft); border-radius:12px; padding:11px 13px; margin-top:12px; }
+  .convert-status .spin-ic{ width:26px; height:26px; border-radius:50%; border:2.5px solid #B9DED9; border-top-color:var(--teal); animation:admin-spin .9s linear infinite; flex-shrink:0; }
+  .convert-status p{ font-size:11.5px; color:#0E4F49; font-weight:600; }
+  @keyframes admin-spin{ to{ transform:rotate(360deg); } }
+
+  .gif-preview-card{ display:none; margin-top:12px; background:var(--white); border:1px solid var(--line); border-radius:14px; overflow:hidden; }
+  .gif-preview-card.show{ display:block; }
+  .gif-preview-frame{ position:relative; width:100%; height:130px; overflow:hidden; background:var(--navy-deep); }
+  .gif-preview-frame img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; animation:admin-gif-kb 5.5s ease-in-out infinite alternate; }
+  @keyframes admin-gif-kb{
+    0%{ transform:scale(1) translate(0,0); filter:brightness(1) saturate(1); }
+    100%{ transform:scale(1.08) translate(-1.5%,-1%); filter:brightness(1.05) saturate(1.12); }
+  }
+  .gif-preview-badge{ position:absolute; top:9px; left:9px; display:inline-flex; align-items:center; gap:4px; font-size:9.5px; font-weight:800; text-transform:uppercase; padding:4px 9px 4px 7px; border-radius:100px; background:rgba(193,89,43,.88); color:#fff; }
+  .gif-preview-badge .msy{ font-size:12px; }
+  .gif-preview-remove{ position:absolute; top:9px; right:9px; width:24px; height:24px; border-radius:50%; background:rgba(9,39,50,.55); color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .gif-preview-remove .msy{ font-size:14px; }
+  .gif-preview-meta{ padding:10px 13px 12px; }
+  .gif-preview-meta .t1{ font-size:12px; font-weight:700; color:var(--navy); }
+  .gif-preview-meta .t2{ font-size:10.5px; color:var(--ink-soft); margin-top:3px; line-height:1.5; font-family:'IBM Plex Mono',monospace; }
+
+  .photo-attach-preview{ display:none; margin-top:12px; border-radius:14px; overflow:hidden; position:relative; height:130px; }
+  .photo-attach-preview.show{ display:block; }
+  .photo-attach-preview img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .photo-attach-remove{ position:absolute; top:9px; right:9px; width:24px; height:24px; border-radius:50%; background:rgba(9,39,50,.55); color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .photo-attach-remove .msy{ font-size:14px; }
+
+  /* ---- Before & after photo setter (issue modal) ---- */
+  .ba-upload-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .ba-upload-box{ height:96px; border:1.5px dashed #B9C6BE; border-radius:12px; background:var(--sand); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; cursor:pointer; text-align:center; position:relative; overflow:hidden; }
+  .ba-upload-box .ic{ width:30px; height:30px; background:var(--white); border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--ink-soft); position:relative; z-index:1; }
+  .ba-upload-box .ic .msy{ font-size:16px; }
+  .ba-upload-box .t1{ font-size:10.5px; font-weight:700; color:var(--navy); position:relative; z-index:1; }
+  .ba-upload-box .t2{ font-size:9px; color:var(--ink-soft); position:relative; z-index:1; }
+  .ba-upload-box.filled{ border-style:solid; border-color:var(--green); }
+  .ba-upload-box.filled .ic{ background:var(--green); color:#fff; }
+  .ba-upload-box.filled .t1, .ba-upload-box.filled .t2{ color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.55); }
+  .ba-upload-box.filled::after{ content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(9,39,50,0) 38%, rgba(9,39,50,.6) 100%); z-index:0; }
+
+  /* ---- Modal (issue detail) ---- */
+  .modal-overlay{ position:fixed; inset:0; background:rgba(9,39,50,.45); display:none; align-items:center; justify-content:center; z-index:200; padding:30px; }
+  .modal-overlay.open{ display:flex; }
+  .modal{ background:var(--white); border-radius:22px; width:100%; max-width:840px; max-height:88vh; overflow-y:auto; box-shadow:0 30px 60px -14px rgba(9,39,50,.4); }
+  .modal-hero{ position:relative; height:200px; }
+  .modal-hero .thumb{ width:100%; height:100%; }
+  .modal-close{ position:absolute; top:14px; right:14px; width:34px; height:34px; border-radius:50%; background:rgba(9,39,50,.55); color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .modal-close.static{ position:static; flex-shrink:0; background:var(--sand); color:var(--navy); border:1px solid var(--line); }
+  .modal-close.static:hover{ background:var(--line); }
+  .modal-status{ position:absolute; top:14px; left:14px; display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:700; padding:6px 13px; border-radius:100px; color:#fff; box-shadow:0 4px 10px rgba(0,0,0,.18); }
+  .modal-body{ padding:24px 28px 28px; }
+  .modal-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:14px; margin-bottom:6px; }
+  .modal-title{ font-family:'Archivo Expanded',sans-serif; font-size:20px; font-weight:800; color:var(--navy); }
+  .modal-id{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ink-soft); margin-top:6px; }
+  .modal-loc{ display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--ink-soft); font-weight:500; margin-top:8px; }
+  .modal-loc .msy{ font-size:16px; }
+  .modal-stats{ display:flex; gap:20px; margin-top:14px; padding-bottom:18px; border-bottom:1px solid var(--line); margin-bottom:20px; flex-wrap:wrap; }
+  .modal-stats span{ display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-soft); font-weight:600; }
+  .modal-stats .msy{ font-size:16px; }
+  .modal-grid{ display:grid; grid-template-columns:1.3fr 1fr; gap:24px; }
+  .modal-section-h{ font-family:'Archivo Expanded',sans-serif; font-size:13.5px; font-weight:700; color:var(--navy); margin-bottom:10px; }
+  .modal-desc{ font-size:12.5px; color:var(--ink); line-height:1.6; margin-bottom:20px; }
+  .modal-field{ margin-bottom:14px; }
+  .modal-field label{ font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:6px; display:block; }
+  .discussion-msg{ background:var(--sand); border:1px solid var(--line); border-radius:13px; padding:11px 13px; margin-bottom:10px; }
+  .discussion-msg .head{ display:flex; justify-content:space-between; margin-bottom:4px; }
+  .discussion-msg .name{ font-size:11.5px; font-weight:700; color:var(--navy); }
+  .discussion-msg .time{ font-size:10px; color:var(--ink-soft); }
+  .discussion-msg p{ font-size:11.5px; color:var(--ink); line-height:1.5; }
+  .discussion-msg.citizen{ background:var(--teal-soft); }
+  .semi-public-tag{ display:inline-flex; align-items:center; gap:5px; font-size:9.5px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-soft); background:var(--sand); border:1px solid var(--line); padding:3px 9px; border-radius:100px; margin-bottom:12px; }
+  .modal-reply-row{ display:flex; gap:8px; margin-top:6px; }
+  .modal-reply-row input{ flex:1; border:1.5px solid var(--line); border-radius:100px; padding:10px 14px; font-size:12px; background:var(--sand); }
+  .modal-actions{ display:flex; gap:10px; margin-top:22px; }
+  .before-after-mini{ display:flex; gap:10px; margin-bottom:16px; }
+  .ba-box{ flex:1; height:90px; border-radius:12px; position:relative; overflow:hidden; }
+  .ba-box .thumb{ width:100%; height:100%; }
+  .ba-box .tag{ position:absolute; left:8px; bottom:8px; background:rgba(9,39,50,.75); color:#fff; font-size:9.5px; font-weight:700; padding:3px 8px; border-radius:6px; }
+
+  /* thumb photo classes (issue evidence photos) */
+  .thumb{ background-size:cover; background-position:center; background-color:var(--sand); }
+  .thumb.road{ background-image:url('https://picsum.photos/seed/infratrack-road/300/300'); }
+  .thumb.water{ background-image:url('https://picsum.photos/seed/infratrack-water/300/300'); }
+  .thumb.drain{ background-image:url('https://picsum.photos/seed/infratrack-drain/300/300'); }
+  .thumb.light{ background-image:url('https://picsum.photos/seed/infratrack-light/300/300'); }
+  .thumb.debris{ background-image:url('https://picsum.photos/seed/infratrack-debris/300/300'); }
+  .thumb.road.alt{ background-image:url('https://picsum.photos/seed/infratrack-road-after/300/300'); }
+  .thumb.water.alt{ background-image:url('https://picsum.photos/seed/infratrack-water-after/300/300'); }
+  .thumb.drain.alt{ background-image:url('https://picsum.photos/seed/infratrack-drain-after/300/300'); }
+  .thumb.light.alt{ background-image:url('https://picsum.photos/seed/infratrack-light-after/300/300'); }
+  .thumb.debris.alt{ background-image:url('https://picsum.photos/seed/infratrack-debris-after/300/300'); }
+
+  ::-webkit-scrollbar{ width:8px; height:8px; }
+  ::-webkit-scrollbar-thumb{ background:#C9C2AF; border-radius:100px; }
+
+  .menu-btn{ display:none; }
+  .sidebar-scrim{ display:none; }
+
+  @media (max-width:1180px){
+    .grid-2{ grid-template-columns:1fr; }
+    .grid-3{ grid-template-columns:1fr 1fr; }
+    .grid-announce{ grid-template-columns:1fr; }
+    .modal-grid{ grid-template-columns:1fr; }
+  }
+  @media (max-width:880px){
+    .app{ grid-template-columns:1fr; }
+    .sidebar{
+      position:fixed; left:0; top:0; z-index:210; width:248px;
+      transform:translateX(-100%); transition:transform .22s ease;
+      box-shadow:0 0 40px rgba(0,0,0,.35);
+    }
+    .sidebar.open{ transform:translateX(0); }
+    .menu-btn{ display:flex; }
+    .sidebar-scrim.open{ display:block; }
+    .kpi-row{ grid-template-columns:1fr 1fr; }
+    .grid-3{ grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <div class="sidebar-scrim" id="sidebar-scrim"></div>
+
+  <!-- ============ SIDEBAR ============ -->
+  <div class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="mark"><span class="msy fill">add_location_alt</span></div>
+      <div>
+        <div class="word">InfraTrack</div>
+        <div class="sub">Admin Portal · Mati</div>
+      </div>
+    </div>
+
+    <div class="nav-group-lbl">Operations</div>
+    <div class="navlink active" data-page="overview"><span class="msy">dashboard</span> Overview</div>
+    <div class="navlink" data-page="queue"><span class="msy">assignment</span> Issue Queue <span class="count">43</span></div>
+    <div class="navlink" data-page="map"><span class="msy">map</span> Infrastructure Map</div>
+    <div class="navlink" data-page="analytics"><span class="msy">query_stats</span> Analytics &amp; Reports</div>
+
+    <div class="nav-group-lbl">Administration</div>
+    <div class="navlink" data-page="users"><span class="msy">group</span> User Management</div>
+    <div class="navlink" data-page="announce"><span class="msy">campaign</span> Public Advisory</div>
+
+    <div class="sidebar-spacer"></div>
+    <div class="sidebar-foot">
+      <div class="navlink"><span class="msy">settings</span> Settings</div>
+      <div class="navlink"><span class="msy">logout</span> Log out</div>
+    </div>
+  </div>
+
+  <!-- ============ MAIN ============ -->
+  <div class="main">
+
+    <div class="topbar">
+      <div class="icon-btn menu-btn" id="menu-btn"><span class="msy">menu</span></div>
+      <div>
+        <div class="eyebrow" id="page-eyebrow">City Engineering Office</div>
+        <h1 id="page-title">Overview</h1>
+      </div>
+      <div class="search-box"><span class="msy">search</span> Search infrastructure ID, street, or barangay…</div>
+      <div class="topbar-actions">
+        <div class="btn-primary" id="new-advisory-btn"><span class="msy">add</span> Log walk-in report</div>
+        <div class="icon-btn"><span class="msy">notifications</span><span class="dot"></span></div>
+        <div class="icon-btn"><span class="msy">help</span></div>
+        <div class="avatar-sm">RS</div>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- ================= OVERVIEW ================= -->
+      <div class="page active" id="page-overview">
+
+        <div class="kpi-row">
+          <div class="kpi-card">
+            <div class="kpi-top"><div class="kpi-icon blue"><span class="msy">description</span></div><span class="kpi-tag up">+12% vs last month</span></div>
+            <div class="kpi-lbl">Total reports</div>
+            <div class="kpi-num">1,482</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-top"><div class="kpi-icon clay"><span class="msy">priority_high</span></div><span class="kpi-tag warn">High priority</span></div>
+            <div class="kpi-lbl">Pending tasks</div>
+            <div class="kpi-num">43</div>
+          </div>
+          <div class="kpi-top" style="display:none;"></div>
+          <div class="kpi-card">
+            <div class="kpi-top"><div class="kpi-icon green"><span class="msy">bolt</span></div><span class="kpi-tag info">Optimized</span></div>
+            <div class="kpi-lbl">Avg. resolution time</div>
+            <div class="kpi-num">3.2 <span style="font-size:15px; font-weight:700;">days</span></div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-top"><div class="kpi-icon amber"><span class="msy">task_alt</span></div><span class="kpi-tag neutral">Resolved issues</span></div>
+            <div class="kpi-lbl">Completion rate</div>
+            <div class="kpi-num">92%</div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card map-card">
+            <div class="map-toolbar">
+              <h2>Active infrastructure issues</h2>
+              <div class="seg-chip active">All</div>
+              <div class="seg-chip">Critical</div>
+              <div class="seg-chip">Unassigned</div>
+            </div>
+            <div class="map-area" id="overview-map"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><h2>Recent activity</h2><span class="link">View all</span></div>
+            <div class="activity-item">
+              <div class="activity-ic done"><span class="msy">check_circle</span></div>
+              <div class="activity-body">
+                <div class="t1">Drainage cleared — Dahican</div>
+                <div class="t2">Team Alpha resolved the overflow report</div>
+                <div class="t3">26 MINS AGO · #MT-2026-902</div>
+              </div>
+            </div>
+            <div class="activity-item">
+              <div class="activity-ic assign"><span class="msy">engineering</span></div>
+              <div class="activity-body">
+                <div class="t1">Streetlight repair scheduled</div>
+                <div class="t2">Assigned to Electrician Unit 4, Brgy. Matiao</div>
+                <div class="t3">1 HOUR AGO · #MT-2026-897</div>
+              </div>
+            </div>
+            <div class="activity-item">
+              <div class="activity-ic data"><span class="msy">layers</span></div>
+              <div class="activity-body">
+                <div class="t1">New survey data integrated</div>
+                <div class="t2">Global map layer updated with Q3 road damage data</div>
+                <div class="t3">3 HOURS AGO</div>
+              </div>
+            </div>
+            <div class="activity-item">
+              <div class="activity-ic new"><span class="msy">flag</span></div>
+              <div class="activity-body">
+                <div class="t1">Urgent report filed</div>
+                <div class="t2">Deep pothole flagged along Rizal St., 214 residents watching</div>
+                <div class="t3">2 HOURS AGO · #MT-2026-881</div>
+              </div>
+            </div>
+            <div class="activity-item">
+              <div class="activity-ic done"><span class="msy">star</span></div>
+              <div class="activity-body">
+                <div class="t1">Citizen feedback received</div>
+                <div class="t2">Chapel St. resurfacing rated 5/5 by reporter</div>
+                <div class="t3">Yesterday · #MT-2026-842</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-top:18px;">
+          <div class="card">
+            <div class="card-head"><h2>Reports by category</h2><span class="subtle">Last 30 days</span></div>
+            <div class="bar-row"><div class="lbl">Roads</div><div class="bar-track"><div class="bar-fill" style="width:78%; background:var(--clay);"></div></div><div class="val">578</div></div>
+            <div class="bar-row"><div class="lbl">Drainage</div><div class="bar-track"><div class="bar-fill" style="width:54%; background:var(--amber);"></div></div><div class="val">402</div></div>
+            <div class="bar-row"><div class="lbl">Water</div><div class="bar-track"><div class="bar-fill" style="width:38%; background:var(--teal);"></div></div><div class="val">281</div></div>
+            <div class="bar-row"><div class="lbl">Lighting</div><div class="bar-track"><div class="bar-fill" style="width:24%; background:#7A5FBF;"></div></div><div class="val">158</div></div>
+            <div class="bar-row"><div class="lbl">Debris</div><div class="bar-track"><div class="bar-fill" style="width:9%; background:var(--green);"></div></div><div class="val">63</div></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h2>Team workload</h2><span class="subtle">Active assignments</span></div>
+            <div class="activity-item"><div class="activity-ic assign"><span class="msy">construction</span></div><div class="activity-body"><div class="t1">Team Alpha — Roads</div><div class="t2">6 active work orders · Brgy. Central</div></div></div>
+            <div class="activity-item"><div class="activity-ic data"><span class="msy">water_damage</span></div><div class="activity-body"><div class="t1">Drainage Crew Delta</div><div class="t2">4 active work orders · Purok 3, Dawan</div></div></div>
+            <div class="activity-item"><div class="activity-ic new"><span class="msy">bolt</span></div><div class="activity-body"><div class="t1">Electrician Unit 4</div><div class="t2">3 active work orders · Brgy. Sainz</div></div></div>
+            <div class="activity-item" style="border-bottom:none;"><div class="activity-ic done"><span class="msy">plumbing</span></div><div class="activity-body"><div class="t1">Mati Water District Liaison</div><div class="t2">2 active work orders · Brgy. Dawan</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= ISSUE QUEUE ================= -->
+      <div class="page" id="page-queue">
+        <div class="card">
+          <div class="filter-bar">
+            <div class="chip active">All (1,482)</div>
+            <div class="chip">Pending (43)</div>
+            <div class="chip">In progress (61)</div>
+            <div class="chip">Resolved (1,378)</div>
+            <div class="filter-spacer"></div>
+            <select class="select-mini"><option>All categories</option><option>Roads</option><option>Water</option><option>Drainage</option><option>Lighting</option></select>
+            <select class="select-mini"><option>All barangays</option><option>Brgy. Central</option><option>Brgy. Dawan</option><option>Brgy. Sainz</option></select>
+          </div>
+
+          <div class="table-wrap">
+            <table class="data" id="queue-table">
+              <thead>
+                <tr><th>Issue</th><th>Severity</th><th>Status</th><th>Reported by</th><th>Filed</th><th>Assigned to</th><th></th></tr>
+              </thead>
+              <tbody>
+                <tr data-issue="q1">
+                  <td><div class="row-issue"><div class="row-thumb thumb road"></div><div><div class="ti">Deep pothole along Rizal St.</div><div class="tg">#MT-2026-881 · Brgy. Central</div></div></div></td>
+                  <td><span class="badge critical"><span class="msy">warning</span>Critical</span></td>
+                  <td><span class="badge pending">Reported</span></td>
+                  <td>Elena Marasigan</td>
+                  <td>Aug 2, 2026</td>
+                  <td><div class="unassigned"><div class="av-empty"><span class="msy">person_add</span></div><span class="nm">Unassigned</span><span class="quick-assign">Assign</span></div></td>
+                  <td><div class="row-more"><span class="msy">chevron_right</span></div></td>
+                </tr>
+                <tr data-issue="q2">
+                  <td><div class="row-issue"><div class="row-thumb thumb water"></div><div><div class="ti">No water supply, Purok 3</div><div class="tg">#MT-2026-879 · Brgy. Dawan</div></div></div></td>
+                  <td><span class="badge high"><span class="msy">error</span>High</span></td>
+                  <td><span class="badge progress">In progress</span></td>
+                  <td>Marco Bantilan</td>
+                  <td>Jul 30, 2026</td>
+                  <td><div class="assignee"><span class="av water">MW</span><span class="nm">Mati Water District</span></div></td>
+                  <td><div class="row-more"><span class="msy">chevron_right</span></div></td>
+                </tr>
+                <tr data-issue="q3">
+                  <td><div class="row-issue"><div class="row-thumb thumb drain"></div><div><div class="ti">Clogged drainage near market</div><div class="tg">#MT-2026-884 · Brgy. Central</div></div></div></td>
+                  <td><span class="badge medium"><span class="msy">flag</span>Medium</span></td>
+                  <td><span class="badge pending">Reported</span></td>
+                  <td>Grace Villareal</td>
+                  <td>Aug 5, 2026</td>
+                  <td><div class="unassigned"><div class="av-empty"><span class="msy">person_add</span></div><span class="nm">Unassigned</span><span class="quick-assign">Assign</span></div></td>
+                  <td><div class="row-more"><span class="msy">chevron_right</span></div></td>
+                </tr>
+                <tr data-issue="q4">
+                  <td><div class="row-issue"><div class="row-thumb thumb light"></div><div><div class="ti">Streetlight repaired, J.P. Laurel</div><div class="tg">#MT-2026-860 · Brgy. Sainz</div></div></div></td>
+                  <td><span class="badge low"><span class="msy">check_circle</span>Low</span></td>
+                  <td><span class="badge resolved">Resolved</span></td>
+                  <td>Rico Fernandez</td>
+                  <td>Jul 20, 2026</td>
+                  <td><div class="assignee"><span class="av elec">TD</span><span class="nm">Team Delta</span></div></td>
+                  <td><div class="row-more"><span class="msy">chevron_right</span></div></td>
+                </tr>
+                <tr data-issue="q5">
+                  <td><div class="row-issue"><div class="row-thumb thumb road"></div><div><div class="ti">Cracked pavement, Chapel St.</div><div class="tg">#MT-2026-842 · Brgy. Central</div></div></div></td>
+                  <td><span class="badge low"><span class="msy">check_circle</span>Low</span></td>
+                  <td><span class="badge resolved">Resolved</span></td>
+                  <td>Elena Marasigan</td>
+                  <td>Jul 15, 2026</td>
+                  <td><div class="assignee"><span class="av alpha">TA</span><span class="nm">Team Alpha</span></div></td>
+                  <td><div class="row-more"><span class="msy">chevron_right</span></div></td>
+                </tr>
+                <tr data-issue="q6">
+                  <td><div class="row-issue"><div class="row-thumb thumb debris"></div><div><div class="ti">Fallen tree branch, coastal road</div><div class="tg">#MT-2026-901 · Brgy. Dahican</div></div></div></td>
+                  <td><span class="badge high"><span class="msy">error</span>High</span></td>
+                  <td><span class="badge progress">In progress</span></td>
+                  <td>Anonymous walk-in</td>
+                  <td>Aug 6, 2026</td>
+                  <td><div class="assignee"><span class="av alpha">TA</span><span class="nm">Team Alpha</span></div></td>
+                  <td><div class="row-more"><span class="msy">chevron_right</span></div></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="pagination">
+            <span>Showing 1–6 of 1,482 reports</span>
+            <div class="pg-btns">
+              <div class="pg-btn"><span class="msy" style="font-size:16px;">chevron_left</span></div>
+              <div class="pg-btn active">1</div>
+              <div class="pg-btn">2</div>
+              <div class="pg-btn">3</div>
+              <div class="pg-btn"><span class="msy" style="font-size:16px;">chevron_right</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= MAP ================= -->
+      <div class="page" id="page-map">
+        <div class="card map-card">
+          <div class="map-toolbar">
+            <h2>City-wide infrastructure map</h2>
+            <div class="seg-chip active">All issues</div>
+            <div class="seg-chip">Roads</div>
+            <div class="seg-chip">Water</div>
+            <div class="seg-chip">Drainage</div>
+            <div class="seg-chip">Lighting</div>
+          </div>
+          <div class="map-area" style="height:600px;" id="full-map"></div>
+        </div>
+      </div>
+
+      <!-- ================= ANALYTICS ================= -->
+      <div class="page" id="page-analytics">
+
+        <div class="grid-3">
+          <div class="card">
+            <div class="card-head"><h2>Sentiment analysis</h2><span class="subtle">From resolution ratings</span></div>
+            <div class="sentiment-gauge">
+              <div class="sentiment-ring"><span class="val">4.4</span><span class="lbl" style="position:relative;">AVG. STARS</span></div>
+            </div>
+            <div class="rating-bars">
+              <div class="rbar-row"><span class="rbar-lbl">5 <span class="msy fill" style="font-size:11px; color:var(--amber);">star</span></span><div class="bar-track"><div class="bar-fill" style="width:61%; background:var(--green);"></div></div><span class="rbar-pct">61%</span></div>
+              <div class="rbar-row"><span class="rbar-lbl">4 <span class="msy fill" style="font-size:11px; color:var(--amber);">star</span></span><div class="bar-track"><div class="bar-fill" style="width:21%; background:var(--green);"></div></div><span class="rbar-pct">21%</span></div>
+              <div class="rbar-row"><span class="rbar-lbl">3 <span class="msy fill" style="font-size:11px; color:var(--amber);">star</span></span><div class="bar-track"><div class="bar-fill" style="width:9%; background:var(--amber);"></div></div><span class="rbar-pct">9%</span></div>
+              <div class="rbar-row"><span class="rbar-lbl">2 <span class="msy fill" style="font-size:11px; color:var(--amber);">star</span></span><div class="bar-track"><div class="bar-fill" style="width:6%; background:var(--clay);"></div></div><span class="rbar-pct">6%</span></div>
+              <div class="rbar-row"><span class="rbar-lbl">1 <span class="msy fill" style="font-size:11px; color:var(--amber);">star</span></span><div class="bar-track"><div class="bar-fill" style="width:3%; background:var(--red);"></div></div><span class="rbar-pct">3%</span></div>
+            </div>
+            <div class="sentiment-note">940 residents rated a completed repair this quarter. 82% gave 4–5 stars, read as <b style="color:var(--green);">positive</b> sentiment; 9% neutral; 9% negative — negative ratings are auto-flagged for a follow-up review.</div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><h2>Resolution time trend</h2><span class="subtle">Weeks</span></div>
+            <svg class="trend-svg" viewBox="0 0 260 120" preserveAspectRatio="none">
+              <polyline points="0,80 40,70 80,74 120,55 160,48 200,38 240,30" fill="none" stroke="var(--teal)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+              <polyline points="0,80 40,70 80,74 120,55 160,48 200,38 240,30" fill="none" stroke="none"/>
+              <g fill="var(--teal)"><circle cx="240" cy="30" r="4"/></g>
+              <line x1="0" y1="105" x2="260" y2="105" stroke="var(--line)" stroke-width="1"/>
+            </svg>
+            <div class="subtle" style="margin-top:6px;">Avg. resolution improved from 5.1 to 3.2 days over 7 weeks.</div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><h2>Recurring hotspots</h2></div>
+            <div class="hotspot-item"><div class="rank">01</div><div><div class="nm">Purok 3, Brgy. Dawan</div><div class="ct">Water service interruptions</div></div><div class="cnt">38</div></div>
+            <div class="hotspot-item"><div class="rank">02</div><div><div class="nm">Rizal Street</div><div class="ct">Road surface damage</div></div><div class="cnt">27</div></div>
+            <div class="hotspot-item"><div class="rank">03</div><div><div class="nm">Public Market area</div><div class="ct">Drainage blockage</div></div><div class="cnt">21</div></div>
+            <div class="hotspot-item"><div class="rank">04</div><div><div class="nm">J.P. Laurel Ave.</div><div class="ct">Streetlight outages</div></div><div class="cnt">14</div></div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-head"><h2>Response efficiency by team</h2></div>
+            <div class="bar-row"><div class="lbl">Team Alpha</div><div class="bar-track"><div class="bar-fill" style="width:92%; background:var(--clay);"></div></div><div class="val">92%</div></div>
+            <div class="bar-row"><div class="lbl">Crew Delta</div><div class="bar-track"><div class="bar-fill" style="width:88%; background:var(--amber);"></div></div><div class="val">88%</div></div>
+            <div class="bar-row"><div class="lbl">Electrician U4</div><div class="bar-track"><div class="bar-fill" style="width:95%; background:#7A5FBF;"></div></div><div class="val">95%</div></div>
+            <div class="bar-row"><div class="lbl">Water District</div><div class="bar-track"><div class="bar-fill" style="width:79%; background:var(--teal);"></div></div><div class="val">79%</div></div>
+            <div class="subtle" style="margin-top:14px;">Efficiency reflects on-time completion against assigned target dates, used for resource allocation planning.</div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><h2>Generate printable report</h2></div>
+            <div class="report-gen">
+              <div class="field">
+                <label>Report type</label>
+                <select><option>Infrastructure summary</option><option>Team performance</option><option>Sentiment &amp; feedback</option><option>Barangay hotspot summary</option></select>
+              </div>
+              <div class="field">
+                <label>Frequency</label>
+                <select><option>Daily</option><option>Weekly</option><option selected>Monthly</option><option>Yearly</option></select>
+              </div>
+              <div class="btn-primary" style="flex-shrink:0;"><span class="msy">picture_as_pdf</span> Generate PDF</div>
+            </div>
+            <div class="subtle" style="margin-top:14px;">Printable summaries support recurring reporting to the City Engineering Office and CDRRMO for planning and budget review.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= USER MANAGEMENT ================= -->
+      <div class="page" id="page-users">
+        <div class="card">
+          <div class="tab-row">
+            <div class="tab-item active">Citizens (8,204)</div>
+            <div class="tab-item">LGU staff &amp; admins (18)</div>
+            <div class="tab-item">Pending verification (11)</div>
+          </div>
+
+          <div class="table-wrap">
+            <table class="data" id="users-table">
+              <thead><tr><th>Resident</th><th>Barangay</th><th>Reports filed</th><th>Standing</th><th>Verification</th><th>Joined</th><th></th></tr></thead>
+              <tbody>
+                <tr data-user="u1">
+                  <td><div class="user-cell"><div class="av">EM</div><div><div class="nm">Elena Marasigan</div><div class="em">elena.m@example.com</div></div></div></td>
+                  <td>Brgy. Central</td>
+                  <td>12</td>
+                  <td class="standing-cell"><span class="acct-pill active"><span class="msy">check_circle</span>Active</span></td>
+                  <td><span class="verify-pill verified"><span class="msy" style="font-size:12px;">verified</span>Verified</span></td>
+                  <td>Feb 2026</td>
+                  <td><div class="action-row"><span class="action-btn primary">View</span></div></td>
+                </tr>
+                <tr data-user="u2">
+                  <td><div class="user-cell"><div class="av">MB</div><div><div class="nm">Marco Bantilan</div><div class="em">marco.b@example.com</div></div></div></td>
+                  <td>Brgy. Dawan</td>
+                  <td>5</td>
+                  <td class="standing-cell"><span class="acct-pill active"><span class="msy">check_circle</span>Active</span></td>
+                  <td><span class="verify-pill verified"><span class="msy" style="font-size:12px;">verified</span>Verified</span></td>
+                  <td>Apr 2026</td>
+                  <td><div class="action-row"><span class="action-btn primary">View</span></div></td>
+                </tr>
+                <tr data-user="u3">
+                  <td><div class="user-cell"><div class="av">GV</div><div><div class="nm">Grace Villareal</div><div class="em">grace.v@example.com</div></div></div></td>
+                  <td>Brgy. Central</td>
+                  <td>2</td>
+                  <td class="standing-cell"><span class="acct-pill active"><span class="msy">check_circle</span>Active</span></td>
+                  <td><span class="verify-pill pending"><span class="msy" style="font-size:12px;">hourglass_top</span>Pending ID match</span></td>
+                  <td>Aug 2026</td>
+                  <td><div class="action-row"><span class="action-btn primary">View</span></div></td>
+                </tr>
+                <tr data-user="u4">
+                  <td><div class="user-cell"><div class="av">JD</div><div><div class="nm">Jonas dela Cruz</div><div class="em">jonas.dc@example.com</div></div></div></td>
+                  <td>Brgy. Sainz</td>
+                  <td>9</td>
+                  <td class="standing-cell"><span class="acct-pill warned"><span class="msy">error</span>Warned</span></td>
+                  <td><span class="verify-pill flagged"><span class="msy" style="font-size:12px;">block</span>ID mismatch</span></td>
+                  <td>Aug 2026</td>
+                  <td><div class="action-row"><span class="action-btn primary">View</span></div></td>
+                </tr>
+                <tr data-user="u5">
+                  <td><div class="user-cell"><div class="av">RF</div><div><div class="nm">Rico Fernandez</div><div class="em">rico.f@example.com</div></div></div></td>
+                  <td>Brgy. Sainz</td>
+                  <td>7</td>
+                  <td class="standing-cell"><span class="acct-pill active"><span class="msy">check_circle</span>Active</span></td>
+                  <td><span class="verify-pill verified"><span class="msy" style="font-size:12px;">verified</span>Verified</span></td>
+                  <td>Jan 2026</td>
+                  <td><div class="action-row"><span class="action-btn primary">View</span></div></td>
+                </tr>
+                <tr data-user="u6">
+                  <td><div class="user-cell"><div class="av">PR</div><div><div class="nm">Paolo Reyes</div><div class="em">paolo.r@example.com</div></div></div></td>
+                  <td>Brgy. Dawan</td>
+                  <td>34</td>
+                  <td class="standing-cell"><span class="acct-pill suspended"><span class="msy">block</span>Suspended</span></td>
+                  <td><span class="verify-pill verified"><span class="msy" style="font-size:12px;">verified</span>Verified</span></td>
+                  <td>Mar 2026</td>
+                  <td><div class="action-row"><span class="action-btn primary">View</span></div></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="subtle" style="margin-top:12px;">Standing reflects platform conduct (spam, abuse, harassment) and is managed from each resident's profile. It's separate from ID verification.</div>
+        </div>
+      </div>
+
+      <!-- ================= PUBLIC ADVISORY ================= -->
+      <div class="page" id="page-announce">
+        <div class="grid-announce">
+          <div class="card">
+            <div class="card-head"><h2>New advisory</h2></div>
+            <div class="form-group">
+              <label class="form-label">Advisory type</label>
+              <div class="type-picker" id="new-advisory-type-picker">
+                <div class="type-opt selected alert" data-type="alert"><span class="msy" style="font-size:16px; display:block; margin-bottom:2px;">warning</span>Emergency</div>
+                <div class="type-opt maint" data-type="maint"><span class="msy" style="font-size:16px; display:block; margin-bottom:2px;">build</span>Maintenance</div>
+                <div class="type-opt gen" data-type="gen"><span class="msy" style="font-size:16px; display:block; margin-bottom:2px;">campaign</span>Announcement</div>
+              </div>
+            </div>
+            <div class="form-group"><label class="form-label">Title</label><input class="form-control" id="new-advisory-title" placeholder="e.g. Flash flood advisory for low-lying barangays"></div>
+            <div class="form-group"><label class="form-label">Message</label><textarea class="form-control" id="new-advisory-message" placeholder="Describe the advisory, affected area, and duration…"></textarea></div>
+
+            <div class="form-group">
+              <label class="form-label">Attach media (optional)</label>
+              <div class="media-attach-row">
+                <div class="media-attach-box" id="attach-photo-btn"><span class="msy">add_a_photo</span>Add photo</div>
+                <div class="media-attach-box" id="attach-video-btn"><span class="msy">videocam</span>Add video</div>
+              </div>
+
+              <div class="photo-attach-preview" id="photo-attach-preview">
+                <img id="photo-attach-img" src="" alt="Attached photo">
+                <div class="photo-attach-remove" id="photo-attach-remove"><span class="msy">close</span></div>
+              </div>
+
+              <div class="convert-status" id="convert-status">
+                <div class="spin-ic"></div>
+                <p>Converting video to GIF using the standard feed template…</p>
+              </div>
+
+              <div class="gif-preview-card" id="gif-preview-card">
+                <div class="gif-preview-frame">
+                  <img id="gif-preview-img" src="" alt="Converted GIF preview">
+                  <span class="gif-preview-badge"><span class="msy fill">gif_box</span>GIF preview</span>
+                  <div class="gif-preview-remove" id="gif-preview-remove"><span class="msy">close</span></div>
+                </div>
+                <div class="gif-preview-meta">
+                  <div class="t1">Converted from 0:16 video</div>
+                  <div class="t2">Template: Feed preview · 5s trim · 480×270 · silent, looped · auto-generated</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group"><label class="form-label">Audience</label>
+              <select class="form-control"><option>All barangays</option><option>Brgy. Central</option><option>Brgy. Dawan</option><option>Brgy. Sainz</option></select>
+            </div>
+            <div class="btn-primary" id="publish-advisory-btn"><span class="msy">send</span> Publish advisory</div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><h2>Published advisories</h2><span class="subtle">Visible to all citizens</span></div>
+            <div id="advisory-list"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ============ EDIT ADVISORY MODAL ============ -->
+<div class="modal-overlay" id="advisory-modal-overlay">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-body" style="padding-top:26px;">
+      <div class="modal-top">
+        <div>
+          <div class="modal-title" style="font-size:17px;">Edit advisory</div>
+          <div class="modal-id" style="margin-top:4px;">Changes are visible to citizens immediately after saving.</div>
+        </div>
+        <div class="modal-close static" id="am-close"><span class="msy">close</span></div>
+      </div>
+
+      <div class="form-group" style="margin-top:18px;">
+        <label class="form-label">Advisory type</label>
+        <div class="type-picker" id="am-type-picker">
+          <div class="type-opt alert" data-type="alert"><span class="msy" style="font-size:16px; display:block; margin-bottom:2px;">warning</span>Emergency</div>
+          <div class="type-opt maint" data-type="maint"><span class="msy" style="font-size:16px; display:block; margin-bottom:2px;">build</span>Maintenance</div>
+          <div class="type-opt gen" data-type="gen"><span class="msy" style="font-size:16px; display:block; margin-bottom:2px;">campaign</span>Announcement</div>
+        </div>
+      </div>
+      <div class="form-group"><label class="form-label">Title</label><input class="form-control" id="am-title"></div>
+      <div class="form-group"><label class="form-label">Message</label><textarea class="form-control" id="am-message"></textarea></div>
+
+      <div class="form-group">
+        <label class="form-label">Attached media</label>
+        <p class="subtle" style="margin:-2px 0 10px;">Replace the photo or video below — a new video is converted to a GIF automatically using the same feed template.</p>
+        <div class="media-attach-row">
+          <div class="media-attach-box" id="am-attach-photo-btn"><span class="msy">add_a_photo</span>Add / replace photo</div>
+          <div class="media-attach-box" id="am-attach-video-btn"><span class="msy">videocam</span>Add / replace video</div>
+        </div>
+
+        <div class="photo-attach-preview" id="am-photo-attach-preview">
+          <img id="am-photo-attach-img" src="" alt="Attached photo">
+          <div class="photo-attach-remove" id="am-photo-attach-remove"><span class="msy">close</span></div>
+        </div>
+
+        <div class="convert-status" id="am-convert-status">
+          <div class="spin-ic"></div>
+          <p>Converting video to GIF using the standard feed template…</p>
+        </div>
+
+        <div class="gif-preview-card" id="am-gif-preview-card">
+          <div class="gif-preview-frame">
+            <img id="am-gif-preview-img" src="" alt="Converted GIF preview">
+            <span class="gif-preview-badge"><span class="msy fill">gif_box</span>GIF preview</span>
+            <div class="gif-preview-remove" id="am-gif-preview-remove"><span class="msy">close</span></div>
+          </div>
+          <div class="gif-preview-meta">
+            <div class="t1" id="am-gif-caption-t1">Converted from video</div>
+            <div class="t2">Template: Feed preview · 5s trim · 480×270 · silent, looped · auto-generated</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <div class="btn-primary" id="am-save" style="flex:1; justify-content:center;"><span class="msy">save</span> Save changes</div>
+        <div class="action-btn danger" id="am-delete" style="display:flex; align-items:center; gap:6px;"><span class="msy" style="font-size:16px;">delete</span>Delete</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ISSUE DETAIL MODAL ============ -->
+<div class="modal-overlay" id="modal-overlay">
+
+  <div class="modal">
+    <div class="modal-hero">
+      <div class="thumb road" id="modal-thumb" style="width:100%; height:100%;"></div>
+      <div class="modal-status" id="modal-status" style="background:var(--red);"><span class="msy fill">warning</span> Critical · Reported</div>
+      <div class="modal-close" id="modal-close"><span class="msy">close</span></div>
+    </div>
+    <div class="modal-body">
+      <div class="modal-top">
+        <div>
+          <div class="modal-title" id="modal-title">Deep pothole along Rizal St.</div>
+          <div class="modal-loc" id="modal-loc"><span class="msy">location_on</span> Near City Hall, Brgy. Central · 6.9530° N, 126.2280° E</div>
+          <div class="modal-id" id="modal-id">Report ID: #MT-2026-881 · Filed Aug 2, 2026 by Elena Marasigan (verified)</div>
+        </div>
+      </div>
+      <div class="modal-stats">
+        <span><span class="msy">group</span> 214 followers</span>
+        <span><span class="msy">visibility</span> 1,045 views</span>
+        <span><span class="msy">photo_camera</span> 3 photos, 1 video</span>
+      </div>
+
+      <div class="modal-grid">
+        <div>
+          <div class="modal-section-h">Description</div>
+          <div class="modal-desc" id="modal-desc">Pothole roughly 60cm wide and 15cm deep, expanding after recent rains. Motorcycles have swerved into oncoming traffic to avoid it — flagged as a safety risk near the City Hall intersection.</div>
+
+          <div id="modal-before-after" style="display:none;">
+            <div class="modal-section-h">Before &amp; after</div>
+            <div class="before-after-mini">
+              <div class="ba-box"><div class="thumb road" id="modal-ba-before" style="width:100%; height:100%; filter:brightness(.6);"></div><span class="tag">Before</span></div>
+              <div class="ba-box"><div class="thumb road" id="modal-ba-after" style="width:100%; height:100%; filter:brightness(1.1);"></div><span class="tag" style="background:var(--teal);">After</span></div>
+            </div>
+          </div>
+
+          <div class="modal-section-h">Official discussion <span class="semi-public-tag" style="margin-left:6px;"><span class="msy" style="font-size:11px;">visibility</span>Semi-public</span></div>
+          <div class="discussion-msg citizen"><div class="head"><span class="name">Elena Marasigan</span><span class="time">Aug 2, 9:20 AM</span></div><p>Almost got hit swerving around this yesterday evening. Please prioritize, it's right by the school route.</p></div>
+          <div class="discussion-msg"><div class="head"><span class="name">LGU Admin — Engr. Santos</span><span class="time">1h ago</span></div><p>We have received your report. A maintenance crew has been scheduled for Aug 8. Thank you for flagging the safety concern.</p></div>
+          <div class="modal-reply-row"><input placeholder="Reply as LGU Admin…"><div class="icon-btn"><span class="msy fill">send</span></div></div>
+        </div>
+
+        <div>
+          <div class="modal-section-h">Case management</div>
+          <div class="modal-field"><label>Status</label>
+            <select class="form-control" id="modal-status-select"><option>Reported</option><option>Verified by inspector</option><option>In progress</option><option>Resolved</option></select>
+          </div>
+          <div class="modal-field"><label>Assign to team</label>
+            <select class="form-control"><option>Unassigned</option><option>Team Alpha — Roads</option><option>Drainage Crew Delta</option><option>Electrician Unit 4</option><option>Mati Water District</option></select>
+          </div>
+          <div class="modal-field"><label>Priority</label>
+            <select class="form-control"><option>Critical</option><option>High</option><option>Medium</option><option>Low</option></select>
+          </div>
+          <div class="modal-field"><label>Target completion</label>
+            <input class="form-control" type="date" value="2026-08-08">
+          </div>
+
+          <div class="modal-field" id="modal-ba-setter" style="display:none;">
+            <label>Before &amp; after photos</label>
+            <div class="ba-upload-grid">
+              <div class="ba-upload-box" id="ba-upload-before" data-slot="before">
+                <div class="ic"><span class="msy">add_a_photo</span></div>
+                <div class="t1">Before photo</div>
+                <div class="t2">Original condition</div>
+              </div>
+              <div class="ba-upload-box" id="ba-upload-after" data-slot="after">
+                <div class="ic"><span class="msy">add_a_photo</span></div>
+                <div class="t1">After photo</div>
+                <div class="t2">Completed repair</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-field" id="modal-resnote-wrap" style="display:none;">
+            <label>Resolution note (shown to citizen)</label>
+            <textarea class="form-control" id="modal-resnote" placeholder="Describe what was done to resolve this issue..."></textarea>
+          </div>
+
+          <div class="modal-actions">
+            <div class="btn-primary" style="flex:1; justify-content:center;"><span class="msy">save</span> Save changes</div>
+            <div class="btn-secondary"><span class="msy">print</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ USER DETAIL / TRUST & SAFETY MODAL ============ -->
+<div class="modal-overlay" id="user-modal-overlay">
+  <div class="modal" style="max-width:760px;">
+    <div class="modal-body" style="padding-top:26px;">
+      <div class="modal-top">
+        <div style="display:flex; gap:14px; align-items:center;">
+          <div class="avatar-sm" id="um-avatar" style="width:52px; height:52px; border-radius:14px; font-size:17px;">EM</div>
+          <div>
+            <div class="modal-title" id="um-name" style="font-size:18px;">Elena Marasigan</div>
+            <div class="modal-id" id="um-email" style="margin-top:3px;">elena.m@example.com</div>
+          </div>
+        </div>
+        <div class="modal-close static" id="um-close" style="align-self:flex-start;"><span class="msy">close</span></div>
+      </div>
+
+      <div class="modal-stats">
+        <span><span class="msy">location_on</span> <span id="um-barangay">Brgy. Central</span></span>
+        <span><span class="msy">description</span> <span id="um-reports">12</span> reports filed</span>
+        <span><span class="msy">event</span> Joined <span id="um-joined">Feb 2026</span></span>
+        <span id="um-standing-chip"></span>
+      </div>
+
+      <div class="modal-grid">
+        <div>
+          <div class="modal-section-h">Recent reports by this resident</div>
+          <div id="um-report-list"></div>
+
+          <div class="modal-section-h" style="margin-top:22px;">Moderation history</div>
+          <div id="um-mod-log"></div>
+        </div>
+
+        <div>
+          <div class="modal-section-h">Trust &amp; safety</div>
+          <div class="safety-card" id="um-safety-card">
+            <div class="safety-head">
+              <span class="lbl">Account standing</span>
+            </div>
+            <div class="safety-note" id="um-safety-note">No abuse flags on this account.</div>
+
+            <div class="safety-actions" id="um-safety-actions">
+              <div class="safety-btn warn" data-action="warn"><span class="msy">campaign</span>Warn</div>
+              <div class="safety-btn suspend" data-action="suspend"><span class="msy">block</span>Suspend</div>
+              <div class="safety-btn ban" data-action="ban"><span class="msy">gavel</span>Ban</div>
+            </div>
+
+            <div class="safety-form" id="um-safety-form">
+              <label class="form-label" style="margin-bottom:6px;">Reason</label>
+              <select id="um-reason">
+                <option>Spam or duplicate reports</option>
+                <option>False or misleading report</option>
+                <option>Abusive language toward staff</option>
+                <option>Harassment of other residents</option>
+                <option>Other (specify in note)</option>
+              </select>
+              <div class="safety-form-duration" id="um-duration-wrap" style="display:none;">
+                <label class="form-label" style="margin-bottom:6px;">Duration</label>
+                <select id="um-duration">
+                  <option>24 hours</option>
+                  <option>7 days</option>
+                  <option>30 days</option>
+                  <option>Until appeal reviewed</option>
+                  <option>Permanent</option>
+                </select>
+              </div>
+              <label class="form-label" style="margin-bottom:6px;">Note (visible to other admins)</label>
+              <textarea id="um-note" placeholder="Add context for this action…"></textarea>
+              <div class="confirm-btn" id="um-confirm"><span class="msy" style="font-size:16px; vertical-align:-3px;">check</span> Confirm action</div>
+            </div>
+          </div>
+          <div class="subtle" style="margin-top:10px;">The resident is notified automatically when a warning, suspension, or ban is issued. Every action is logged with your admin account.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ---------- Sidebar navigation ----------
+  const navlinks = document.querySelectorAll('.navlink[data-page]');
+  const pages = document.querySelectorAll('.page');
+  const pageTitle = document.getElementById('page-title');
+  const pageEyebrow = document.getElementById('page-eyebrow');
+  const titles = {
+    overview:  ['City Engineering Office', 'Overview'],
+    queue:     ['Operations', 'Issue Queue'],
+    map:       ['Operations', 'Infrastructure Map'],
+    analytics: ['Operations', 'Analytics & Reports'],
+    users:     ['Administration', 'User Management'],
+    announce:  ['Administration', 'Public Advisory']
+  };
+
+  navlinks.forEach(link => {
+    link.addEventListener('click', () => {
+      navlinks.forEach(l => l.classList.remove('active'));
+      link.classList.add('active');
+      pages.forEach(p => p.classList.remove('active'));
+      document.getElementById('page-' + link.dataset.page).classList.add('active');
+      const t = titles[link.dataset.page];
+      pageEyebrow.textContent = t[0];
+      pageTitle.textContent = t[1];
+      closeDrawer();
+    });
+  });
+
+  // ---------- Mobile sidebar drawer ----------
+  const sidebar = document.getElementById('sidebar');
+  const scrim = document.getElementById('sidebar-scrim');
+  const menuBtn = document.getElementById('menu-btn');
+  function openDrawer(){ sidebar.classList.add('open'); scrim.classList.add('open'); }
+  function closeDrawer(){ sidebar.classList.remove('open'); scrim.classList.remove('open'); }
+  menuBtn.addEventListener('click', openDrawer);
+  scrim.addEventListener('click', closeDrawer);
+
+  // ---------- Sample issue dataset (shared by map pins + table rows) ----------
+  const issues = [
+    { id:'q1', code:'MT-2026-881', title:'Deep pothole along Rizal St.', loc:'Near City Hall, Brgy. Central', coords:'6.9530° N, 126.2280° E', cat:'road', severity:'critical', status:'Reported', statusColor:'var(--red)', statusIcon:'warning', reporter:'Elena Marasigan (verified)', date:'Aug 2, 2026', desc:'Pothole roughly 60cm wide and 15cm deep, expanding after recent rains. Motorcycles have swerved into oncoming traffic to avoid it — flagged as a safety risk near the City Hall intersection.', top:120, left:70, resolved:false },
+    { id:'q2', code:'MT-2026-879', title:'No water supply, Purok 3', loc:'Purok 3, Brgy. Dawan', coords:'6.9482° N, 126.2311° E', cat:'water', severity:'high', status:'In progress', statusColor:'var(--amber)', statusIcon:'build', reporter:'Marco Bantilan (verified)', date:'Jul 30, 2026', desc:'Entire purok has had no water supply for two days. Residents suspect a broken main line near the barangay hall.', top:250, left:210, resolved:false },
+    { id:'q3', code:'MT-2026-884', title:'Clogged drainage near market', loc:'Public Market, Brgy. Central', coords:'6.9511° N, 126.2249° E', cat:'drain', severity:'medium', status:'Reported', statusColor:'var(--navy)', statusIcon:'schedule', reporter:'Grace Villareal (pending)', date:'Aug 5, 2026', desc:'Drainage canal near the market entrance is clogged with market waste, causing standing water during rain.', top:340, left:150, resolved:false },
+    { id:'q4', code:'MT-2026-860', title:'Streetlight repaired, J.P. Laurel', loc:'J.P. Laurel Ave., Brgy. Sainz', coords:'6.9498° N, 126.2295° E', cat:'light', severity:'low', status:'Resolved', statusColor:'var(--green)', statusIcon:'verified', reporter:'Rico Fernandez (verified)', date:'Jul 20, 2026', desc:'Maintenance Team Delta replaced faulty wiring and upgraded the bulb to a high-efficiency LED unit.', top:420, left:290, resolved:true },
+    { id:'q5', code:'MT-2026-842', title:'Cracked pavement, Chapel St.', loc:'Chapel St., Brgy. Central', coords:'6.9503° N, 126.2264° E', cat:'road', severity:'low', status:'Resolved', statusColor:'var(--green)', statusIcon:'verified', reporter:'Elena Marasigan (verified)', date:'Jul 15, 2026', desc:'City Engineering Office patched and resurfaced the affected section of Chapel Street.', top:180, left:310, resolved:true },
+    { id:'q6', code:'MT-2026-901', title:'Fallen tree branch, coastal road', loc:'Coastal road, Brgy. Dahican', coords:'6.9560° N, 126.2410° E', cat:'debris', severity:'high', status:'In progress', statusColor:'var(--amber)', statusIcon:'build', reporter:'Anonymous walk-in', date:'Aug 6, 2026', desc:'Storm brought down a large branch partially blocking the coastal road shoulder.', top:520, left:100, resolved:false },
+  ];
+
+  function buildMap(container){
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const wrap = document.createElement('div');
+    wrap.style.position='relative'; wrap.style.width='100%'; wrap.style.height='100%';
+    wrap.innerHTML = `
+      <svg class="map-svg" viewBox="0 0 620 600" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="0" y="0" width="620" height="600" fill="#EAE7DD"/>
+        <path d="M0,380 L150,360 L200,430 L170,520 L30,540 L-20,470 Z" fill="#D3E4C6"/>
+        <path d="M270,-20 C240,90 320,160 285,260 C250,350 330,420 300,510 C275,580 350,610 330,700" fill="none" stroke="#AAD1DC" stroke-width="52" stroke-linecap="round"/>
+        <g fill="#F4F1E8" stroke="#DFD9C8" stroke-width="1.5">
+          <rect x="30" y="40" width="120" height="90"/><rect x="170" y="40" width="80" height="90"/>
+          <rect x="380" y="30" width="110" height="100"/><rect x="510" y="30" width="90" height="110"/>
+          <rect x="30" y="150" width="80" height="110"/><rect x="380" y="150" width="100" height="80"/>
+          <rect x="500" y="150" width="100" height="90"/><rect x="30" y="290" width="100" height="80"/>
+          <rect x="370" y="260" width="90" height="70"/><rect x="470" y="260" width="120" height="100"/>
+          <rect x="360" y="350" width="80" height="90"/><rect x="460" y="380" width="140" height="80"/>
+          <rect x="30" y="390" width="90" height="70"/><rect x="220" y="420" width="70" height="80"/>
+          <rect x="360" y="490" width="90" height="70"/><rect x="470" y="500" width="120" height="80"/>
+          <rect x="220" y="530" width="80" height="70"/><rect x="360" y="590" width="90" height="70"/>
+        </g>
+        <g stroke="#FFFFFF" stroke-width="9" opacity=".9">
+          <line x1="0" y1="40" x2="620" y2="40"/><line x1="0" y1="145" x2="620" y2="145"/>
+          <line x1="0" y1="255" x2="620" y2="255"/><line x1="0" y1="345" x2="620" y2="345"/>
+          <line x1="0" y1="480" x2="620" y2="480"/><line x1="30" y1="0" x2="30" y2="600"/>
+          <line x1="175" y1="0" x2="175" y2="600"/><line x1="360" y1="0" x2="360" y2="600"/>
+          <line x1="470" y1="0" x2="470" y2="600"/>
+        </g>
+        <g stroke="#E3DECE" stroke-width="1.2" opacity=".8">
+          <line x1="0" y1="40" x2="620" y2="40"/><line x1="0" y1="145" x2="620" y2="145"/>
+          <line x1="0" y1="255" x2="620" y2="255"/><line x1="0" y1="345" x2="620" y2="345"/>
+          <line x1="0" y1="480" x2="620" y2="480"/><line x1="30" y1="0" x2="30" y2="600"/>
+          <line x1="175" y1="0" x2="175" y2="600"/><line x1="360" y1="0" x2="360" y2="600"/>
+          <line x1="470" y1="0" x2="470" y2="600"/>
+        </g>
+        <path d="M-10,190 C140,220 260,150 400,220 C500,270 540,330 640,370" fill="none" stroke="#F4CE7E" stroke-width="13" stroke-linecap="round"/>
+        <path d="M-10,190 C140,220 260,150 400,220 C500,270 540,330 640,370" fill="none" stroke="#E0AC3F" stroke-width="1.5" stroke-linecap="round"/>
+        <text class="map-label hwy" font-size="13" transform="translate(150,205) rotate(8)">Rizal St.</text>
+        <text class="map-label" font-size="11.5" transform="translate(370,360) rotate(-6)">J.P. Laurel Ave.</text>
+        <text class="map-label" font-size="11" transform="translate(365,270) rotate(90)">Chapel St.</text>
+        <text class="map-label" font-size="11" transform="translate(46,330) rotate(90)">Purok 3 Rd.</text>
+        <text class="map-label" font-size="10.5" fill="#7FA9B5" transform="translate(310,110) rotate(80)">Mati River</text>
+        <text class="map-label" font-size="11" fill="#7E9E68" transform="translate(46,440)">Rizal Park</text>
+      </svg>`;
+
+    const sevBySeverity = { critical:'critical', high:'high', medium:'medium', low:'low' };
+    issues.forEach(iss => {
+      const pin = document.createElement('div');
+      pin.className = 'pin ' + sevBySeverity[iss.severity];
+      pin.style.top = (iss.top/600*100) + '%';
+      pin.style.left = (iss.left/620*100) + '%';
+      pin.innerHTML = `<div class="ring"><div class="thumb ${iss.cat}"></div></div><div class="sev-dot"></div>`;
+      pin.addEventListener('click', () => openModal(iss.id));
+      wrap.appendChild(pin);
+    });
+
+    const search = document.createElement('div');
+    search.className = 'map-search-float';
+    search.innerHTML = '<span class="msy">search</span> Search street or barangay';
+    wrap.appendChild(search);
+
+    const legend = document.createElement('div');
+    legend.className = 'map-legend-float';
+    legend.innerHTML = `
+      <div class="ttl">Issue severity</div>
+      <div class="row"><span class="legend-dot" style="background:var(--red)"></span>Critical</div>
+      <div class="row"><span class="legend-dot" style="background:var(--amber)"></span>High</div>
+      <div class="row"><span class="legend-dot" style="background:#E3D08C"></span>Medium</div>
+      <div class="row"><span class="legend-dot" style="background:var(--green)"></span>Low</div>`;
+    wrap.appendChild(legend);
+
+    container.appendChild(wrap);
+  }
+  buildMap(document.getElementById('overview-map'));
+  buildMap(document.getElementById('full-map'));
+
+  // ---------- Modal ----------
+  const overlay = document.getElementById('modal-overlay');
+  let currentIssueId = null;
+  const statusSelect = document.getElementById('modal-status-select');
+
+  function resetBaUpload(){
+    ['before','after'].forEach(slot => {
+      const box = document.getElementById('ba-upload-' + slot);
+      box.className = 'ba-upload-box';
+      box.querySelector('.ic .msy').textContent = 'add_a_photo';
+      box.querySelector('.t1').textContent = slot === 'before' ? 'Before photo' : 'After photo';
+      box.querySelector('.t2').textContent = slot === 'before' ? 'Original condition' : 'Completed repair';
+    });
+    document.getElementById('modal-resnote').value = '';
+  }
+
+  function setBaSlot(slot){
+    const iss = issues.find(i => i.id === currentIssueId);
+    const box = document.getElementById('ba-upload-' + slot);
+    if (!iss || !box) return;
+    box.classList.add('filled', 'thumb', iss.cat);
+    if (slot === 'after') box.classList.add('alt');
+    box.querySelector('.ic .msy').textContent = 'check_circle';
+    box.querySelector('.t1').textContent = slot === 'before' ? 'Before photo added' : 'After photo added';
+    box.querySelector('.t2').textContent = 'Tap to replace';
+
+    const ba = document.getElementById('modal-before-after');
+    ba.style.display = 'block';
+    const previewEl = document.getElementById('modal-ba-' + slot);
+    previewEl.className = 'thumb ' + iss.cat + (slot === 'after' ? ' alt' : '');
+  }
+
+  function syncResolvedFields(){
+    const isResolved = statusSelect.value === 'Resolved';
+    document.getElementById('modal-ba-setter').style.display = isResolved ? 'block' : 'none';
+    document.getElementById('modal-resnote-wrap').style.display = isResolved ? 'block' : 'none';
+    if (!isResolved){
+      document.getElementById('modal-before-after').style.display = 'none';
+    }
+  }
+  statusSelect.addEventListener('change', syncResolvedFields);
+
+  document.querySelectorAll('.ba-upload-box').forEach(box => {
+    box.addEventListener('click', () => setBaSlot(box.dataset.slot));
+  });
+
+  function openModal(issueId){
+    const iss = issues.find(i => i.id === issueId);
+    if (!iss) return;
+    currentIssueId = issueId;
+
+    document.getElementById('modal-thumb').className = 'thumb ' + iss.cat;
+    document.getElementById('modal-title').textContent = iss.title;
+    document.getElementById('modal-loc').innerHTML = '<span class="msy">location_on</span> ' + iss.loc + ' · ' + iss.coords;
+    document.getElementById('modal-id').textContent = 'Report ID: #' + iss.code + ' · Filed ' + iss.date + ' by ' + iss.reporter;
+    document.getElementById('modal-desc').textContent = iss.desc;
+    const statusEl = document.getElementById('modal-status');
+    statusEl.style.background = iss.statusColor;
+    statusEl.innerHTML = '<span class="msy fill">' + iss.statusIcon + '</span> ' + iss.severity.charAt(0).toUpperCase()+iss.severity.slice(1) + ' · ' + iss.status;
+    statusSelect.value = iss.status;
+
+    resetBaUpload();
+    document.getElementById('modal-before-after').style.display = 'none';
+    syncResolvedFields();
+
+    if (iss.resolved){
+      setBaSlot('before');
+      setBaSlot('after');
+      document.getElementById('modal-resnote').value = 'Maintenance crew completed the repair and inspected the site for safety compliance. Thank you for flagging this — the fix has been verified on-site.';
+    }
+
+    overlay.classList.add('open');
+  }
+  document.getElementById('modal-close').addEventListener('click', () => overlay.classList.remove('open'));
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('open'); });
+
+  // Table rows also open the modal
+  document.querySelectorAll('#queue-table tbody tr').forEach(row => {
+    row.addEventListener('click', () => openModal(row.dataset.issue));
+  });
+  document.querySelectorAll('.quick-assign').forEach(btn => {
+    btn.addEventListener('click', (e) => e.stopPropagation());
+  });
+
+  // ---------- Small interactive bits ----------
+  document.querySelectorAll('.chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      chip.parentElement.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+    });
+  });
+  document.querySelectorAll('.seg-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      chip.parentElement.querySelectorAll('.seg-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+    });
+  });
+  document.querySelectorAll('.tab-item').forEach(tab => {
+    tab.addEventListener('click', () => {
+      tab.parentElement.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+    });
+  });
+  document.querySelectorAll('.type-opt').forEach(opt => {
+    opt.addEventListener('click', () => {
+      opt.parentElement.querySelectorAll('.type-opt').forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+    });
+  });
+
+  // ---------- Reusable media-attach + video-to-GIF converter controller ----------
+  function createMediaAttachController(ids){
+    const photoBtn = document.getElementById(ids.photoBtn);
+    const videoBtn = document.getElementById(ids.videoBtn);
+    const photoPreview = document.getElementById(ids.photoPreview);
+    const photoImg = document.getElementById(ids.photoImg);
+    const photoRemove = document.getElementById(ids.photoRemove);
+    const convertStatus = document.getElementById(ids.convertStatus);
+    const gifCard = document.getElementById(ids.gifCard);
+    const gifImg = document.getElementById(ids.gifImg);
+    const gifRemove = document.getElementById(ids.gifRemove);
+    const gifCaptionEl = ids.gifCaption ? document.getElementById(ids.gifCaption) : null;
+
+    const seeds = ['infratrack-road','infratrack-water','infratrack-drain','infratrack-light','infratrack-debris'];
+    function randomSeed(suffix){ return seeds[Math.floor(Math.random()*seeds.length)] + '-' + suffix + '-' + Math.floor(Math.random()*1000); }
+
+    let state = null; // null | {kind:'photo', src} | {kind:'gif', src, caption}
+
+    function reset(){
+      state = null;
+      photoBtn.classList.remove('active');
+      videoBtn.classList.remove('active');
+      photoPreview.classList.remove('show');
+      gifCard.classList.remove('show');
+      convertStatus.style.display = 'none';
+    }
+    reset();
+
+    function setState(newState){
+      reset();
+      if (!newState) return;
+      if (newState.kind === 'photo'){
+        state = { kind:'photo', src:newState.src };
+        photoBtn.classList.add('active');
+        photoImg.src = newState.src;
+        photoPreview.classList.add('show');
+      } else if (newState.kind === 'gif'){
+        const caption = newState.caption || 'Converted from video';
+        state = { kind:'gif', src:newState.src, caption };
+        videoBtn.classList.add('active');
+        gifImg.src = newState.src;
+        if (gifCaptionEl) gifCaptionEl.textContent = caption;
+        gifCard.classList.add('show');
+      }
+    }
+
+    photoBtn.addEventListener('click', () => {
+      setState({ kind:'photo', src:'https://picsum.photos/seed/' + randomSeed('photo') + '/700/360' });
+    });
+
+    videoBtn.addEventListener('click', () => {
+      reset();
+      videoBtn.classList.add('active');
+      convertStatus.style.display = 'flex';
+      setTimeout(() => {
+        setState({
+          kind:'gif',
+          src:'https://picsum.photos/seed/' + randomSeed('gif') + '/700/360',
+          caption:'Converted from 0:16 video · Feed preview template'
+        });
+      }, 1400);
+    });
+
+    photoRemove.addEventListener('click', (e) => { e.stopPropagation(); reset(); });
+    gifRemove.addEventListener('click', (e) => { e.stopPropagation(); reset(); });
+
+    return { reset, setState, getState: () => state };
+  }
+
+  const createAdvisoryMedia = createMediaAttachController({
+    photoBtn:'attach-photo-btn', videoBtn:'attach-video-btn',
+    photoPreview:'photo-attach-preview', photoImg:'photo-attach-img', photoRemove:'photo-attach-remove',
+    convertStatus:'convert-status', gifCard:'gif-preview-card', gifImg:'gif-preview-img', gifRemove:'gif-preview-remove'
+  });
+
+  const editAdvisoryMedia = createMediaAttachController({
+    photoBtn:'am-attach-photo-btn', videoBtn:'am-attach-video-btn',
+    photoPreview:'am-photo-attach-preview', photoImg:'am-photo-attach-img', photoRemove:'am-photo-attach-remove',
+    convertStatus:'am-convert-status', gifCard:'am-gif-preview-card', gifImg:'am-gif-preview-img', gifRemove:'am-gif-preview-remove',
+    gifCaption:'am-gif-caption-t1'
+  });
+
+  // ---------- Public Advisory: data + render + edit + delete + publish ----------
+  const advTagMeta = {
+    alert: { icon:'warning',  label:'Emergency alert' },
+    maint: { icon:'build',    label:'Maintenance' },
+    gen:   { icon:'campaign', label:'Announcement' }
+  };
+
+  let advisories = [
+    { id:'a1', type:'alert', title:'Flash flood advisory for low-lying barangays', message:'Heavy rainfall expected through tonight. Residents near Mati River are advised to move valuables to higher ground.', time:'Issued 09:12 · CDRRMO Mati', media:null },
+    { id:'a2', type:'maint', title:'Water interruption, Barangay Central', message:'Scheduled pipe repair will suspend water supply from 1:00 PM to 6:00 PM today.', time:'Issued yesterday · Mati Water District', media:null },
+    { id:'a3', type:'gen', title:'Road resurfacing begins on Rizal Street', message:'Expect single-lane traffic near the public market from Monday. Motorists are asked to use the Chapel Street alternate.', time:'2 days ago · City Engineering Office', media:{ kind:'gif', src:'https://picsum.photos/seed/infratrack-road-adv1/700/360', caption:'Converted from 0:16 video · Feed preview template' } },
+    { id:'a4', type:'gen', title:'Report follow-up: J.P. Laurel streetlight', message:'Repair crew completed replacement of 4 damaged fixtures reported by residents this week.', time:'3 days ago · City Engineering Office', media:{ kind:'photo', src:'https://picsum.photos/seed/infratrack-light-adv1/700/360' } }
+  ];
+
+  function advisoryCardHTML(a){
+    const meta = advTagMeta[a.type];
+    let mediaHTML = '';
+    if (a.media && a.media.kind === 'gif'){
+      mediaHTML = '<div class="adv-media-thumb gif"><img src="' + a.media.src + '" alt=""><span class="adv-media-badge gif"><span class="msy fill">gif_box</span>GIF</span></div>';
+    } else if (a.media && a.media.kind === 'photo'){
+      mediaHTML = '<div class="adv-media-thumb"><img src="' + a.media.src + '" alt=""><span class="adv-media-badge"><span class="msy fill">photo_camera</span>Photo</span></div>';
+    }
+    return (
+      '<div class="adv-card ' + a.type + '" data-advisory-id="' + a.id + '">' +
+        mediaHTML +
+        '<div class="adv-tag ' + a.type + '"><span class="msy">' + meta.icon + '</span> ' + meta.label + '</div>' +
+        '<h3>' + a.title + '</h3>' +
+        '<p>' + a.message + '</p>' +
+        '<div class="adv-foot"><span class="adv-time">' + a.time + '</span><div class="adv-actions">' +
+          '<span class="msy" data-edit="' + a.id + '">edit</span>' +
+          '<span class="msy" data-delete="' + a.id + '">delete</span>' +
+        '</div></div>' +
+      '</div>'
+    );
+  }
+
+  function renderAdvisories(){
+    const wrap = document.getElementById('advisory-list');
+    wrap.innerHTML = advisories.map(advisoryCardHTML).join('');
+    wrap.querySelectorAll('[data-edit]').forEach(el => {
+      el.addEventListener('click', (e) => { e.stopPropagation(); openAdvisoryModal(el.dataset.edit); });
+    });
+    wrap.querySelectorAll('[data-delete]').forEach(el => {
+      el.addEventListener('click', (e) => { e.stopPropagation(); deleteAdvisory(el.dataset.delete); });
+    });
+  }
+  renderAdvisories();
+
+  function deleteAdvisory(id){
+    if (!confirm('Delete this advisory? This cannot be undone.')) return;
+    advisories = advisories.filter(a => a.id !== id);
+    renderAdvisories();
+  }
+
+  const advisoryOverlay = document.getElementById('advisory-modal-overlay');
+  let editingAdvisoryId = null;
+
+  function openAdvisoryModal(id){
+    const a = advisories.find(x => x.id === id);
+    if (!a) return;
+    editingAdvisoryId = id;
+
+    document.querySelectorAll('#am-type-picker .type-opt').forEach(o => o.classList.toggle('selected', o.dataset.type === a.type));
+    document.getElementById('am-title').value = a.title;
+    document.getElementById('am-message').value = a.message;
+    editAdvisoryMedia.setState(a.media);
+
+    advisoryOverlay.classList.add('open');
+  }
+
+  document.getElementById('am-save').addEventListener('click', () => {
+    const a = advisories.find(x => x.id === editingAdvisoryId);
+    if (!a) return;
+    const selectedType = document.querySelector('#am-type-picker .type-opt.selected');
+    if (selectedType) a.type = selectedType.dataset.type;
+    const newTitle = document.getElementById('am-title').value.trim();
+    const newMessage = document.getElementById('am-message').value.trim();
+    if (newTitle) a.title = newTitle;
+    if (newMessage) a.message = newMessage;
+    a.media = editAdvisoryMedia.getState();
+    renderAdvisories();
+    advisoryOverlay.classList.remove('open');
+  });
+
+  document.getElementById('am-delete').addEventListener('click', () => {
+    if (!editingAdvisoryId) return;
+    if (!confirm('Delete this advisory? This cannot be undone.')) return;
+    advisories = advisories.filter(a => a.id !== editingAdvisoryId);
+    renderAdvisories();
+    advisoryOverlay.classList.remove('open');
+  });
+
+  document.getElementById('am-close').addEventListener('click', () => advisoryOverlay.classList.remove('open'));
+  advisoryOverlay.addEventListener('click', (e) => { if (e.target === advisoryOverlay) advisoryOverlay.classList.remove('open'); });
+
+  document.getElementById('publish-advisory-btn').addEventListener('click', () => {
+    const selectedType = document.querySelector('#new-advisory-type-picker .type-opt.selected');
+    const type = selectedType ? selectedType.dataset.type : 'gen';
+    const titleEl = document.getElementById('new-advisory-title');
+    const messageEl = document.getElementById('new-advisory-message');
+    const title = titleEl.value.trim();
+    const message = messageEl.value.trim();
+    if (!title || !message){
+      alert('Please add a title and message before publishing.');
+      return;
+    }
+    advisories.unshift({
+      id: 'a' + Date.now(),
+      type, title, message,
+      time: 'Just now · City Engineering Office',
+      media: createAdvisoryMedia.getState()
+    });
+    renderAdvisories();
+
+    titleEl.value = '';
+    messageEl.value = '';
+    createAdvisoryMedia.reset();
+    document.querySelectorAll('#new-advisory-type-picker .type-opt').forEach(o => o.classList.remove('selected'));
+    document.querySelector('#new-advisory-type-picker .type-opt[data-type="alert"]').classList.add('selected');
+  });
+
+  // ---------- User Management: Trust & Safety ----------
+  const standingMeta = {
+    active:    { label:'Active',    icon:'check_circle', noteOK:'No abuse flags on this account.' },
+    warned:    { label:'Warned',    icon:'error',         noteOK:'This resident has received one or more warnings.' },
+    suspended: { label:'Suspended', icon:'block',          noteOK:'This account is temporarily suspended and cannot submit new reports.' },
+    banned:    { label:'Banned',    icon:'gavel',          noteOK:'This account is permanently banned from InfraTrack.' }
+  };
+
+  const users = {
+    u1: { name:'Elena Marasigan', email:'elena.m@example.com', initials:'EM', barangay:'Brgy. Central', reports:12, joined:'Feb 2026', standing:'active',
+      reportList:[ {title:'Deep pothole along Rizal St.', meta:'#MT-2026-881 · Aug 2, 2026'}, {title:'Cracked pavement, Chapel St.', meta:'#MT-2026-842 · Jul 15, 2026'} ],
+      log: [] },
+    u2: { name:'Marco Bantilan', email:'marco.b@example.com', initials:'MB', barangay:'Brgy. Dawan', reports:5, joined:'Apr 2026', standing:'active',
+      reportList:[ {title:'No water supply, Purok 3', meta:'#MT-2026-879 · Jul 30, 2026'} ],
+      log: [] },
+    u3: { name:'Grace Villareal', email:'grace.v@example.com', initials:'GV', barangay:'Brgy. Central', reports:2, joined:'Aug 2026', standing:'active',
+      reportList:[ {title:'Clogged drainage near market', meta:'#MT-2026-884 · Aug 5, 2026'} ],
+      log: [] },
+    u4: { name:'Jonas dela Cruz', email:'jonas.dc@example.com', initials:'JD', barangay:'Brgy. Sainz', reports:9, joined:'Aug 2026', standing:'warned',
+      reportList:[ {title:'"Sinkhole" outside my house (duplicate, 4th filing)', meta:'#MT-2026-905 · Aug 9, 2026'}, {title:'"Sinkhole" outside my house (duplicate)', meta:'#MT-2026-899 · Aug 7, 2026'} ],
+      log: [ {action:'warn', title:'Warning issued', reason:'Spam or duplicate reports', note:'Same pothole re-filed 3 times in one week to jump the queue.', admin:'Engr. Santos', when:'Aug 9, 2026 · 10:12 AM'} ] },
+    u5: { name:'Rico Fernandez', email:'rico.f@example.com', initials:'RF', barangay:'Brgy. Sainz', reports:7, joined:'Jan 2026', standing:'active',
+      reportList:[ {title:'Streetlight repaired, J.P. Laurel', meta:'#MT-2026-860 · Jul 20, 2026'} ],
+      log: [] },
+    u6: { name:'Paolo Reyes', email:'paolo.r@example.com', initials:'PR', barangay:'Brgy. Dawan', reports:34, joined:'Mar 2026', standing:'suspended',
+      reportList:[ {title:'"URGENT!!" road damage, no photo, no location', meta:'#MT-2026-910 · Aug 10, 2026'}, {title:'Duplicate: pothole (fabricated, no photo evidence)', meta:'#MT-2026-908 · Aug 10, 2026'} ],
+      log: [
+        {action:'warn', title:'Warning issued', reason:'Spam or duplicate reports', note:'11 near-identical reports filed within 2 days, several with no location data.', admin:'Engr. Santos', when:'Aug 8, 2026 · 4:40 PM'},
+        {action:'suspend', title:'Account suspended · 7 days', reason:'False or misleading report', note:'Continued filing fabricated reports after warning; inflating queue and diverting crews from real issues.', admin:'Engr. Santos', when:'Aug 10, 2026 · 9:05 AM'}
+      ] }
+  };
+
+  const actionIcon = { warn:'campaign', suspend:'block', ban:'gavel', reinstate:'undo' };
+
+  function renderUserModal(id){
+    const u = users[id];
+    if (!u) return;
+    document.getElementById('um-avatar').textContent = u.initials;
+    document.getElementById('um-name').textContent = u.name;
+    document.getElementById('um-email').textContent = u.email;
+    document.getElementById('um-barangay').textContent = u.barangay;
+    document.getElementById('um-reports').textContent = u.reports;
+    document.getElementById('um-joined').textContent = u.joined;
+
+    const meta = standingMeta[u.standing];
+    document.getElementById('um-standing-chip').innerHTML =
+      '<span class="acct-pill ' + u.standing + '"><span class="msy">' + meta.icon + '</span>' + meta.label + '</span>';
+
+    const card = document.getElementById('um-safety-card');
+    card.className = 'safety-card' + (u.standing !== 'active' ? ' is-' + u.standing : '');
+    document.getElementById('um-safety-note').textContent = meta.noteOK;
+
+    const actionsWrap = document.getElementById('um-safety-actions');
+    if (u.standing === 'active' || u.standing === 'warned'){
+      actionsWrap.innerHTML =
+        '<div class="safety-btn warn" data-action="warn"><span class="msy">campaign</span>Warn</div>' +
+        '<div class="safety-btn suspend" data-action="suspend"><span class="msy">block</span>Suspend</div>' +
+        '<div class="safety-btn ban" data-action="ban"><span class="msy">gavel</span>Ban</div>';
+    } else {
+      actionsWrap.innerHTML =
+        '<div class="safety-btn reinstate" data-action="reinstate"><span class="msy">undo</span>Reinstate account</div>' +
+        '<div class="safety-btn ban" data-action="ban"><span class="msy">gavel</span>Ban permanently</div>';
+    }
+    bindSafetyButtons(id);
+    document.getElementById('um-safety-form').classList.remove('open');
+
+    const listEl = document.getElementById('um-report-list');
+    listEl.innerHTML = u.reportList.length ? u.reportList.map(r =>
+      '<div class="activity-item"><div class="activity-ic data"><span class="msy">description</span></div><div class="activity-body"><div class="t1">' + r.title + '</div><div class="t3">' + r.meta + '</div></div></div>'
+    ).join('') : '<div class="mod-log-empty">No reports filed yet.</div>';
+
+    const logEl = document.getElementById('um-mod-log');
+    logEl.innerHTML = u.log.length ? u.log.slice().reverse().map(l =>
+      '<div class="mod-log-item"><div class="ic ' + l.action + '"><span class="msy">' + actionIcon[l.action] + '</span></div>' +
+      '<div><div class="t1">' + l.title + '</div><div class="t2">' + l.reason + (l.note ? ' — ' + l.note : '') + '</div>' +
+      '<div class="t3">' + l.when + ' · ' + l.admin + '</div></div></div>'
+    ).join('') : '<div class="mod-log-empty">No moderation actions on record.</div>';
+  }
+
+  function bindSafetyButtons(id){
+    const form = document.getElementById('um-safety-form');
+    const durationWrap = document.getElementById('um-duration-wrap');
+    const confirmBtn = document.getElementById('um-confirm');
+    document.querySelectorAll('#um-safety-actions .safety-btn').forEach(btn => {
+      btn.onclick = () => {
+        document.querySelectorAll('#um-safety-actions .safety-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        const action = btn.dataset.action;
+        form.classList.add('open');
+        durationWrap.style.display = (action === 'suspend') ? 'block' : 'none';
+        confirmBtn.className = 'confirm-btn ' + action;
+        const verb = { warn:'Confirm warning', suspend:'Confirm suspension', ban:'Confirm ban', reinstate:'Confirm reinstatement' }[action];
+        confirmBtn.innerHTML = '<span class="msy" style="font-size:16px; vertical-align:-3px;">check</span> ' + verb;
+        confirmBtn.onclick = () => applyAction(id, action);
+      };
+    });
+  }
+
+  function applyAction(id, action){
+    const u = users[id];
+    const reason = document.getElementById('um-reason').value;
+    const note = document.getElementById('um-note').value.trim();
+    const duration = document.getElementById('um-duration').value;
+
+    if (action === 'warn') u.standing = 'warned';
+    else if (action === 'suspend') u.standing = 'suspended';
+    else if (action === 'ban') u.standing = 'banned';
+    else if (action === 'reinstate') u.standing = 'active';
+
+    const titleMap = {
+      warn: 'Warning issued',
+      suspend: 'Account suspended · ' + duration,
+      ban: 'Account banned permanently',
+      reinstate: 'Account reinstated'
+    };
+    u.log.push({ action, title: titleMap[action], reason: (action==='reinstate' ? 'Standing restored after review' : reason), note, admin:'You', when:'Just now' });
+
+    // reflect new standing in the citizens table
+    const row = document.querySelector('#users-table tr[data-user="' + id + '"] .standing-cell');
+    if (row){
+      const meta = standingMeta[u.standing];
+      row.innerHTML = '<span class="acct-pill ' + u.standing + '"><span class="msy">' + meta.icon + '</span>' + meta.label + '</span>';
+    }
+
+    document.getElementById('um-note').value = '';
+    renderUserModal(id);
+  }
+
+  const userOverlay = document.getElementById('user-modal-overlay');
+  let currentUserId = null;
+  function openUserModal(id){
+    currentUserId = id;
+    renderUserModal(id);
+    userOverlay.classList.add('open');
+  }
+  document.getElementById('um-close').addEventListener('click', () => userOverlay.classList.remove('open'));
+  userOverlay.addEventListener('click', (e) => { if (e.target === userOverlay) userOverlay.classList.remove('open'); });
+
+  document.querySelectorAll('#users-table tbody tr').forEach(row => {
+    row.addEventListener('click', () => openUserModal(row.dataset.user));
+  });
+</script>
+
+</body>
+</html>

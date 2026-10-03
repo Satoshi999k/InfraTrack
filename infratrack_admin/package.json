@@ -1,0 +1,32 @@
+{
+  "name": "infratrack-admin",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"vite\" \"node server.js\"",
+    "client": "concurrently \"vite\" \"node server.js\"",
+    "server": "node server.js",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "concurrently": "latest",
+    "express": "latest",
+    "dotenv": "latest",
+    "ffmpeg-static": "latest",
+    "leaflet": "^1.9.4",
+    "lucide-react": "latest",
+    "mysql2": "latest",
+    "multer": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "react-leaflet": "^5.0.0",
+    "vite": "latest"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.6"
+  }
+}
