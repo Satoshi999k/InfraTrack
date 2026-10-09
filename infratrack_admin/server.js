@@ -10,6 +10,7 @@ import { spawn } from "node:child_process";
 import ffmpegPath from "ffmpeg-static";
 import { computeDuplicateMatch, escalateIssueSeverity } from "./automation.js";
 import { validateBarangayCoordinates } from "./barangay-boundaries.js";
+import { sendEmailNotification } from "./emailNotifications.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -125,6 +126,14 @@ async function queueNotification({ userId, reportId = null, advisoryId = null, t
 
 async function dispatchNotification({ channel = "email", recipient, subject, body }) {
   const resolvedChannel = channel || "email";
+  if (resolvedChannel === "email" && process.env.BREVO_API_KEY) {
+    try {
+      return await sendEmailNotification({ recipient, subject, body });
+    } catch (error) {
+      console.warn("Brevo notification failed:", error.message);
+      return { sent: false, configured: true };
+    }
+  }
   const webhook = resolvedChannel === "sms" ? process.env.SMS_NOTIFICATION_WEBHOOK : process.env.EMAIL_NOTIFICATION_WEBHOOK;
   if (webhook) {
     try {
@@ -139,6 +148,51 @@ async function dispatchNotification({ channel = "email", recipient, subject, bod
     return;
   }
   console.log(`[InfraTrack ${resolvedChannel.toUpperCase()}] ${subject} :: ${recipient ?? "operations"} :: ${body}`);
+}
+
+async function notifyPasswordChanged(user, changedByAdmin = false) {
+  const subject = "Your InfraTrack password was changed";
+  const action = changedByAdmin ? "An administrator reset your password" : "Your password was changed";
+  const body = `Hello ${user.name || "there"},\n\n${action} for your InfraTrack account. If you did not expect this change, contact your Mati City administrator.\n\nFor your security, this email does not contain your password.`;
+
+  try {
+    return await sendEmailNotification({
+      recipient: user.email,
+      subject,
+      body,
+      template: {
+        eyebrow: "SECURITY ALERT",
+        note: "For your security, this email does not include your password. If you did not request this change, contact your Mati City administrator.",
+        actionUrl: process.env.APP_PUBLIC_URL,
+        actionLabel: "Sign in to InfraTrack",
+      },
+    });
+  } catch (error) {
+    console.error(`Password-change email failed for account ${user.id}:`, error.message);
+    return { sent: false, configured: true };
+  }
+}
+
+async function notifyStaffAccountReady(staff) {
+  const subject = "Your InfraTrack administrator account is ready";
+  const body = `Hello ${staff.name || "there"},\n\nYour InfraTrack account is active with ${staff.role === "lgu" ? "LGU administrator" : "barangay staff"} access. Sign in using ${staff.email} and the initial password provided to you by your administrator.`;
+
+  try {
+    return await sendEmailNotification({
+      recipient: staff.email,
+      subject,
+      body,
+      template: {
+        eyebrow: "ADMINISTRATOR ACCOUNT",
+        note: "For your security, this email does not include your password. Your administrator should provide your initial sign-in credentials directly.",
+        actionUrl: process.env.APP_PUBLIC_URL,
+        actionLabel: "Sign in to InfraTrack",
+      },
+    });
+  } catch (error) {
+    console.error(`Staff account email failed for account ${staff.id}:`, error.message);
+    return { sent: false, configured: true };
+  }
 }
 
 async function notifyIssueStakeholders(report, eventType = "report") {
@@ -230,10 +284,11 @@ async function initializeDatabase() {
   await pool.query(`CREATE TABLE IF NOT EXISTS users (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, name VARCHAR(160) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE, mobile VARCHAR(40), barangay VARCHAR(120),
-    password_hash CHAR(64) NOT NULL, role ENUM('resident','admin','lgu','barangay_staff') NOT NULL DEFAULT 'resident',
+    password_hash VARCHAR(255) NOT NULL, role ENUM('resident','admin','lgu','barangay_staff') NOT NULL DEFAULT 'resident',
     standing VARCHAR(30) NOT NULL DEFAULT 'Active', verification VARCHAR(40) NOT NULL DEFAULT 'Pending ID match',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
   ) ENGINE=InnoDB`);
+  await pool.query("ALTER TABLE users MODIFY COLUMN password_hash VARCHAR(255) NOT NULL");
   await pool.query(`CREATE TABLE IF NOT EXISTS reports (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, public_id VARCHAR(32) NOT NULL UNIQUE,
     title VARCHAR(255) NOT NULL, description TEXT NOT NULL, category VARCHAR(80) NOT NULL,
@@ -489,11 +544,12 @@ app.post("/api/auth/logout", async (req, res) => {
 app.patch("/api/account/password", async (req, res) => {
   const { currentPassword, newPassword } = req.body ?? {};
   if (!currentPassword || !newPassword || String(newPassword).length < 8) return res.status(400).json({ error: "New password must be at least 8 characters" });
-  const [[user]] = await pool.query("SELECT id, password_hash FROM users WHERE id = ?", [req.auth.id]);
+  const [[user]] = await pool.query("SELECT id, name, email, password_hash FROM users WHERE id = ?", [req.auth.id]);
   if (!user || !verifyPassword(String(currentPassword), user.password_hash)) return res.status(400).json({ error: "Current password is incorrect" });
   await pool.query("UPDATE users SET password_hash = ? WHERE id = ?", [hashPassword(String(newPassword)), user.id]);
   await writeAuditLog(req, { actorId: user.id, action: "password_changed", resourceType: "account", resourceId: user.id });
-  res.json({ ok: true });
+  const emailNotification = await notifyPasswordChanged(user);
+  res.json({ ok: true, emailNotification });
 });
 app.get("/api/audit-logs", async (req, res) => {
   const admin = req.auth;
@@ -655,7 +711,9 @@ app.post("/api/staff", async (req, res) => {
   try {
     const [result] = await pool.query("INSERT INTO users (name, email, barangay, password_hash, role, standing, verification) VALUES (?, ?, ?, ?, ?, 'Active', 'Verified')", [name.trim(), email.trim().toLowerCase(), barangay.trim(), hashPassword(password), role]);
     await writeAuditLog(req, { actorId: req.auth.id, action: "staff_created", resourceType: "user", resourceId: result.insertId, details: { email: email.trim().toLowerCase(), barangay: barangay.trim(), role } });
-    res.status(201).json({ staff: { id: result.insertId, name: name.trim(), email: email.trim().toLowerCase(), barangay: barangay.trim(), role, standing: "Active" } });
+    const staff = { id: result.insertId, name: name.trim(), email: email.trim().toLowerCase(), barangay: barangay.trim(), role, standing: "Active" };
+    const emailNotification = await notifyStaffAccountReady(staff);
+    res.status(201).json({ staff, emailNotification });
   } catch (error) {
     if (error.code === "ER_DUP_ENTRY") return res.status(409).json({ error: "An account with this email already exists" });
     res.status(500).json({ error: "Could not create staff account" });
@@ -664,13 +722,15 @@ app.post("/api/staff", async (req, res) => {
 app.patch("/api/staff/:id", async (req, res) => {
   if (!["lgu", "admin"].includes(req.auth.role)) return res.status(403).json({ error: "LGU administrator access required" });
   const { name, email, barangay, standing, role, password } = req.body ?? {};
-  const [rows] = await pool.query("SELECT id, role FROM users WHERE id = ? AND role IN ('barangay_staff', 'lgu', 'admin')", [Number(req.params.id)]);
+  if (password && password.length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
+  const [rows] = await pool.query("SELECT id, name, email, role FROM users WHERE id = ? AND role IN ('barangay_staff', 'lgu', 'admin')", [Number(req.params.id)]);
   if (!rows[0]) return res.status(404).json({ error: "Staff account not found" });
   if (role && !["barangay_staff", "lgu"].includes(role)) return res.status(400).json({ error: "Invalid staff role" });
   await pool.query("UPDATE users SET name = COALESCE(?, name), email = COALESCE(?, email), barangay = COALESCE(?, barangay), standing = COALESCE(?, standing), role = COALESCE(?, role), password_hash = COALESCE(?, password_hash) WHERE id = ?", [name?.trim() || null, email?.trim().toLowerCase() || null, barangay?.trim() || null, standing || null, role || null, password && password.length >= 8 ? hashPassword(password) : null, Number(req.params.id)]);
   await writeAuditLog(req, { actorId: req.auth.id, action: password ? "staff_updated_password" : standing === "Disabled" ? "staff_disabled" : "staff_updated", resourceType: "user", resourceId: req.params.id, details: { name, email, barangay, standing, role } });
   const [[staff]] = await pool.query("SELECT id, name, email, barangay, role, standing, verification FROM users WHERE id = ?", [Number(req.params.id)]);
-  res.json({ staff });
+  const emailNotification = password ? await notifyPasswordChanged(rows[0], true) : undefined;
+  res.json({ staff, ...(emailNotification ? { emailNotification } : {}) });
 });
 app.get("/api/advisories", async (req, res) => {
   const status = req.query.status || "published";

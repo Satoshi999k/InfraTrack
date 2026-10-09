@@ -6,6 +6,7 @@ export default function UsersPage({ users, onOpenUser, user }) {
   const [staff, setStaff] = useState([]);
   const [showStaffForm, setShowStaffForm] = useState(false);
   const [staffError, setStaffError] = useState("");
+  const [staffNotice, setStaffNotice] = useState("");
   const [staffForm, setStaffForm] = useState({ name: "", email: "", barangay: "", password: "Mati2026!", role: "barangay_staff" });
   const [passwordModal, setPasswordModal] = useState({ open: false, account: null, value: "", confirm: "", error: "" });
   const canManageStaff = ["lgu", "admin"].includes(user?.role);
@@ -29,6 +30,11 @@ export default function UsersPage({ users, onOpenUser, user }) {
       if (!response.ok) throw new Error(data.error || "Could not create staff account");
       setStaffForm({ name: "", email: "", barangay: "", password: "Mati2026!", role: "barangay_staff" });
       setShowStaffForm(false);
+      setStaffNotice(data.emailNotification?.sent
+        ? `Staff account created. An account email was sent to ${data.staff.email}.`
+        : data.emailNotification?.configured
+          ? "Staff account created, but its email could not be sent. Please check the server configuration."
+          : "Staff account created. Email notifications are not configured yet.");
       loadStaff();
     } catch (error) { setStaffError(error.message); }
   };
@@ -59,15 +65,25 @@ export default function UsersPage({ users, onOpenUser, user }) {
       return;
     }
 
-    const response = await apiFetch(`/staff/${account.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: trimmed }) });
-    const data = await response.json();
-    if (!response.ok) {
-      setPasswordModal((current) => ({ ...current, error: data.error || "Could not reset password" }));
-      return;
-    }
+    try {
+      const response = await apiFetch(`/staff/${account.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: trimmed }) });
+      const data = await response.json();
+      if (!response.ok) {
+        setPasswordModal((current) => ({ ...current, error: data.error || "Could not reset password" }));
+        return;
+      }
 
-    setPasswordModal({ open: false, account: null, value: "", confirm: "", error: "" });
-    setStaffError("");
+      setPasswordModal({ open: false, account: null, value: "", confirm: "", error: "" });
+      setStaffError("");
+      setStaffNotice(data.emailNotification?.sent
+        ? `Password reset. A security alert was emailed to ${account.email}.`
+        : data.emailNotification?.configured
+          ? "Password reset, but the security email could not be sent. Please check the server configuration."
+          : "Password reset. Email alerts are not configured yet.");
+      loadStaff();
+    } catch (error) {
+      setPasswordModal((current) => ({ ...current, error: error.message || "Could not reset password" }));
+    }
   };
 
   return (
@@ -101,14 +117,55 @@ export default function UsersPage({ users, onOpenUser, user }) {
           </div>
         )}
         {showStaffForm && <form className="staff-form" onSubmit={createStaff}>
-          <input placeholder="Full name" value={staffForm.name} onChange={(event) => setStaffForm({ ...staffForm, name: event.target.value })} required />
-          <input type="email" placeholder="Email address" value={staffForm.email} onChange={(event) => setStaffForm({ ...staffForm, email: event.target.value })} required />
-          <input placeholder="Barangay" value={staffForm.barangay} onChange={(event) => setStaffForm({ ...staffForm, barangay: event.target.value })} required />
-          <input type="password" placeholder="Temporary password" minLength={8} value={staffForm.password} onChange={(event) => setStaffForm({ ...staffForm, password: event.target.value })} required />
-          <select value={staffForm.role} onChange={(event) => setStaffForm({ ...staffForm, role: event.target.value })}><option value="barangay_staff">Barangay staff</option><option value="lgu">LGU administrator</option></select>
-          <button type="submit" className="secondary-button">Create account</button>
+          <div className="staff-form-heading">
+            <span className="staff-form-icon"><UserPlus size={19} /></span>
+            <div>
+              <h3>Create a staff account</h3>
+              <p>Add a team member and assign their access.</p>
+            </div>
+            <span className="staff-required-note">All fields required</span>
+          </div>
+          <div className="staff-form-section">
+            <h4>Staff details</h4>
+            <div className="staff-form-fields">
+              <label className="staff-form-field" htmlFor="staff-name">
+                <span>Full name</span>
+                <input id="staff-name" autoComplete="name" placeholder="e.g. Maria Santos" value={staffForm.name} onChange={(event) => setStaffForm({ ...staffForm, name: event.target.value })} required />
+              </label>
+              <label className="staff-form-field" htmlFor="staff-email">
+                <span>Work email</span>
+                <input id="staff-email" type="email" autoComplete="email" placeholder="name@mati.gov.ph" value={staffForm.email} onChange={(event) => setStaffForm({ ...staffForm, email: event.target.value })} required />
+              </label>
+              <label className="staff-form-field" htmlFor="staff-barangay">
+                <span>Assigned barangay</span>
+                <input id="staff-barangay" autoComplete="address-level3" placeholder="e.g. Central" value={staffForm.barangay} onChange={(event) => setStaffForm({ ...staffForm, barangay: event.target.value })} required />
+              </label>
+            </div>
+          </div>
+          <div className="staff-form-section">
+            <h4>Account access</h4>
+            <div className="staff-form-fields">
+              <label className="staff-form-field" htmlFor="staff-role">
+                <span>Staff role</span>
+                <select id="staff-role" value={staffForm.role} onChange={(event) => setStaffForm({ ...staffForm, role: event.target.value })}>
+                  <option value="barangay_staff">Barangay staff</option>
+                  <option value="lgu">LGU administrator</option>
+                </select>
+              </label>
+              <label className="staff-form-field" htmlFor="staff-password">
+                <span>Temporary password</span>
+                <input id="staff-password" type="password" autoComplete="new-password" minLength={8} placeholder="At least 8 characters" value={staffForm.password} onChange={(event) => setStaffForm({ ...staffForm, password: event.target.value })} required />
+                <small>They can change this after signing in.</small>
+              </label>
+            </div>
+          </div>
+          <div className="staff-form-actions">
+            <button type="button" className="secondary-button" onClick={() => setShowStaffForm(false)}>Cancel</button>
+            <button type="submit" className="primary-button"><UserPlus size={15} /> Create account</button>
+          </div>
         </form>}
         {staffError && <p role="alert" className="staff-error">{staffError}</p>}
+        {staffNotice && <p role="status" className={`staff-notice ${staffNotice.includes("could not be sent") ? "staff-notice-warning" : ""}`}>{staffNotice}</p>}
         <div className="staff-account-list">{staff.map((account) => <div className="staff-account-row" key={account.id}><div><strong>{account.name}</strong><small>{account.email} · {account.barangay} · {account.role}</small></div><div className="staff-action-group"><span className={`status ${account.standing === "Active" ? "resolved" : "pending"}`}>{account.standing}</span><button type="button" className="view-user-button" onClick={() => resetStaffPassword(account)}>Reset password</button><button type="button" className="view-user-button" onClick={() => toggleStaff(account)}>{account.standing === "Disabled" ? "Activate" : "Disable"}</button></div></div>)}</div>
       </section>}
       <div className="card table-card">

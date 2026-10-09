@@ -120,7 +120,11 @@ export default function SettingsPage({ user, logsOnly = false }) {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not change password");
       setPasswords({ current: "", next: "", confirm: "" });
-      setPasswordMessage("Password changed successfully.");
+      setPasswordMessage(data.emailNotification?.sent
+        ? "Password changed successfully. A security alert was emailed to your account."
+        : data.emailNotification?.configured
+          ? "Password changed successfully, but the security email could not be sent. Please contact your administrator."
+          : "Password changed successfully. Email alerts are not configured yet.");
     } catch (error) {
       setPasswordMessage(error.message);
     }
@@ -255,7 +259,7 @@ export default function SettingsPage({ user, logsOnly = false }) {
             <input className="settings-input" type="password" placeholder="Confirm new password" value={passwords.confirm} onChange={(event) => setPasswords((current) => ({ ...current, confirm: event.target.value }))} minLength={8} required />
             <button type="submit" className="secondary-button">Change password</button>
           </form>
-          {passwordMessage && <p role="status" style={{ color: passwordMessage.includes("successfully") ? "#1b8a83" : "#9f351e" }}>{passwordMessage}</p>}
+          {passwordMessage && <p role="status" style={{ color: passwordMessage.includes("successfully") && !passwordMessage.includes("but") ? "#1b8a83" : "#9f351e" }}>{passwordMessage}</p>}
         </article>
 
         <article className="card settings-card">
