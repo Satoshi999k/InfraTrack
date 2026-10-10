@@ -107,7 +107,16 @@ async function verifyRecaptcha(token, ip) {
     body: new URLSearchParams({ secret: recaptchaSecret, response: token, remoteip: ip }),
   });
   const result = await response.json();
-  return { ok: Boolean(result.success) && Number(result.score ?? 1) >= 0.5, configured: true };
+  const ok = Boolean(result.success) && Number(result.score ?? 1) >= 0.5;
+  if (!ok) {
+    console.warn("reCAPTCHA verification rejected", {
+      errorCodes: result["error-codes"] ?? [],
+      score: result.score ?? null,
+      hostname: result.hostname ?? null,
+      action: result.action ?? null,
+    });
+  }
+  return { ok, configured: true };
 }
 
 async function readSystemSettings() {
