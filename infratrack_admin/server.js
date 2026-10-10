@@ -19,6 +19,10 @@ const port = Number(process.env.PORT || 3001);
 const forceHttps = String(process.env.FORCE_HTTPS || "false").toLowerCase() === "true";
 const recaptchaSecret = process.env.RECAPTCHA_SECRET_KEY || "";
 const loginAttempts = new Map();
+const loginMaxAttempts = Number(process.env.LOGIN_MAX_ATTEMPTS || 10);
+if (!Number.isInteger(loginMaxAttempts) || loginMaxAttempts < 1) {
+  throw new Error("LOGIN_MAX_ATTEMPTS must be a positive integer");
+}
 const dbName = process.env.DB_NAME || "infratrack";
 const dbSsl = /^true$/i.test(process.env.DB_SSL || "false");
 const dbConfig = {
@@ -519,7 +523,7 @@ app.post("/api/auth/login", async (req, res) => {
   const now = Date.now();
   const attempt = loginAttempts.get(ip) || { count: 0, resetAt: now + 15 * 60 * 1000 };
   if (now > attempt.resetAt) { attempt.count = 0; attempt.resetAt = now + 15 * 60 * 1000; }
-  if (attempt.count >= 10 || isAutomatedUserAgent(req)) {
+  if (attempt.count >= loginMaxAttempts || isAutomatedUserAgent(req)) {
     await writeAuditLog(req, { action: "login_blocked", resourceType: "authentication", details: { reason: isAutomatedUserAgent(req) ? "automated_user_agent" : "rate_limit", email: String(email ?? "").trim() } });
     return res.status(429).json({ error: "Too many or automated login attempts. Please try again later." });
   }
