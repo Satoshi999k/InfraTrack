@@ -20,11 +20,13 @@ const forceHttps = String(process.env.FORCE_HTTPS || "false").toLowerCase() === 
 const recaptchaSecret = process.env.RECAPTCHA_SECRET_KEY || "";
 const loginAttempts = new Map();
 const dbName = process.env.DB_NAME || "infratrack";
+const dbSsl = /^true$/i.test(process.env.DB_SSL || "false");
 const dbConfig = {
   host: process.env.DB_HOST || "127.0.0.1",
   port: Number(process.env.DB_PORT || 3306),
   user: process.env.DB_USER || "root",
   password: process.env.DB_PASSWORD || "",
+  ssl: dbSsl ? { minVersion: "TLSv1.2" } : undefined,
 };
 const pool = mysql.createPool({ ...dbConfig, database: dbName, waitForConnections: true, connectionLimit: 10 });
 const uploadDirectory = path.join(__dirname, "uploads");

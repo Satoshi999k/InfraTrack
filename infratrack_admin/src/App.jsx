@@ -89,9 +89,21 @@ export default function App() {
   return <Dashboard user={currentUser} onLogout={handleLogout} />;
 }
 
+function getAdminBadge(userName, role) {
+  if (role === "admin" || role === "administrator") return "AD";
+  if (role === "barangay_staff") return "LG";
+
+  const words = (userName || "Operations Team").trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "AD";
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+
+  return words.slice(0, 2).map((word) => word[0]).join("").toUpperCase();
+}
+
 function Dashboard({ user, onLogout }) {
   const userName = user.name || "Operations Team";
   const isBarangayStaff = user.role === "barangay_staff";
+  const adminBadge = getAdminBadge(userName, user.role);
   const [page, setPage] = useState("overview");
   const [drawer, setDrawer] = useState(false);
   const [query, setQuery] = useState("");
@@ -351,7 +363,7 @@ function Dashboard({ user, onLogout }) {
             <button type="button" className="icon-button" aria-label="Help" onClick={() => setModal({ type: "help" })}>
               <Icon icon={HelpCircle} />
             </button>
-            <div className="admin-avatar">{userName.slice(0, 2).toUpperCase()}</div>
+            <div className="admin-avatar">{adminBadge}</div>
           </div>
         </header>
 
