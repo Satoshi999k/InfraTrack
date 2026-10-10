@@ -104,7 +104,10 @@ const clientIp = (req) => String(process.env.TRUST_PROXY === "true" ? (req.heade
 const isAutomatedUserAgent = (req) => /bot|crawler|spider|scrapy|curl|wget|python-requests|headless/i.test(String(req.get("user-agent") || ""));
 async function verifyRecaptcha(token, ip) {
   if (!recaptchaSecret) return { ok: true, configured: false };
-  if (!token) return { ok: false, configured: true };
+  if (!token) {
+    console.warn("reCAPTCHA verification rejected", { errorCodes: ["missing-input-response"] });
+    return { ok: false, configured: true };
+  }
   const response = await fetch("https://www.google.com/recaptcha/api/siteverify", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },

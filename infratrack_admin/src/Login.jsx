@@ -17,7 +17,9 @@ import { getRememberedEmail, saveAuthSession } from "./authSession";
 const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "";
 
 function getRecaptchaToken() {
-  if (!RECAPTCHA_SITE_KEY) return Promise.resolve("");
+  if (!RECAPTCHA_SITE_KEY) {
+    return Promise.reject(new Error("Security verification is not configured on this site. Please contact the administrator."));
+  }
   return new Promise((resolve, reject) => {
     const execute = () => window.grecaptcha.ready(() => window.grecaptcha.execute(RECAPTCHA_SITE_KEY, { action: "admin_login" }).then(resolve).catch(reject));
     if (window.grecaptcha) return execute();
