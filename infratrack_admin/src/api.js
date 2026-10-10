@@ -1,5 +1,11 @@
 const apiEnv = typeof import.meta !== "undefined" && import.meta.env ? import.meta.env : {};
-export const API_BASE = apiEnv.VITE_API_URL || "http://localhost:3001/api";
+const configuredApiUrl = apiEnv.VITE_API_URL?.trim();
+const isLocalApiUrl = /^https?:\/\/(?:localhost|127(?:\.\d{1,3}){3}|\[::1\])(?::\d+)?(?:\/|$)/i.test(
+	configuredApiUrl || "",
+);
+export const API_BASE =
+	(configuredApiUrl && (apiEnv.DEV || !isLocalApiUrl) ? configuredApiUrl : "") ||
+	(apiEnv.DEV ? "http://localhost:3001/api" : "/api");
 
 export function apiFetch(path, options = {}) {
 	const token =
