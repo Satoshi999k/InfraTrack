@@ -10,6 +10,12 @@ import { spawn } from "node:child_process";
 import ffmpegPath from "ffmpeg-static";
 import { computeDuplicateMatch, escalateIssueSeverity } from "./automation.js";
 import { validateBarangayCoordinates } from "./barangay-boundaries.js";
+import {
+  getAdvisoryReadScope,
+  getAdvisoryScope,
+  getReportScope,
+} from "./advisoryAccess.js";
+import { canManageSystemSettings } from "./permissions.js";
 import { sendEmailNotification } from "./emailNotifications.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -492,7 +498,7 @@ app.use((req, res, next) => {
   }
   res.header("Access-Control-Allow-Origin", "*");
   res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
 });
@@ -591,7 +597,7 @@ app.get("/api/audit-logs", async (req, res) => {
 });
 app.get("/api/settings", async (req, res) => {
   const viewer = req.auth;
-  if (!viewer || !["lgu", "admin", "barangay_staff"].includes(viewer.role)) return res.status(403).json({ error: "Administrator access required" });
+  if (!viewer || !canManageSystemSettings(viewer.role)) return res.status(403).json({ error: "LGU administrator access required" });
   const [rows] = await pool.query("SELECT setting_key, setting_value FROM system_settings");
   const settings = Object.fromEntries(rows.map(({ setting_key, setting_value }) => {
     try { return [setting_key, JSON.parse(setting_value)]; } catch { return [setting_key, setting_value]; }
@@ -601,7 +607,7 @@ app.get("/api/settings", async (req, res) => {
 app.patch("/api/settings", async (req, res) => {
   const { settings = {} } = req.body ?? {};
   const viewer = req.auth;
-  if (!viewer || !["lgu", "admin", "barangay_staff"].includes(viewer.role)) return res.status(403).json({ error: "Administrator access required" });
+  if (!viewer || !canManageSystemSettings(viewer.role)) return res.status(403).json({ error: "LGU administrator access required" });
   const allowed = ["liveNotifications", "emailDigest", "autoAssign", "requireApproval", "reportAlerts", "publicAdvisoryAlerts"];
   for (const key of allowed) {
     if (typeof settings[key] === "boolean") {
@@ -647,9 +653,8 @@ app.post("/api/auth/register", async (req, res) => {
 });
 app.get("/api/issues", async (req, res) => {
   const search = `%${String(req.query.search ?? "").toLowerCase()}%`;
-  const viewer = req.auth;
-  const barangayFilter = viewer?.role === "barangay_staff" ? " AND r.location = ?" : "";
-  const [issues] = await pool.query(`SELECT r.*, u.name AS reporter FROM reports r LEFT JOIN users u ON u.id = r.reporter_id WHERE r.status <> 'Archived' AND LOWER(CONCAT(r.title, ' ', r.location, ' ', r.public_id)) LIKE ?${barangayFilter} ORDER BY r.created_at DESC`, barangayFilter ? [search, viewer.barangay] : [search]);
+  const scope = getReportScope(req.auth, "r");
+  const [issues] = await pool.query(`SELECT r.*, u.name AS reporter FROM reports r LEFT JOIN users u ON u.id = r.reporter_id WHERE r.status <> 'Archived' AND LOWER(CONCAT(r.title, ' ', r.location, ' ', r.public_id)) LIKE ?${scope.sql} ORDER BY r.created_at DESC`, [search, ...scope.params]);
   res.json({ issues });
 });
 app.get("/api/overview", async (req, res) => {
@@ -752,13 +757,12 @@ app.patch("/api/staff/:id", async (req, res) => {
 });
 app.get("/api/advisories", async (req, res) => {
   const status = req.query.status || "published";
-  const viewer = req.auth;
-  const scope = viewer?.role === "barangay_staff" ? " AND (a.barangay = ? OR a.audience = 'All barangays')" : "";
+  const scope = getAdvisoryReadScope(req.auth, "a");
   const [advisories] = await pool.query(`SELECT a.*, u.name AS author,
     am.file_path AS media_url, am.media_type AS media_kind
     FROM advisories a LEFT JOIN users u ON u.id = a.created_by
     LEFT JOIN advisory_media am ON am.advisory_id = a.id
-    WHERE a.status = ?${scope} ORDER BY a.created_at DESC`, scope ? [status, viewer.barangay] : [status]);
+    WHERE a.status = ?${scope.sql} ORDER BY a.created_at DESC`, [status, ...scope.params]);
   res.json({ advisories: advisories.map((advisory) => ({
     ...advisory,
     media_url: publicMediaUrl(req, advisory.media_url),
@@ -811,7 +815,21 @@ app.post("/api/uploads/convert-gif", (req, res) => {
 });
 app.post("/api/advisories/:id/convert-gif", async (req, res) => {
   const advisoryId = Number(req.params.id);
-  const [mediaRows] = await pool.query("SELECT id, file_path, media_type FROM advisory_media WHERE advisory_id = ? ORDER BY id DESC LIMIT 1", [advisoryId]);
+  if (!Number.isSafeInteger(advisoryId) || advisoryId <= 0) {
+    return res.status(400).json({ error: "Invalid advisory ID" });
+  }
+  const [advisories] = await pool.query(
+    "SELECT a.id, a.barangay FROM advisories a WHERE a.id = ?",
+    [advisoryId],
+  );
+  const advisoryScope = getAdvisoryScope(req.auth, "a");
+  if (!advisories.length || !advisoryScope.allows(advisories[0])) {
+    return res.status(404).json({ error: "Advisory not found" });
+  }
+  const [mediaRows] = await pool.query(
+    "SELECT id, file_path, media_type FROM advisory_media WHERE advisory_id = ? ORDER BY id DESC LIMIT 1",
+    [advisoryId],
+  );
   const media = mediaRows[0];
   if (!media || media.media_type !== "video") return res.status(400).json({ error: "This advisory has no attached video to convert" });
   const sourceName = path.basename(new URL(String(media.file_path)).pathname);
@@ -823,10 +841,22 @@ app.post("/api/advisories/:id/convert-gif", async (req, res) => {
   let errorOutput = "";
   converter.stderr.on("data", (chunk) => { errorOutput += chunk.toString(); });
   converter.on("close", async (code) => {
-    if (code !== 0) return res.status(422).json({ error: "Could not convert the attached video to GIF", details: errorOutput.slice(-300) });
-    const gifUrl = `${req.protocol}://${req.get("host")}/uploads/${outputName}`;
-    await pool.query("UPDATE advisory_media SET file_path = ?, media_type = 'gif' WHERE id = ?", [gifUrl, media.id]);
-    res.json({ url: gifUrl, mediaKind: "gif" });
+    try {
+      if (code !== 0) return res.status(422).json({ error: "Could not convert the attached video to GIF", details: errorOutput.slice(-300) });
+      const gifUrl = `${req.protocol}://${req.get("host")}/uploads/${outputName}`;
+      const updateScope = getAdvisoryScope(req.auth, "a");
+      const [result] = await pool.query(
+        `UPDATE advisory_media am JOIN advisories a ON a.id = am.advisory_id SET am.file_path = ?, am.media_type = 'gif' WHERE am.id = ? AND a.id = ?${updateScope.sql}`,
+        [gifUrl, media.id, advisoryId, ...updateScope.params],
+      );
+      if (!result.affectedRows) return res.status(404).json({ error: "Advisory not found" });
+      res.json({ url: gifUrl, mediaKind: "gif" });
+    } catch (error) {
+      console.error("Could not update converted advisory media", error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Could not update converted advisory media" });
+      }
+    }
   });
 });
 app.post("/api/advisories", async (req, res) => {
@@ -839,28 +869,107 @@ app.post("/api/advisories", async (req, res) => {
   const [result] = await pool.query("INSERT INTO advisories (type, title, message, audience, barangay, created_by, published_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)", [type, title.trim(), message.trim(), targetAudience, targetBarangay, adminId ?? null]);
   if (mediaUrl) await pool.query("INSERT INTO advisory_media (advisory_id, file_path, media_type) VALUES (?, ?, ?)", [result.insertId, mediaUrl, mediaKind || "photo"]);
   const [advisories] = await pool.query("SELECT * FROM advisories WHERE id = ?", [result.insertId]);
-  await writeAuditLog(req, { actorId: adminId, action: "advisory_created", resourceType: "advisory", resourceId: result.insertId, details: { title: title.trim(), audience } });
+  await writeAuditLog(req, { actorId: adminId, action: "advisory_created", resourceType: "advisory", resourceId: result.insertId, details: { title: title.trim(), audience: targetAudience } });
   res.status(201).json({ advisory: advisories[0] });
 });
 app.patch("/api/advisories/:id", async (req, res) => {
   const { type, title, message, audience, barangay, mediaUrl, mediaKind } = req.body ?? {};
   const editor = req.auth;
+  const advisoryId = Number(req.params.id);
+  if (!Number.isSafeInteger(advisoryId) || advisoryId <= 0) {
+    return res.status(400).json({ error: "Invalid advisory ID" });
+  }
   if (!title?.trim() || !message?.trim()) return res.status(400).json({ error: "Title and message are required" });
-  const editScope = editor?.role === "barangay_staff" ? " AND barangay = ?" : "";
+  const scope = getAdvisoryScope(editor, "a");
   const targetAudience = editor?.role === "barangay_staff" ? editor.barangay : audience;
-  await pool.query(`UPDATE advisories SET type = COALESCE(?, type), title = ?, message = ?, audience = COALESCE(?, audience), barangay = COALESCE(?, barangay) WHERE id = ?${editScope}`, editScope ? [type ?? null, title.trim(), message.trim(), targetAudience ?? null, editor.barangay, Number(req.params.id), editor.barangay] : [type ?? null, title.trim(), message.trim(), targetAudience ?? null, barangay ?? null, Number(req.params.id)]);
-  await pool.query("DELETE FROM advisory_media WHERE advisory_id = ?", [Number(req.params.id)]);
-  if (mediaUrl) await pool.query("INSERT INTO advisory_media (advisory_id, file_path, media_type) VALUES (?, ?, ?)", [Number(req.params.id), mediaUrl, mediaKind || "photo"]);
-  const [advisories] = await pool.query("SELECT * FROM advisories WHERE id = ?", [Number(req.params.id)]);
-  if (!advisories[0]) return res.status(404).json({ error: "Advisory not found" });
-  await writeAuditLog(req, { actorId: req.body?.adminId, action: "advisory_updated", resourceType: "advisory", resourceId: req.params.id, details: { title: title.trim() } });
-  res.json({ advisory: advisories[0] });
+  const connection = await pool.getConnection();
+  let transactionStarted = false;
+  try {
+    await connection.beginTransaction();
+    transactionStarted = true;
+    const [existing] = await connection.query(
+      "SELECT a.id, a.barangay FROM advisories a WHERE a.id = ? FOR UPDATE",
+      [advisoryId],
+    );
+    if (!existing.length || !scope.allows(existing[0])) {
+      await connection.rollback();
+      transactionStarted = false;
+      return res.status(404).json({ error: "Advisory not found" });
+    }
+
+    await connection.query(
+      `UPDATE advisories SET type = COALESCE(?, type), title = ?, message = ?, audience = COALESCE(?, audience), barangay = COALESCE(?, barangay) WHERE id = ?${getAdvisoryScope(editor, "advisories").sql}`,
+      [type ?? null, title.trim(), message.trim(), targetAudience ?? null, editor?.role === "barangay_staff" ? editor.barangay : barangay ?? null, advisoryId, ...scope.params],
+    );
+    await connection.query("DELETE FROM advisory_media WHERE advisory_id = ?", [advisoryId]);
+    if (mediaUrl) {
+      await connection.query(
+        "INSERT INTO advisory_media (advisory_id, file_path, media_type) VALUES (?, ?, ?)",
+        [advisoryId, mediaUrl, mediaKind || "photo"],
+      );
+    }
+    const [advisories] = await connection.query("SELECT * FROM advisories WHERE id = ?", [advisoryId]);
+    await connection.commit();
+    transactionStarted = false;
+    await writeAuditLog(req, { actorId: editor.id, action: "advisory_updated", resourceType: "advisory", resourceId: advisoryId, details: { title: title.trim() } });
+    res.json({ advisory: advisories[0] });
+  } catch (error) {
+    if (transactionStarted) {
+      try {
+        await connection.rollback();
+      } catch (rollbackError) {
+        console.error("Could not roll back advisory update", rollbackError);
+      }
+    }
+    throw error;
+  } finally {
+    connection.release();
+  }
 });
 app.delete("/api/advisories/:id", async (req, res) => {
-  const adminId = req.auth.id;
-  const [result] = await pool.query("UPDATE advisories SET status = 'archived' WHERE id = ?", [Number(req.params.id)]);
-  if (!result.affectedRows) return res.status(404).json({ error: "Advisory not found" });
-  await writeAuditLog(req, { actorId: adminId, action: "advisory_archived", resourceType: "advisory", resourceId: req.params.id });
+  const advisoryId = Number(req.params.id);
+  if (!Number.isSafeInteger(advisoryId) || advisoryId <= 0) {
+    return res.status(400).json({ error: "Invalid advisory ID" });
+  }
+  const scope = getAdvisoryScope(req.auth, "advisories");
+  const connection = await pool.getConnection();
+  let transactionStarted = false;
+  try {
+    await connection.beginTransaction();
+    transactionStarted = true;
+    const [advisories] = await connection.query(
+      "SELECT id, barangay FROM advisories WHERE id = ? FOR UPDATE",
+      [advisoryId],
+    );
+    if (!advisories.length || !scope.allows(advisories[0])) {
+      await connection.rollback();
+      transactionStarted = false;
+      return res.status(404).json({ error: "Advisory not found" });
+    }
+    const [result] = await connection.query(
+      `UPDATE advisories SET status = 'archived' WHERE id = ? AND status <> 'archived'${scope.sql}`,
+      [advisoryId, ...scope.params],
+    );
+    if (!result.affectedRows) {
+      await connection.rollback();
+      transactionStarted = false;
+      return res.status(404).json({ error: "Advisory not found" });
+    }
+    await connection.commit();
+    transactionStarted = false;
+  } catch (error) {
+    if (transactionStarted) {
+      try {
+        await connection.rollback();
+      } catch (rollbackError) {
+        console.error("Could not roll back advisory archive", rollbackError);
+      }
+    }
+    throw error;
+  } finally {
+    connection.release();
+  }
+  await writeAuditLog(req, { actorId: req.auth.id, action: "advisory_archived", resourceType: "advisory", resourceId: advisoryId });
   res.status(204).end();
 });
 app.patch("/api/users/:id/moderation", async (req, res) => {

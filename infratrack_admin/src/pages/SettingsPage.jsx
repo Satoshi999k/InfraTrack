@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { API_BASE, apiFetch } from "../api";
+import { canManageSystemSettings } from "../../permissions";
 
 const defaultSettings = {
   liveNotifications: true,
@@ -11,6 +12,8 @@ const defaultSettings = {
 };
 
 export default function SettingsPage({ user, logsOnly = false }) {
+  const isBarangayStaff = user?.role === "barangay_staff";
+  const canManageSettings = canManageSystemSettings(user?.role);
   const [settings, setSettings] = useState(defaultSettings);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -25,7 +28,7 @@ export default function SettingsPage({ user, logsOnly = false }) {
   const [auditFilters, setAuditFilters] = useState({ user: "", action: "", barangay: "", from: "", to: "" });
 
   useEffect(() => {
-    if (!user?.id || logsOnly) return;
+    if (!user?.id || logsOnly || !canManageSettings) return;
     try {
       const stored = JSON.parse(localStorage.getItem("infratrack.adminSettings") || "null");
       if (stored) {
@@ -41,7 +44,7 @@ export default function SettingsPage({ user, logsOnly = false }) {
         setSettings((current) => ({ ...current, ...data.settings }));
       })
       .catch((error) => setSettingsError(error.message));
-  }, [user?.id, logsOnly]);
+  }, [user?.id, logsOnly, canManageSettings]);
 
   const loadLogs = () => {
     if (!user?.id || !["lgu", "admin", "barangay_staff"].includes(user.role)) return;
@@ -55,7 +58,9 @@ export default function SettingsPage({ user, logsOnly = false }) {
       .catch((error) => setLogsError(error.message));
   };
 
-  useEffect(() => { loadLogs(); }, [user, auditFilters]);
+  useEffect(() => {
+    if (logsOnly) loadLogs();
+  }, [user, auditFilters, logsOnly]);
 
   const parseDetails = (log) => {
     try { return log.details ? JSON.parse(log.details) : null; } catch { return null; }
@@ -85,6 +90,7 @@ export default function SettingsPage({ user, logsOnly = false }) {
   };
 
   const saveSettings = async () => {
+    if (!canManageSettings) return;
     setSaving(true);
     setSettingsError("");
     try {
@@ -165,17 +171,18 @@ export default function SettingsPage({ user, logsOnly = false }) {
     <div className="settings-page">
       {!logsOnly && <div className="settings-header">
         <div>
-          <h2>System settings</h2>
-          <p>Manage dashboard behavior and notification preferences.</p>
+          <h2>{isBarangayStaff ? "Account settings" : "System settings"}</h2>
+          <p>{isBarangayStaff ? "Review your assigned barangay and secure your account." : "Manage dashboard behavior and notification preferences."}</p>
         </div>
-        <button type="button" className="primary-button" onClick={saveSettings} disabled={saving}>
+        {canManageSettings && <button type="button" className="primary-button" onClick={saveSettings} disabled={saving}>
           {saving ? "Saving…" : saved ? "Saved" : "Save changes"}
-        </button>
+        </button>}
       </div>}
 
-      {settingsError && !logsOnly && <p role="alert" style={{ color: "#9f351e", marginBottom: 16 }}>{settingsError}</p>}
+      {settingsError && !logsOnly && canManageSettings && <p role="alert" style={{ color: "#9f351e", marginBottom: 16 }}>{settingsError}</p>}
 
-      {!logsOnly && <div className="settings-grid">
+      {!logsOnly && <div className={`settings-grid ${isBarangayStaff ? "account-settings-grid" : ""}`}>
+        {!isBarangayStaff && <>
         <article className="card settings-card">
           <div className="card-head">
             <h3>Notifications</h3>
@@ -248,11 +255,12 @@ export default function SettingsPage({ user, logsOnly = false }) {
           </div>
         </article>
 
+        </>}
         <article className="card settings-card">
           <div className="card-head">
             <h3>Account & security</h3>
           </div>
-          <p style={{ color: "#71808a", marginTop: 0 }}>Change the password used for this administrator account.</p>
+          <p style={{ color: "#71808a", marginTop: 0 }}>Change the password used for this account.</p>
           <form onSubmit={changePassword}>
             <input className="settings-input" type="password" placeholder="Current password" value={passwords.current} onChange={(event) => setPasswords((current) => ({ ...current, current: event.target.value }))} required />
             <input className="settings-input" type="password" placeholder="New password (8+ characters)" value={passwords.next} onChange={(event) => setPasswords((current) => ({ ...current, next: event.target.value }))} minLength={8} required />
@@ -273,18 +281,18 @@ export default function SettingsPage({ user, logsOnly = false }) {
 
         <article className="card settings-card data-management-card">
           <div className="card-head"><h3>Data management</h3></div>
-          <p style={{ color: "#71808a", marginTop: 0 }}>Export operational data or create a database backup. Backups are also scheduled daily on the server.</p>
+          <p style={{ color: "#71808a", marginTop: 0 }}>{isBarangayStaff ? `Export operational data for ${user?.barangay || "your barangay"}.` : "Export operational data or create a database backup. Backups are also scheduled daily on the server."}</p>
           <div className="data-actions">
             <button type="button" className="secondary-button" onClick={() => downloadExport("issues")}>Export issues CSV</button>
-            <button type="button" className="secondary-button" onClick={() => downloadExport("users")}>Export users CSV</button>
+            <button type="button" className="secondary-button" onClick={() => downloadExport("users")}>{isBarangayStaff ? "Export residents CSV" : "Export users CSV"}</button>
             {["lgu", "admin"].includes(user?.role) && <button type="button" className="primary-button" onClick={createBackup}>Create LGU backup</button>}
           </div>
           {dataMessage && <p role="status" style={{ color: dataMessage.includes("failed") || dataMessage.includes("Could") ? "#9f351e" : "#1b8a83" }}>{dataMessage}</p>}
           {["lgu", "admin"].includes(user?.role) && <details className="restore-instructions"><summary>Restore instructions</summary><p>Stop the InfraTrack API, create a safety copy of the database, then import the downloaded <code>.sql</code> file into the <code>infratrack</code> MySQL database using phpMyAdmin or the MySQL command line. Restart the API and verify the health endpoint.</p></details>}
         </article>
         <article className="card settings-card data-management-card">
-          <div className="card-head"><h3>Teams & assignments</h3></div>
-          <p style={{ color: "#71808a", marginTop: 0 }}>Manage the teams available for issue assignment.</p>
+          <div className="card-head"><h3>{isBarangayStaff ? "Available response teams" : "Teams & assignments"}</h3></div>
+          <p style={{ color: "#71808a", marginTop: 0 }}>{isBarangayStaff ? "Teams available for reports in your assigned barangay." : "Manage the teams available for issue assignment."}</p>
           {["lgu", "admin"].includes(user?.role) && <form className="team-form" onSubmit={createTeam}><input placeholder="Team name" value={teamForm.name} onChange={(event) => setTeamForm({ ...teamForm, name: event.target.value })} required /><input placeholder="Department" value={teamForm.department} onChange={(event) => setTeamForm({ ...teamForm, department: event.target.value })} /><input placeholder="Contact phone" value={teamForm.contactPhone} onChange={(event) => setTeamForm({ ...teamForm, contactPhone: event.target.value })} /><button className="secondary-button" type="submit">Add team</button></form>}
           <div className="team-list">{teams.map((team) => <span key={team.id} className="team-chip"><strong>{team.name}</strong>{team.department && ` · ${team.department}`}</span>)}</div>
         </article>
@@ -293,8 +301,8 @@ export default function SettingsPage({ user, logsOnly = false }) {
       {logsOnly && <article className="card settings-card" style={{ marginTop: 24 }}>
         <div className="card-head">
           <div>
-            <h3>Access & activity logs</h3>
-            <p style={{ margin: "6px 0 0", color: "#71808a" }}>See who accessed the system and which administrative actions were performed.</p>
+          <h3>{isBarangayStaff ? "Barangay activity logs" : "Access & activity logs"}</h3>
+          <p style={{ margin: "6px 0 0", color: "#71808a" }}>{isBarangayStaff ? `Review actions recorded for ${user?.barangay || "your barangay"}.` : "See who accessed the system and which administrative actions were performed."}</p>
           </div>
           <div className="audit-export-actions">
             <button type="button" className="secondary-button" onClick={exportCsv}>Export CSV</button>

@@ -35,27 +35,19 @@ import SettingsPage from "./pages/SettingsPage";
 import Login from "./Login";
 import { API_BASE, apiFetch } from "./api";
 import { clearAuthSession, getStoredAuthSession } from "./authSession";
+import { canAccessAdminPage, getNavigationGroups } from "./roleNavigation";
+import { startVisiblePolling } from "./visiblePolling";
 
-const navGroups = [
-  {
-    label: "Operations",
-    items: [
-      ["overview", "Overview", LayoutDashboard],
-      ["queue", "Issue Queue", ClipboardList],
-      ["map", "Infrastructure Map", Map],
-      ["analytics", "Analytics & Reports", BarChart3],
-    ],
-  },
-  {
-    label: "Administration",
-    items: [
-      ["users", "User Management", Users],
-      ["announce", "Public Advisory", Megaphone],
-      ["published", "Published Advisories", FileText],
-      ["logs", "Activity Logs", ScrollText],
-    ],
-  },
-];
+const navIcons = {
+  overview: LayoutDashboard,
+  queue: ClipboardList,
+  map: Map,
+  analytics: BarChart3,
+  users: Users,
+  announce: Megaphone,
+  published: FileText,
+  logs: ScrollText,
+};
 
 function Icon({ icon: IconComponent, size = 18 }) {
   return (
@@ -103,6 +95,7 @@ function getAdminBadge(userName, role) {
 function Dashboard({ user, onLogout }) {
   const userName = user.name || "Operations Team";
   const isBarangayStaff = user.role === "barangay_staff";
+  const navGroups = getNavigationGroups(user.role);
   const adminBadge = getAdminBadge(userName, user.role);
   const [page, setPage] = useState("overview");
   const [drawer, setDrawer] = useState(false);
@@ -155,11 +148,13 @@ function Dashboard({ user, onLogout }) {
       }
     };
 
-    refreshDashboard();
-    const interval = window.setInterval(refreshDashboard, 5000);
+    const stopPolling = startVisiblePolling(refreshDashboard, {
+      documentRef: document,
+      intervalMs: 30_000,
+    });
     return () => {
       active = false;
-      window.clearInterval(interval);
+      stopPolling();
     };
   }, [isBarangayStaff, user.id]);
 
@@ -168,11 +163,11 @@ function Dashboard({ user, onLogout }) {
     queue: [isBarangayStaff ? user.barangay : "Operations", "Issue Queue"],
     map: [isBarangayStaff ? user.barangay : "Operations", "Infrastructure Map"],
     analytics: [isBarangayStaff ? user.barangay : "Operations", "Analytics & Reports"],
-    users: ["Administration", "User Management"],
-    announce: ["Administration", "Public Advisory"],
-    published: ["Administration", "Published Advisories"],
-    settings: ["Administration", "Settings"],
-    logs: ["Administration", "Activity Logs"],
+    users: [isBarangayStaff ? user.barangay || "Barangay" : "Administration", isBarangayStaff ? "Residents" : "User Management"],
+    announce: [isBarangayStaff ? user.barangay : "Administration", "Public Advisory"],
+    published: [isBarangayStaff ? user.barangay : "Administration", "Published Advisories"],
+    settings: [isBarangayStaff ? "Account" : "Administration", isBarangayStaff ? "Account settings" : "Settings"],
+    logs: [isBarangayStaff ? user.barangay : "Administration", "Activity Logs"],
   };
 
   const filteredIssues = useMemo(
@@ -211,6 +206,7 @@ function Dashboard({ user, onLogout }) {
   };
 
   const navigate = (next) => {
+    if (!canAccessAdminPage(user.role, next)) return;
     setPage(next);
     setDrawer(false);
   };
@@ -237,33 +233,35 @@ function Dashboard({ user, onLogout }) {
           </div>
           <div>
             <strong>InfraTrack</strong>
-            <small>Admin Portal · Mati</small>
+            <small>
+              {isBarangayStaff
+                ? `${user.barangay || "Barangay"} Staff Portal`
+                : "Admin Portal · Mati"}
+            </small>
           </div>
         </div>
 
         {navGroups.map((group) => (
           <div className="nav-group" key={group.label}>
             <span className="nav-label">{group.label}</span>
-            {group.items
-              .filter(([id]) => id !== "logs" || ["lgu", "admin", "barangay_staff"].includes(user.role))
-              .map(([id, label, IconComponent]) => (
+            {group.items.map(([id, label]) => (
               <button
                 className={`nav-link ${page === id ? "active" : ""}`}
                 key={id}
                 onClick={() => navigate(id)}
               >
-                <Icon icon={IconComponent} />
+                <Icon icon={navIcons[id]} />
                 <span>{label}</span>
                 {id === "queue" && <b>{filteredIssues.length}</b>}
               </button>
-              ))}
+            ))}
           </div>
         ))}
 
         <div className="sidebar-spacer" />
         <button className="nav-link" type="button" onClick={() => navigate("settings")}>
           <Icon icon={Settings} />
-          <span>Settings</span>
+          <span>{isBarangayStaff ? "Account settings" : "Settings"}</span>
         </button>
         <button className="nav-link" type="button" onClick={handleLogout}>
           <Icon icon={LogOut} />
@@ -440,6 +438,18 @@ function Dashboard({ user, onLogout }) {
 }
 
 function PageContent({ page, issues, users, onOpenIssue, onOpenUser, onNavigate, overviewData, user }) {
+  if (!canAccessAdminPage(user?.role, page)) {
+    return (
+      <Overview
+        issues={issues}
+        overviewData={overviewData}
+        onOpenIssue={onOpenIssue}
+        onNavigate={onNavigate}
+        user={user}
+      />
+    );
+  }
+
   if (page === "queue") return <IssueQueuePage issues={issues} onOpenIssue={onOpenIssue} />;
   if (page === "map") return <MapPage issues={issues} onOpenIssue={onOpenIssue} user={user} />;
   if (page === "analytics") return <AnalyticsLive user={user} />;
@@ -457,7 +467,7 @@ function Overview({ issues, overviewData, onOpenIssue, onNavigate, user }) {
   return (
     <>
       <div className="kpi-grid">
-        <Kpi icon={FileText} label="Total reports" value={summary?.total ?? "—"} tag="All database reports" tone="teal" />
+        <Kpi icon={FileText} label="Total reports" value={summary?.total ?? "—"} tag={user?.role === "barangay_staff" ? `Assigned to ${user.barangay}` : "All database reports"} tone="teal" />
         <Kpi icon={AlertTriangle} label="Pending tasks" value={summary?.pending ?? "—"} tag="Needs review" tone="clay" />
         <Kpi icon={Activity} label="Avg. resolution time" value={<><span>{summary?.avgResolutionDays ?? "—"}</span> <small>days</small></>} tag="Resolved reports" tone="green" />
         <Kpi icon={CheckCircle2} label="Completion rate" value={`${summary?.completionRate ?? "—"}%`} tag="Resolved issues" tone="amber" />

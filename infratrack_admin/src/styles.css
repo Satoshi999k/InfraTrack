@@ -2461,6 +2461,32 @@ tbody tr:last-child td {
 .form-card > .primary-button {
   margin-top: 18px;
 }
+.advisory-audience-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--sand);
+  color: var(--navy);
+}
+.advisory-audience-preview > svg {
+  flex: 0 0 auto;
+  color: var(--teal);
+}
+.advisory-audience-preview div {
+  display: grid;
+  gap: 3px;
+}
+.advisory-audience-preview strong {
+  font-size: 11px;
+}
+.advisory-audience-preview span {
+  color: var(--muted);
+  font-size: 11px;
+}
 .success-note {
   display: flex;
   gap: 6px;

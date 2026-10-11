@@ -4,6 +4,7 @@ import {
   Camera,
   CheckCircle2,
   Megaphone,
+  MapPin,
   Pencil,
   Send,
   Trash2,
@@ -12,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { API_BASE, apiFetch } from "../api";
+import { getAdvisoryAudience, validateAdvisoryDraft } from "../advisoryForm";
 
 const typeMeta = {
   alert: ["Emergency alert", AlertTriangle],
@@ -26,6 +28,7 @@ export default function AdvisoryPage({ publishedOnly = false, onViewAll, user })
   const [media, setMedia] = useState(null);
   const [audience, setAudience] = useState("All barangays");
   const [published, setPublished] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
   const [advisories, setAdvisories] = useState([]);
   const [editingAdvisory, setEditingAdvisory] = useState(null);
   const [error, setError] = useState("");
@@ -33,6 +36,7 @@ export default function AdvisoryPage({ publishedOnly = false, onViewAll, user })
   const [convertingNew, setConvertingNew] = useState(false);
   const photoInput = useRef(null);
   const videoInput = useRef(null);
+  const publishInFlight = useRef(false);
   const editPhotoInput = useRef(null);
   const editVideoInput = useRef(null);
 
@@ -117,22 +121,33 @@ export default function AdvisoryPage({ publishedOnly = false, onViewAll, user })
   }, [published]);
 
   const publish = async () => {
-    if (!title.trim() || !message.trim()) return;
+    if (publishInFlight.current) return;
+    const validationError = validateAdvisoryDraft(title, message);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
     setError("");
     setPublished(false);
+    publishInFlight.current = true;
+    setIsPublishing(true);
     try {
       const response = await apiFetch(`/advisories`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, title, message, audience, barangay: user?.barangay, mediaUrl: media?.src, mediaKind: media?.kind, adminId: user?.id }),
+        body: JSON.stringify({ type, title, message, audience: getAdvisoryAudience(user, audience), barangay: user?.barangay, mediaUrl: media?.src, mediaKind: media?.kind }),
       });
-      if (!response.ok) throw new Error("Could not publish advisory");
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not publish advisory");
       await loadAdvisories();
       setTitle(""); setMessage(""); setMedia(null); setPublished(true);
     } catch (publishError) {
       setError(publishError.message === "Failed to fetch"
         ? "The API is unavailable. Please restart the InfraTrack backend and try again."
         : publishError.message);
+    } finally {
+      publishInFlight.current = false;
+      setIsPublishing(false);
     }
   };
 
@@ -157,7 +172,7 @@ export default function AdvisoryPage({ publishedOnly = false, onViewAll, user })
     try {
       const response = await apiFetch(`/advisories/${editingAdvisory.id}`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: editingAdvisory.draftType, title: editingAdvisory.draftTitle, message: editingAdvisory.draftMessage, barangay: user?.barangay, mediaUrl: editingAdvisory.draftMedia?.src, mediaKind: editingAdvisory.draftMedia?.kind, adminId: user?.id }),
+        body: JSON.stringify({ type: editingAdvisory.draftType, title: editingAdvisory.draftTitle, message: editingAdvisory.draftMessage, mediaUrl: editingAdvisory.draftMedia?.src, mediaKind: editingAdvisory.draftMedia?.kind }),
       });
       if (!response.ok) throw new Error("Could not save advisory");
       await loadAdvisories(); setEditingAdvisory(null);
@@ -183,8 +198,7 @@ export default function AdvisoryPage({ publishedOnly = false, onViewAll, user })
 
   const deleteAdvisory = async (advisoryId) => {
     try {
-      const adminId = JSON.parse(localStorage.getItem("infratrack.adminUser") || "null")?.id;
-      const response = await apiFetch(`/advisories/${advisoryId}?adminId=${encodeURIComponent(adminId || "")}`, { method: "DELETE" });
+      const response = await apiFetch(`/advisories/${advisoryId}`, { method: "DELETE" });
       if (!response.ok) throw new Error("Could not archive advisory");
       await loadAdvisories(); setEditingAdvisory(null);
     } catch (deleteError) { setError(deleteError.message); }
@@ -213,14 +227,18 @@ export default function AdvisoryPage({ publishedOnly = false, onViewAll, user })
         </div>
         <label>Title</label>
         <input
+          required
+          aria-invalid={Boolean(error && !title.trim())}
           value={title}
-          onChange={(event) => setTitle(event.target.value)}
+          onChange={(event) => { setTitle(event.target.value); setError(""); }}
           placeholder="e.g. Flash flood advisory"
         />
         <label>Message</label>
         <textarea
+          required
+          aria-invalid={Boolean(error && !message.trim())}
           value={message}
-          onChange={(event) => setMessage(event.target.value)}
+          onChange={(event) => { setMessage(event.target.value); setError(""); }}
           placeholder="Describe the advisory, affected area, and duration…"
         />
         <label>Attach media (optional)</label>
@@ -256,17 +274,30 @@ export default function AdvisoryPage({ publishedOnly = false, onViewAll, user })
             <Video size={16} /> {convertingNew ? "Converting…" : "Convert video to GIF"}
           </button>
         )}
-        <label>Audience</label>
-        <select value={audience} onChange={(event) => setAudience(event.target.value)}>
-          <option>All barangays</option>
-          <option>Brgy. Central</option>
-          <option>Brgy. Dawan</option>
-          <option>Brgy. Sainz</option>
-          <option>Brgy. Matiao</option>
-          <option>Brgy. Dahican</option>
-        </select>
-        <button type="button" className="primary-button" onClick={publish}>
-          <Send size={16} /> Publish advisory
+        {user?.role !== "barangay_staff" && <>
+          <label htmlFor="advisory-audience">Audience</label>
+          <select id="advisory-audience" value={audience} onChange={(event) => setAudience(event.target.value)}>
+            <option>All barangays</option>
+            <option>Brgy. Central</option>
+            <option>Brgy. Dawan</option>
+            <option>Brgy. Sainz</option>
+            <option>Brgy. Matiao</option>
+            <option>Brgy. Dahican</option>
+          </select>
+        </>}
+        <div className="advisory-audience-preview" aria-live="polite">
+          <MapPin size={17} />
+          <div>
+            <strong>Audience preview</strong>
+            <span>
+              {getAdvisoryAudience(user, audience) === "All barangays"
+                ? "Residents across all barangays"
+                : `Residents in ${getAdvisoryAudience(user, audience)}`}
+            </span>
+          </div>
+        </div>
+        <button type="button" className="primary-button" onClick={publish} disabled={isPublishing}>
+          <Send size={16} /> {isPublishing ? "Publishing…" : "Publish advisory"}
         </button>
         {published && (
           <div className="success-note">
