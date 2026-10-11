@@ -1,0 +1,142 @@
+<a class="skip" href="#main">Skip to content</a>
+
+<!-- ============================ <Navbar/> ============================ -->
+<header class="nav" id="nav">
+  <a class="brand" href="#top" data-go="top" aria-label="InfraTrack, back to top">
+    <svg width="26" height="26" viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="12" r="6" fill="currentColor"/><path d="M16 18v8M8 26h16" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>
+    <span>InfraTrack</span>
+  </a>
+  <nav class="nav-links" aria-label="Sections">
+    <a href="#map" data-go="map" data-i="1">Map</a>
+    <a href="#reporting" data-go="reporting" data-i="2">Report</a>
+    <a href="#status" data-go="status" data-i="3">Status</a>
+    <a href="#dashboard" data-go="dashboard" data-i="4">Dashboard</a>
+    <a href="#community" data-go="community" data-i="5">Community</a>
+  </nav>
+  <a class="nav-cta" href="#reporting" data-go="reporting">Explore InfraTrack</a>
+  <button class="menu-btn" id="menuBtn" type="button" aria-expanded="false" aria-controls="menu" aria-label="Open menu"></button>
+</header>
+<nav class="menu" id="menu" aria-label="Mobile sections">
+  <a href="#map" data-go="map">Map</a>
+  <a href="#reporting" data-go="reporting">Report</a>
+  <a href="#status" data-go="status">Status</a>
+  <a href="#dashboard" data-go="dashboard">Dashboard</a>
+  <a href="#community" data-go="community">Community</a>
+  <a href="#system">How it works</a>
+</nav>
+
+<main id="main">
+
+<!-- ===================== <HeroScene/> pinned stage, scenes 1 to 6 ===================== -->
+<section class="stage" id="stage" aria-label="InfraTrack product story">
+  <div class="layer bg-hero" id="bgHero"></div>
+  <div class="layer map-layer map-dark" id="mapDark"><div class="pan"></div></div>
+  <div class="layer veil" id="veil"></div>
+  <div class="dash" id="dash" aria-hidden="true"></div>
+  <div class="layer map-layer map-light" id="mapLight"><div class="pan"></div></div>
+  <div class="layer wash" id="wash"></div>
+  <svg class="conn" id="conn" aria-hidden="true"><path d="M0 0" pathLength="1"/></svg>
+  <div class="phone-rig" id="phoneRig"></div>
+  <div class="card-prev" id="card" aria-hidden="true"></div>
+
+  <!-- Scene 1 -->
+  <div class="txt t-hero" id="tHero">
+    <h1 class="h-xl"><span class="ln"><span>A Better Mati</span></span><span class="ln"><span>Starts With</span></span><span class="ln"><span>Being Heard.</span></span></h1>
+    <p class="sub" id="heroSub">Report infrastructure issues, follow progress, and help create a better-informed community.</p>
+  </div>
+  <div class="cue" id="cue"><i></i><span>Scroll</span></div>
+
+  <!-- Scene 2 -->
+  <div class="txt t-s2" id="tS2"><h2 class="h-lg" data-words>Every Issue Has a Place.</h2></div>
+
+  <!-- Scene 3 -->
+  <div class="txt t-s3" id="tS3">
+    <h2 class="h-lg" id="h3">See It. Report It. Track It.</h2>
+    <ol class="steps" id="steps">
+      <li><b>1</b><span>Choose the issue</span></li>
+      <li><b>2</b><span>Add a description and photo</span></li>
+      <li><b>3</b><span>Check the GPS location</span></li>
+      <li><b>4</b><span>Submit the report</span></li>
+      <li><b>5</b><span>Get the confirmation</span></li>
+    </ol>
+  </div>
+
+  <!-- Scene 4 -->
+  <div class="txt t-s4" id="tS4">
+    <h2 class="h-md" data-words>From Reported to Resolved.</h2>
+    <div class="sw-wrap" id="swWrap">
+      <div class="sw-lbl">Current state in this example</div>
+      <div class="sw" aria-live="off"><span class="sw1">Reported</span><span class="sw2">In Progress</span><span class="sw3">Resolved</span></div>
+    </div>
+    <div class="hline" id="hline"><div class="base"></div><div class="hf"></div><i class="tk"></i><i class="tk"></i><i class="tk"></i>
+      <div class="tl-names"><span>Reported</span><span>In Progress</span><span>Resolved</span></div></div>
+    <p class="note" id="s4note">Illustrative workflow states. They are not repair timelines or guarantees.</p>
+  </div>
+
+  <!-- Scene 5 -->
+  <div class="txt t-s5" id="tS5"><h2 class="h-md" data-words>A Clearer View of Community Concerns.</h2></div>
+
+  <!-- Scene 6 -->
+  <div class="t-veil" id="tVeil"></div>
+  <div class="txt t-s6" id="tS6">
+    <h2 class="h-lg">Better Visibility. More Informed Action.</h2>
+    <p class="sub">Reports can be reviewed against a real map of Mati City. Every glowing marker and report shown here is illustrative sample data, not a real complaint or result.</p>
+    <div class="legend"><span style="--c:var(--st-r)"><i></i>Reported</span><span style="--c:var(--st-p)"><i></i>In Progress</span><span style="--c:var(--st-d)"><i></i>Resolved</span></div>
+  </div>
+
+  <div class="hud" id="hud" aria-hidden="true"><span class="hud-n">1</span><span class="hud-of">/ 6</span><span class="hud-name">Hero</span><i class="hud-bar"><b></b></i></div>
+</section>
+
+<!-- reduced-motion twin of the stage -->
+<div class="rm" id="rm"></div>
+
+<!-- ============================ <FinalCTA/> (scene 7) ============================ -->
+<section class="final" id="final" aria-labelledby="finalH">
+  <div class="deco-wrap" id="finalDeco" aria-hidden="true"></div>
+  <div class="final-grid">
+    <div class="f-copy">
+      <h2 class="h-xl" id="finalH"><span class="ln f-ln"><span>Let's Make</span></span><span class="ln f-ln"><span>Every Report</span></span><span class="ln f-ln"><span>Count.</span></span></h2>
+      <p class="f-p f-fade">InfraTrack gives residents a clear way to report infrastructure problems, and gives LGU personnel one place to review and monitor them.</p>
+      <div class="ctas f-fade">
+        <a class="btn-p" href="#reporting" data-go="reporting">Explore InfraTrack</a>
+        <a class="btn-s" href="#system">Learn How It Works</a>
+      </div>
+    </div>
+    <div class="phone-slot" id="phoneSlot"><div class="phone-rig" id="finalPhone"></div></div>
+  </div>
+
+  <div class="system" id="system">
+    <h2>How InfraTrack fits together</h2>
+    <div class="sys-cols" id="sysCols"></div>
+    <p class="sys-note">The map uses real OpenStreetMap geography for Mati City. Glowing markers, screens, report details and summary views are illustrative sample data, not live reports or repair timelines. No government endorsement is implied.</p>
+  </div>
+</section>
+</main>
+
+<!-- ============================ <Footer/> ============================ -->
+<footer class="footer">
+  <div class="f-in">
+    <div>
+      <a class="brand" href="#top" data-go="top"><svg width="26" height="26" viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="12" r="6" fill="currentColor"/><path d="M16 18v8M8 26h16" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg><span>InfraTrack</span></a>
+      <p>A mobile app concept for community infrastructure reporting and monitoring in Mati City, Davao Oriental, Philippines.</p>
+    </div>
+    <div>
+      <h3>The story</h3>
+      <ul>
+        <li><a href="#map" data-go="map">Every issue has a place</a></li>
+        <li><a href="#reporting" data-go="reporting">Reporting experience</a></li>
+        <li><a href="#status" data-go="status">Report status</a></li>
+        <li><a href="#dashboard" data-go="dashboard">LGU dashboard</a></li>
+        <li><a href="#community" data-go="community">Community view</a></li>
+      </ul>
+    </div>
+    <div>
+      <h3>More</h3>
+      <ul>
+        <li><a href="#system">How it works</a></li>
+        <li><a href="#top" data-go="top">Back to top</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="f-base">&copy; 2026 InfraTrack. Illustrative promotional concept. No government endorsement is implied.</div>
+</footer>
