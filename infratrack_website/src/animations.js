@@ -351,11 +351,6 @@ ScrollTrigger.config({ignoreMobileResize:true});
 const hudN=$('.hud-n'),hudName=$('.hud-name'),hudBar=$('.hud-bar b'),navLinks=$$('.nav-links a');
 function updateHud(p){
   const t=p*TOTAL;let i=0;SCENE_START.forEach((s,k)=>{if(t>=s-.0001)i=k});
-  if(t>=4&&t<10.8){
-    const phone=$('#phoneRig');
-    // Scrubbed scroll jumps can skip the phone's fade-in update.
-    if(phone&&Number(gsap.getProperty(phone,'autoAlpha'))<1)gsap.set(phone,{autoAlpha:1});
-  }
   hudN.textContent=i+1;hudName.textContent=SCENE_NAMES[i];
   hudBar.style.transform=`scaleX(${p})`;
   navLinks.forEach(a=>a.classList.toggle('on',Number(a.dataset.i)===i));
@@ -376,7 +371,15 @@ function buildStage(desk){
   /* phone anchor points per scene */
   const PXh=desk?()=>vw()*.22:()=>vw()>vh()?vw()*.19:0, PYh=desk?()=>0:()=>vw()>vh()?0:vh()*(vh()<740?.21:.17);
   const PYc=desk?()=>0:()=>vh()*.12;
-  const PX3=desk?()=>vw()*.17:()=>vw()>vh()?vw()*.19:0, PY3=desk?()=>0:()=>vw()>vh()?0:vh()*.15;
+  const reportScale=()=>{
+    const base=sc(1)();
+    if(desk||vw()>vh())return base;
+    const note=$('#s4note');
+    const available=vh()-(note?.getBoundingClientRect().bottom??vh()*.35)-32;
+    return Math.min(base,Math.max(.12,available/620));
+  };
+  const PX3=desk?()=>vw()*.17:()=>vw()>vh()?vw()*.19:0;
+  const PY3=desk?()=>0:()=>vw()>vh()?0:Math.max(vh()*.15,$('#s4note').getBoundingClientRect().bottom+16-(vh()-620*reportScale())/2);
   const PX5=desk?()=>-vw()*.27:()=>0, PY5=desk?()=>vh()*.14:()=>vh()*.95;
   const DX=desk?()=>vw()*.12:()=>0, DY=desk?()=>vh()*.03:()=>vh()*(vw()>vh()?.2:.06);
   const CW=320;
@@ -485,10 +488,10 @@ function buildStage(desk){
   tl.to(s2Words,{yPercent:-120,duration:.4,stagger:.04,ease:'power3.in'},3.6).to(tS2,{autoAlpha:0,duration:.05},4.05)
     .to(veil,{opacity:.6,duration:.6},3.6)
     /* the preview card morphs into the phone */
-    .to(card,{x:()=>vw()/2+PX3()-sc(1)()*150,y:()=>vh()/2+PY3(),width:()=>300*sc(1)(),height:()=>620*sc(1)(),borderRadius:()=>(48*sc(1)())+'px',duration:.6,ease:'power3.inOut'},3.65)
+    .to(card,{x:()=>vw()/2+PX3()-reportScale()*150,y:()=>vh()/2+PY3(),width:()=>300*reportScale(),height:()=>620*reportScale(),borderRadius:()=>(48*reportScale())+'px',duration:.6,ease:'power3.inOut'},3.65)
     .to($('.cp-in',card),{autoAlpha:0,duration:.25},3.65)
     .set(sMap,{autoAlpha:0},3.95).set(r1,{autoAlpha:1},3.95)
-    .fromTo(phone,{x:PX3,y:PY3,scale:sc(1),rotation:0,rotationY:0,rotationX:0,autoAlpha:0},{autoAlpha:1,duration:.3},4.0)
+    .fromTo(phone,{x:PX3,y:PY3,scale:reportScale,rotation:0,rotationY:0,rotationX:0,autoAlpha:1},{autoAlpha:1,duration:.3},4.0)
     .to(card,{autoAlpha:0,duration:.25},4.15)
     .to(tS3,{autoAlpha:1,duration:.2},3.85)
     .fromTo(h3,{clipPath:'inset(0 100% 0 0)'},{clipPath:'inset(0 0% 0 0)',duration:.6,ease:'power2.out'},3.85);

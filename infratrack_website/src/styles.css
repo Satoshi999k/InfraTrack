@@ -461,6 +461,9 @@ a{color:inherit}
   .dash{--u:92vw;width:92vw;height:min(62svh,520px);margin:calc(min(62svh,520px)/-2) 0 0 -46vw;font-size:12px}
   .dash-side{display:none}
   .dash-main{grid-template-rows:3.35em minmax(0,1fr)}
+  .dash-top{justify-content:space-between}
+  .dash-search,.dash-walkin,.dash-admin-user{display:none}
+  .dash-top>div:first-child{flex:1}
   .dash-content{grid-template-rows:9.8em minmax(0,1fr)}
   .dash-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
   .dash-grid{grid-template-columns:1fr;grid-template-rows:1.2fr 1fr}
@@ -530,6 +533,7 @@ a{color:inherit}
   .steps li{opacity:1}
   .t-s4 .h-md{margin-bottom:6px}
   .sw{font-size:clamp(3.2rem,16vw,6rem)}
+  .t-s4 .note{position:relative;z-index:21;display:table;width:fit-content;max-width:100%;margin-top:12px;padding:9px 12px;border-left:3px solid #1b8a83;border-radius:8px;background:rgba(9,39,50,.96);box-shadow:0 8px 24px rgba(0,0,0,.22);color:var(--chalk);font-size:clamp(.76rem,2.5vw,.94rem);line-height:1.45;opacity:1}
   .t-s6{left:20px!important;top:auto!important;bottom:12svh;text-align:left;align-items:flex-start}
   .t-veil{top:70%}
   .cue{display:none}
