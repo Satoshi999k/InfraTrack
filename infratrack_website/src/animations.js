@@ -456,6 +456,16 @@ function buildStage(desk){
   const unit=desk?.44:.24;
   const tl=gsap.timeline({
     defaults:{ease:'none',immediateRender:false},
+    onUpdate:()=>{
+      const sceneTime=(stageST?.progress??0)*TOTAL;
+      if(sceneTime>=3.6&&sceneTime<10.8){
+        const x=Number(gsap.getProperty(phone,'x')),y=Number(gsap.getProperty(phone,'y'));
+        const alpha=Number(gsap.getProperty(phone,'autoAlpha'));
+        if(alpha<.99||Math.abs(x-PX3())>1||Math.abs(y-PY3())>1){
+          gsap.set(phone,{x:PX3,y:PY3,scale:reportScale,rotation:0,rotationY:0,rotationX:0,autoAlpha:1});
+        }
+      }
+    },
     scrollTrigger:{trigger:stage,start:'top top',end:()=>'+='+Math.round(vh()*unit*TOTAL),pin:true,scrub:desk?.7:.18,anticipatePin:1,invalidateOnRefresh:true,fastScrollEnd:true,onUpdate:s=>updateHud(s.progress),onRefresh:s=>updateHud(s.progress)}
   });
   stageST=tl.scrollTrigger;
@@ -491,7 +501,7 @@ function buildStage(desk){
     .to(card,{x:()=>vw()/2+PX3()-reportScale()*150,y:()=>vh()/2+PY3(),width:()=>300*reportScale(),height:()=>620*reportScale(),borderRadius:()=>(48*reportScale())+'px',duration:.6,ease:'power3.inOut'},3.65)
     .to($('.cp-in',card),{autoAlpha:0,duration:.25},3.65)
     .set(sMap,{autoAlpha:0},3.95).set(r1,{autoAlpha:1},3.95)
-    .fromTo(phone,{x:PX3,y:PY3,scale:reportScale,rotation:0,rotationY:0,rotationX:0,autoAlpha:1},{autoAlpha:1,duration:.3},4.0)
+    .set(phone,{x:PX3,y:PY3,scale:reportScale,rotation:0,rotationY:0,rotationX:0,autoAlpha:1},3.6)
     .to(card,{autoAlpha:0,duration:.25},4.15)
     .to(tS3,{autoAlpha:1,duration:.2},3.85)
     .fromTo(h3,{clipPath:'inset(0 100% 0 0)'},{clipPath:'inset(0 0% 0 0)',duration:.6,ease:'power2.out'},3.85);
