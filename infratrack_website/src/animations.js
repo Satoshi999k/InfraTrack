@@ -328,7 +328,7 @@ listen(window,'keydown',e=>{if(e.key==='Escape'&&menu.classList.contains('open')
 function goTo(key,instant){
   if(!stageST||!(key in SCENE_T))return false;
   const y=stageST.start+(SCENE_T[key]/TOTAL)*(stageST.end-stageST.start);
-  scrollTo({top:Math.round(y),behavior:instant?'auto':'smooth'});return true;
+  scrollTo({top:Math.round(y),behavior:instant?'instant':'smooth'});return true;
 }
 listen(document,'click',e=>{
   const a=e.target.closest('a[href^="#"]');if(!a)return;
@@ -367,18 +367,18 @@ function updateHud(p){
 function buildStage(desk){
   const stage=$('#stage'),phone=$('#phoneRig'),card=$('#card'),dash=$('#dash'),mapDark=$('#mapDark'),mapLight=$('#mapLight'),veil=$('#veil'),wash=$('#wash'),conn=$('#conn');
   const panD=$('.pan',mapDark),panL=$('.pan',mapLight),screen=$('.phone-screen',phone),tap=$('.tap',phone);
-  const vw=()=>innerWidth,vh=()=>innerHeight;
-  const sc=k=>()=>Math.min(vh()*(desk?.72:.64)/620,vw()*(desk?.42:.8)/300)*k;
+  const vw=()=>innerWidth,vh=()=>stage.clientHeight||innerHeight;
+  const sc=k=>()=>Math.min(vh()*(desk?.72:vh()<740?.54:.64)/620,vw()*(desk?.42:vh()<740?.74:.8)/300)*k;
   const pxu=()=>Math.max(vw()/1600,vh()/900);
   const focal=()=>({x:vw()/2-40*pxu(),y:vh()/2});
   const org=()=>{const f=focal();return f.x+'px '+f.y+'px'};
   const ox=desk?72:50,oy=desk?50:67;
   /* phone anchor points per scene */
-  const PXh=desk?()=>vw()*.22:()=>0, PYh=desk?()=>0:()=>vh()*.17;
+  const PXh=desk?()=>vw()*.22:()=>vw()>vh()?vw()*.19:0, PYh=desk?()=>0:()=>vw()>vh()?0:vh()*(vh()<740?.21:.17);
   const PYc=desk?()=>0:()=>vh()*.12;
-  const PX3=desk?()=>vw()*.17:()=>0, PY3=desk?()=>0:()=>vh()*.15;
+  const PX3=desk?()=>vw()*.17:()=>vw()>vh()?vw()*.19:0, PY3=desk?()=>0:()=>vw()>vh()?0:vh()*.15;
   const PX5=desk?()=>-vw()*.27:()=>0, PY5=desk?()=>vh()*.14:()=>vh()*.95;
-  const DX=desk?()=>vw()*.12:()=>0, DY=desk?()=>vh()*.03:()=>vh()*.06;
+  const DX=desk?()=>vw()*.12:()=>0, DY=desk?()=>vh()*.03:()=>vh()*(vw()>vh()?.2:.06);
   const CW=320;
 
   /* elements */
@@ -450,17 +450,17 @@ function buildStage(desk){
   gsap.set(panL,{transformOrigin:org});
 
   /* ---------- the master timeline ---------- */
-  const unit=desk?.44:.38;
+  const unit=desk?.44:.24;
   const tl=gsap.timeline({
     defaults:{ease:'none',immediateRender:false},
-    scrollTrigger:{trigger:stage,start:'top top',end:()=>'+='+Math.round(vh()*unit*TOTAL),pin:true,scrub:.7,anticipatePin:1,invalidateOnRefresh:true,onUpdate:s=>updateHud(s.progress),onRefresh:s=>updateHud(s.progress)}
+    scrollTrigger:{trigger:stage,start:'top top',end:()=>'+='+Math.round(vh()*unit*TOTAL),pin:true,scrub:desk?.7:.18,anticipatePin:1,invalidateOnRefresh:true,fastScrollEnd:true,onUpdate:s=>updateHud(s.progress),onRefresh:s=>updateHud(s.progress)}
   });
   stageST=tl.scrollTrigger;
   const first={immediateRender:true};
   const swap=(a,b,t)=>tl.to(a,{autoAlpha:0,x:-18,duration:.2,ease:'power2.in'},t).fromTo(b,{autoAlpha:0,x:18},{autoAlpha:1,x:0,duration:.25,ease:'power2.out'},t+.05);
 
   /* ===== SCENE 1: hero, phone and map become one object (0 to 1.4) ===== */
-  tl.fromTo(phone,{x:PXh,y:PYh,scale:sc(1),rotationY:desk?-18:-10,rotationX:desk?5:3,rotation:-3,transformPerspective:1400,autoAlpha:1},
+  tl.fromTo(phone,{x:PXh,y:PYh,scale:sc(1),rotationY:desk?-18:0,rotationX:desk?5:0,rotation:desk?-3:0,transformPerspective:1400,autoAlpha:1},
                   {x:0,y:PYc,scale:sc(1.14),rotationY:0,rotationX:0,rotation:0,duration:1.05,ease:'power2.inOut',...first},0)
     .to(heroLns,{yPercent:-120,duration:.45,stagger:.07,ease:'power3.in'},.08)
     .to([heroSub,cue],{autoAlpha:0,y:-18,duration:.3},0)
@@ -558,8 +558,8 @@ function buildStage(desk){
     .to(s5Words,{xPercent:0,duration:.5,stagger:.06,ease:'power3.out'},11.0)
     .to(phone,{x:PX5,y:PY5,scale:sc(.74),rotationY:desk?16:0,autoAlpha:desk?1:0,duration:1.0,ease:'power2.inOut'},10.85)
     .to(veil,{opacity:.84,duration:.8},10.9)
-    .fromTo(dash,{autoAlpha:0,x:()=>DX()+vw()*.22,y:()=>DY()+30,rotationY:-28,scale:.9,transformPerspective:1800,transformOrigin:'0% 50%'},
-                 {autoAlpha:1,x:DX,y:DY,rotationY:-7,scale:1,duration:1.0,ease:'power3.out'},11.1)
+    .fromTo(dash,{autoAlpha:0,x:()=>DX()+vw()*.22,y:()=>DY()+30,rotationY:desk?-28:0,scale:.9,transformPerspective:1800,transformOrigin:'0% 50%'},
+                 {autoAlpha:1,x:DX,y:DY,rotationY:desk?-7:0,scale:1,duration:1.0,ease:'power3.out'},11.1)
     .to(dash,{rotationY:0,duration:.8,ease:'power2.inOut'},12.2)
     .to(dashPanels,{autoAlpha:1,duration:.35,stagger:.06},11.5)
     .fromTo(dashMk,{scale:.2},{scale:1,duration:.3,stagger:.03,ease:'back.out(2)'},11.9)
