@@ -105,7 +105,9 @@ function Dashboard({ user, onLogout }) {
   const [users, setUsers] = useState([]);
   const [teams, setTeams] = useState([]);
   const [overviewData, setOverviewData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [apiError, setApiError] = useState("");
+  const [toast, setToast] = useState(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [readNotificationIds, setReadNotificationIds] = useState(() => {
     try {
@@ -115,6 +117,8 @@ function Dashboard({ user, onLogout }) {
     }
   });
   const notificationRef = useRef(null);
+  const toastSequence = useRef(0);
+  const showToast = (message) => setToast({ id: ++toastSequence.current, message });
 
   useEffect(() => {
     let active = true;
@@ -145,6 +149,8 @@ function Dashboard({ user, onLogout }) {
         if (active) {
           setApiError(error instanceof Error ? error.message : "Could not connect to the API");
         }
+      } finally {
+        if (active) setIsLoading(false);
       }
     };
 
@@ -157,6 +163,12 @@ function Dashboard({ user, onLogout }) {
       stopPolling();
     };
   }, [isBarangayStaff, user.id]);
+
+  useEffect(() => {
+    if (!toast) return undefined;
+    const timeoutId = window.setTimeout(() => setToast(null), 3000);
+    return () => window.clearTimeout(timeoutId);
+  }, [toast?.id]);
 
   const pageMeta = {
     overview: [isBarangayStaff ? user.barangay : "Local Government Unit", "Overview"],
@@ -381,9 +393,11 @@ function Dashboard({ user, onLogout }) {
             page={page}
             issues={filteredIssues}
             users={users}
+            isLoading={isLoading}
             onOpenIssue={(issue) => setModal({ type: "issue", ...issue, teams })}
             onOpenUser={(user) => setModal({ type: "user", user })}
             onNavigate={navigate}
+            onNotify={showToast}
             overviewData={overviewData}
             user={user}
           />
@@ -403,6 +417,7 @@ function Dashboard({ user, onLogout }) {
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || "Could not save moderation action.");
             const usersResponse = await apiFetch(`/users?userId=${encodeURIComponent(user.id)}`);
+            if (!usersResponse.ok) throw new Error("Could not refresh user accounts.");
             setUsers((await usersResponse.json()).users ?? []);
             setModal(null);
           }}
@@ -416,28 +431,48 @@ function Dashboard({ user, onLogout }) {
               const data = await response.json();
               if (!response.ok) throw new Error(data.error || "Could not save walk-in report.");
               const issueResponse = await apiFetch(`/issues?userId=${encodeURIComponent(user.id)}`);
+              if (!issueResponse.ok) throw new Error("Report was saved, but the report list could not be refreshed.");
               setIssues((await issueResponse.json()).issues ?? []);
               setModal(null);
               return;
             }
             if (modal.type === "issue" && modal.id && modal.id !== "Walk-in report") {
-              await apiFetch(`/issues/${modal.id}`, {
+              const updateResponse = await apiFetch(`/issues/${modal.id}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ ...changes, adminId: user.id }),
               });
+              const updateData = await updateResponse.json();
+              if (!updateResponse.ok) {
+                throw new Error(updateData.error || "Could not update report.");
+              }
               const response = await apiFetch(`/issues?userId=${encodeURIComponent(user.id)}`);
+              if (!response.ok) throw new Error("Report was saved, but the report list could not be refreshed.");
               setIssues((await response.json()).issues ?? []);
+              const previousStatus = modal.status === "New report" ? "Reported" : modal.status;
+              showToast(changes.status === "Archived"
+                ? "Report archived."
+                : changes.status !== previousStatus
+                  ? `Report status changed to ${changes.status}.`
+                  : "Report changes saved.");
             }
             setModal(null);
           }}
         />
       )}
+      {toast && (
+        <div className="action-toast" role="status" aria-live="polite">
+          <CheckCircle2 size={18} />
+          <span>{toast.message}</span>
+        </div>
+      )}
     </div>
   );
 }
 
-function PageContent({ page, issues, users, onOpenIssue, onOpenUser, onNavigate, overviewData, user }) {
+function PageContent({ page, issues, users, isLoading, onOpenIssue, onOpenUser, onNavigate, onNotify, overviewData, user }) {
+  if (isLoading) return <DashboardLoading />;
+
   if (!canAccessAdminPage(user?.role, page)) {
     return (
       <Overview
@@ -454,12 +489,27 @@ function PageContent({ page, issues, users, onOpenIssue, onOpenUser, onNavigate,
   if (page === "map") return <MapPage issues={issues} onOpenIssue={onOpenIssue} user={user} />;
   if (page === "analytics") return <AnalyticsLive user={user} />;
   if (page === "users") return <UsersPage users={users} onOpenUser={onOpenUser} user={user} />;
-  if (page === "announce") return <AdvisoryPage user={user} onViewAll={() => onNavigate("published")} />;
-  if (page === "published") return <AdvisoryPage user={user} publishedOnly />;
+  if (page === "announce") return <AdvisoryPage user={user} onNotify={onNotify} onViewAll={() => onNavigate("published")} />;
+  if (page === "published") return <AdvisoryPage user={user} onNotify={onNotify} publishedOnly />;
   if (page === "logs") return <SettingsPage user={user} logsOnly />;
   if (page === "settings") return <SettingsPage user={user} />;
 
   return <Overview issues={issues} overviewData={overviewData} onOpenIssue={onOpenIssue} onNavigate={onNavigate} user={user} />;
+}
+
+function DashboardLoading({ message = "Loading your workspace…" }) {
+  return (
+    <div className="dashboard-loading" role="status" aria-label="Loading dashboard data">
+      <span className="loading-status">{message}</span>
+      <div className="loading-kpis" aria-hidden="true">
+        {Array.from({ length: 4 }, (_, index) => <div className="card loading-kpi" key={index}><i className="skeleton-block" /><i className="skeleton-line" /><i className="skeleton-value" /></div>)}
+      </div>
+      <div className="card loading-table" aria-hidden="true">
+        <i className="skeleton-line loading-table-heading" />
+        {Array.from({ length: 5 }, (_, index) => <i className="skeleton-line loading-table-row" key={index} />)}
+      </div>
+    </div>
+  );
 }
 
 function Overview({ issues, overviewData, onOpenIssue, onNavigate, user }) {
@@ -794,18 +844,23 @@ function AnalyticsLive({ user }) {
   const [period, setPeriod] = useState("month");
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
+    setIsLoading(true);
     apiFetch(`/analytics?period=${period}&userId=${encodeURIComponent(user?.id || "")}`)
       .then(async (response) => {
         const body = await response.json();
         if (!response.ok) throw new Error(body.error || "Could not load analytics");
         if (active) setData(body);
       })
-      .catch((loadError) => { if (active) setError(loadError.message); });
+      .catch((loadError) => { if (active) setError(loadError.message); })
+      .finally(() => { if (active) setIsLoading(false); });
     return () => { active = false; };
   }, [period, user?.id]);
+
+  if (!data && isLoading) return <DashboardLoading message="Loading analytics…" />;
 
   const maxCategory = Math.max(...(data?.categories ?? []).map((item) => Number(item.count)), 1);
   const maxTrend = Math.max(...(data?.trend ?? []).map((item) => Number(item.count)), 1);
@@ -822,7 +877,9 @@ function AnalyticsLive({ user }) {
         {[["day", "Day"], ["week", "Week"], ["month", "Month"], ["year", "Year"]].map(([value, label]) => (
           <button key={value} className={`filter ${period === value ? "active" : ""}`} onClick={() => setPeriod(value)}>{label}</button>
         ))}
-        <span className="muted">Live MySQL data · {data?.periodLabel || period}</span>
+        <span className="muted" role={isLoading ? "status" : undefined}>
+          {isLoading ? "Updating analytics…" : `Live MySQL data · ${data?.periodLabel || period}`}
+        </span>
         <button type="button" className="primary-button print-button" onClick={() => window.print()}>
           Print / Save PDF
         </button>

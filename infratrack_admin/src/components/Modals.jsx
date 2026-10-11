@@ -108,6 +108,22 @@ export function IssueModal({ data, onClose, onSave }) {
   const [assigned, setAssigned] = useState("Unassigned");
   const [note, setNote] = useState("");
   const [validationError, setValidationError] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [isArchiving, setIsArchiving] = useState(false);
+
+  const saveChanges = async (changes, archiving = false) => {
+    setIsSaving(true);
+    setIsArchiving(archiving);
+    setValidationError("");
+    try {
+      await onSave?.(changes);
+    } catch (saveError) {
+      setValidationError(saveError instanceof Error ? saveError.message : "Could not save report changes.");
+    } finally {
+      setIsSaving(false);
+      setIsArchiving(false);
+    }
+  };
 
   const saveWorkflow = () => {
     if (status === "Rejected" && !note.trim()) {
@@ -118,8 +134,7 @@ export function IssueModal({ data, onClose, onSave }) {
       setValidationError("A resolution note is required.");
       return;
     }
-    setValidationError("");
-    onSave?.({ status, assignedTeam: assigned, resolutionNote: note });
+    void saveChanges({ status, assignedTeam: assigned, resolutionNote: note });
   };
 
   return (
@@ -230,15 +245,17 @@ export function IssueModal({ data, onClose, onSave }) {
               <button
                 className="primary-button full-button"
                 onClick={saveWorkflow}
+                disabled={isSaving}
               >
-                <CheckCircle2 size={16} /> Save changes
+                <CheckCircle2 size={16} /> {isSaving ? "Saving…" : "Save changes"}
               </button>
               <button
                 type="button"
                 className="secondary-button full-button danger-button"
-                onClick={() => onSave?.({ status: "Archived", assignedTeam: assigned, resolutionNote: "Archived by administrator" })}
+                onClick={() => void saveChanges({ status: "Archived", assignedTeam: assigned, resolutionNote: "Archived by administrator" }, true)}
+                disabled={isSaving}
               >
-                Archive issue
+                {isArchiving ? "Archiving…" : "Archive issue"}
               </button>
             </div>
           </div>

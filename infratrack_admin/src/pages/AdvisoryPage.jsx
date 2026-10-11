@@ -21,7 +21,7 @@ const typeMeta = {
   gen: ["Announcement", Megaphone],
 };
 
-export default function AdvisoryPage({ publishedOnly = false, onViewAll, user }) {
+export default function AdvisoryPage({ publishedOnly = false, onNotify, onViewAll, user }) {
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [type, setType] = useState("alert");
@@ -30,8 +30,10 @@ export default function AdvisoryPage({ publishedOnly = false, onViewAll, user })
   const [published, setPublished] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [advisories, setAdvisories] = useState([]);
+  const [isLoadingAdvisories, setIsLoadingAdvisories] = useState(true);
   const [editingAdvisory, setEditingAdvisory] = useState(null);
   const [error, setError] = useState("");
+  const [archivingAdvisoryId, setArchivingAdvisoryId] = useState(null);
   const [convertingExisting, setConvertingExisting] = useState(false);
   const [convertingNew, setConvertingNew] = useState(false);
   const photoInput = useRef(null);
@@ -103,15 +105,20 @@ export default function AdvisoryPage({ publishedOnly = false, onViewAll, user })
     }
   };
 
-  const loadAdvisories = async () => {
-    const response = await apiFetch(`/advisories?userId=${encodeURIComponent(user?.id || "")}`);
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "Could not load advisories");
-    setAdvisories(data.advisories ?? []);
+  const loadAdvisories = async (showLoading = false) => {
+    if (showLoading) setIsLoadingAdvisories(true);
+    try {
+      const response = await apiFetch(`/advisories?userId=${encodeURIComponent(user?.id || "")}`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not load advisories");
+      setAdvisories(data.advisories ?? []);
+    } finally {
+      if (showLoading) setIsLoadingAdvisories(false);
+    }
   };
 
   useEffect(() => {
-    loadAdvisories().catch((loadError) => setError(loadError.message));
+    loadAdvisories(true).catch((loadError) => setError(loadError.message));
   }, [user?.id]);
 
   useEffect(() => {
@@ -197,11 +204,19 @@ export default function AdvisoryPage({ publishedOnly = false, onViewAll, user })
   };
 
   const deleteAdvisory = async (advisoryId) => {
+    if (archivingAdvisoryId !== null) return;
+    setArchivingAdvisoryId(advisoryId);
     try {
       const response = await apiFetch(`/advisories/${advisoryId}`, { method: "DELETE" });
       if (!response.ok) throw new Error("Could not archive advisory");
-      await loadAdvisories(); setEditingAdvisory(null);
-    } catch (deleteError) { setError(deleteError.message); }
+      await loadAdvisories();
+      setEditingAdvisory(null);
+      onNotify?.("Advisory archived.");
+    } catch (deleteError) {
+      setError(deleteError.message);
+    } finally {
+      setArchivingAdvisoryId(null);
+    }
   };
 
   const displayedAdvisories = publishedOnly ? advisories : advisories.slice(0, 2);
@@ -311,13 +326,28 @@ export default function AdvisoryPage({ publishedOnly = false, onViewAll, user })
         <div className="card-head">
           <h2>{publishedOnly ? "All published advisories" : "Published advisories"}</h2>
           {publishedOnly ? (
-            <span className="muted">{advisories.length} published</span>
+            <span className="muted">{isLoadingAdvisories ? "Loading…" : `${advisories.length} published`}</span>
           ) : (
             <button type="button" className="text-link" onClick={onViewAll}>View all <span aria-hidden="true">→</span></button>
           )}
         </div>
         <div className={publishedOnly ? "published-advisory-cards" : ""}>
-        {displayedAdvisories.map((advisory) => {
+        {isLoadingAdvisories ? (
+          <div className="advisory-loading-list" role="status" aria-label="Loading advisories">
+            {Array.from({ length: publishedOnly ? 4 : 2 }, (_, index) => (
+              <div className="advisory-loading-card" key={index} aria-hidden="true">
+                <i className="skeleton-line advisory-skeleton-tag" />
+                <i className="skeleton-line advisory-skeleton-title" />
+                <i className="skeleton-line" />
+                <i className="skeleton-line advisory-skeleton-copy" />
+              </div>
+            ))}
+          </div>
+        ) : !displayedAdvisories.length ? (
+          <p className="advisory-empty" role={error ? "alert" : undefined}>
+            {error || "No published advisories yet."}
+          </p>
+        ) : displayedAdvisories.map((advisory) => {
           const [label, AdvisoryIcon] = typeMeta[advisory.type];
           return (
             <div className={`advisory-card ${advisory.type}`} key={advisory.id}>
@@ -338,7 +368,15 @@ export default function AdvisoryPage({ publishedOnly = false, onViewAll, user })
                 <small>{advisory.created_at ? new Date(advisory.created_at).toLocaleString() : "Recently issued"}</small>
                 <span>
                   <button type="button" onClick={() => openEdit(advisory)}><Pencil size={14} /></button>
-                  <button type="button" onClick={() => deleteAdvisory(advisory.id)}><Trash2 size={14} /></button>
+                  <button
+                    type="button"
+                    aria-label={archivingAdvisoryId === advisory.id ? "Archiving advisory" : "Archive advisory"}
+                    title={archivingAdvisoryId === advisory.id ? "Archiving…" : "Archive advisory"}
+                    disabled={archivingAdvisoryId !== null}
+                    onClick={() => deleteAdvisory(advisory.id)}
+                  >
+                    {archivingAdvisoryId === advisory.id ? <span className="button-spinner" /> : <Trash2 size={14} />}
+                  </button>
                 </span>
               </div>
             </div>
@@ -428,8 +466,14 @@ export default function AdvisoryPage({ publishedOnly = false, onViewAll, user })
             )}
 
             <div className="advisory-edit-actions">
-              <button type="button" className="secondary-button danger-button" onClick={() => deleteAdvisory(editingAdvisory.id)}>
-                <Trash2 size={16} /> Delete
+              <button
+                type="button"
+                className="secondary-button danger-button"
+                onClick={() => deleteAdvisory(editingAdvisory.id)}
+                disabled={archivingAdvisoryId !== null}
+              >
+                {archivingAdvisoryId === editingAdvisory.id ? <span className="button-spinner" /> : <Trash2 size={16} />}
+                {archivingAdvisoryId === editingAdvisory.id ? "Archiving…" : "Archive"}
               </button>
               <button type="button" className="primary-button" onClick={saveEdit}>
                 <CheckCircle2 size={16} /> Save changes

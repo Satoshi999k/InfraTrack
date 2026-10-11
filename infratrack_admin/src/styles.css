@@ -45,7 +45,19 @@ select {
   font: inherit;
 }
 button {
-  transition: all 0.2s ease;
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease,
+    opacity 0.18s ease;
+}
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible {
+  outline: 3px solid rgba(27, 138, 131, 0.72);
+  outline-offset: 3px;
 }
 .login-shell {
   min-height: 100vh;
@@ -665,9 +677,10 @@ button {
   cursor: pointer;
   font-weight: 600;
 }
-.nav-link:hover {
+.nav-link:hover:not(.active) {
   background: #ffffff0d;
   color: #fff;
+  transform: translateX(2px);
 }
 .nav-link.active {
   background: var(--teal);
@@ -754,6 +767,7 @@ button {
 .icon-button:hover {
   border-color: var(--teal);
   color: var(--teal);
+  transform: translateY(-1px);
 }
 .icon-button.active {
   border-color: var(--teal);
@@ -781,6 +795,12 @@ button {
   border-radius: 16px;
   background: #fff;
   box-shadow: 0 18px 45px #09273224;
+  transform-origin: top right;
+  animation: dropdown-enter 0.16s ease-out both;
+}
+@keyframes dropdown-enter {
+  from { opacity: 0; transform: translateY(-5px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 .notification-heading {
   display: flex;
@@ -1027,6 +1047,7 @@ button {
   font-size: 10px;
   font-weight: 700;
   padding: 5px 10px;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 .pill.active,
 .filter.active {
@@ -1344,10 +1365,147 @@ button {
   color: #fff;
   box-shadow: 0 8px 16px #c1592b66;
 }
+.primary-button:hover:not(:disabled) {
+  background: #a94b24;
+  box-shadow: 0 10px 18px #c1592b55;
+  transform: translateY(-1px);
+}
 .secondary-button {
   background: #fff;
   color: var(--navy);
   border: 1px solid var(--line);
+}
+.advisory-loading-list {
+  display: grid;
+  gap: 12px;
+}
+.advisory-loading-card {
+  display: grid;
+  gap: 11px;
+  padding: 15px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+}
+.advisory-skeleton-tag {
+  width: 110px;
+  height: 18px;
+}
+.advisory-skeleton-title {
+  width: 68%;
+  height: 16px;
+}
+.advisory-skeleton-copy {
+  width: 86%;
+}
+.advisory-empty {
+  margin: 0;
+  padding: 24px 14px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+.skeleton-line,
+.skeleton-block,
+.skeleton-value {
+  display: block;
+  border-radius: 7px;
+  background: linear-gradient(100deg, #e9e6de 25%, #f7f5f0 42%, #e9e6de 62%);
+  background-size: 220% 100%;
+  animation: skeleton-shimmer 1.35s ease-in-out infinite;
+}
+.skeleton-line {
+  width: 100%;
+  height: 11px;
+}
+@keyframes skeleton-shimmer {
+  to { background-position-x: -220%; }
+}
+.dashboard-loading {
+  display: grid;
+  gap: 16px;
+}
+.loading-status {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.loading-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+.loading-kpi {
+  display: grid;
+  min-height: 150px;
+  align-content: center;
+  justify-items: start;
+  gap: 13px;
+}
+.skeleton-block {
+  width: 38px;
+  height: 38px;
+}
+.loading-kpi .skeleton-line {
+  width: 55%;
+}
+.skeleton-value {
+  width: 42%;
+  height: 25px;
+}
+.loading-table {
+  display: grid;
+  gap: 18px;
+}
+.loading-table-heading {
+  width: 26%;
+  height: 16px;
+}
+.loading-table-row {
+  height: 34px;
+}
+.action-toast {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 2100;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 13px 16px;
+  border: 1px solid rgba(60, 138, 95, 0.24);
+  border-radius: 13px;
+  background: #fff;
+  color: #286a45;
+  box-shadow: 0 12px 32px rgba(9, 39, 50, 0.18);
+  font-size: 12px;
+  font-weight: 700;
+  animation: toast-enter 0.2s ease-out both;
+}
+.action-toast svg {
+  flex: 0 0 auto;
+}
+@keyframes toast-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.button-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: button-spin 0.65s linear infinite;
+}
+@keyframes button-spin {
+  to { transform: rotate(360deg); }
+}
+.secondary-button:hover:not(:disabled) {
+  background: var(--teal-soft);
+  border-color: var(--teal);
+  transform: translateY(-1px);
 }
 .page-intro {
   margin-bottom: 21px;
@@ -1367,6 +1525,10 @@ button {
   border: 1px solid var(--line);
   color: var(--muted);
   cursor: pointer;
+}
+.filter:hover {
+  border-color: var(--teal);
+  color: var(--teal);
 }
 .table-card {
   padding: 0;
@@ -2851,6 +3013,7 @@ tbody tr:last-child td {
   display: grid;
   place-items: center;
   padding: 20px;
+  animation: backdrop-enter 0.16s ease-out both;
 }
 .modal {
   position: relative;
@@ -2860,6 +3023,15 @@ tbody tr:last-child td {
   width: 100%;
   padding: 28px;
   box-shadow: 0 30px 60px #09273255;
+  animation: modal-enter 0.2s cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+@keyframes backdrop-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes modal-enter {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 .modal-close {
   position: absolute;
@@ -3137,6 +3309,9 @@ tbody tr:last-child td {
 @media (max-width: 760px) {
   .app-shell {
     display: block;
+  }
+  .loading-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .sidebar {
     position: fixed;
@@ -4440,5 +4615,16 @@ tbody tr:last-child td {
   }
   .login-form-panel {
     padding: 34px 26px 28px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
