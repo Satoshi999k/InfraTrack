@@ -3,6 +3,7 @@ import { divIcon } from "leaflet";
 import { MapContainer, Marker, Popup, TileLayer, ZoomControl, useMap } from "react-leaflet";
 import { Search, X } from "lucide-react";
 
+import { getBarangayMapCenter, normalizeBarangayName } from "../barangayMap";
 import { searchAddressLocations } from "../mapSearch";
 
 function LeafletResizeHandler() {
@@ -96,21 +97,18 @@ function issuePinIcon(issue) {
   });
 }
 
-const barangayCenters = {
-  "Brgy. Central": [6.9612515, 126.2069944],
-  "Brgy. Dawan": [6.8993278, 126.15106],
-  "Brgy. Sainz": [6.9588636, 126.2201871],
-  "Brgy. Matiao": [6.9450796, 126.2323952],
-  "Brgy. Dahican": [6.9466732, 126.2603384],
-};
-
 export function LeafletInfrastructureMap({ large = false, onOpenIssue, issues = [], barangay }) {
   const [mapLayer, setMapLayer] = useState("street");
   const [map, setMap] = useState(null);
-  const normalizedBarangay = barangay && (barangayCenters[barangay] ? barangay : Object.keys(barangayCenters).find((name) => name.toLowerCase().includes(String(barangay).toLowerCase())));
-  const center = barangayCenters[normalizedBarangay] || (issues[0] ? [Number(issues[0].latitude) || 6.951, Number(issues[0].longitude) || 126.231] : [6.951, 126.231]);
-  const zoom = normalizedBarangay ? 15 : 14;
-  const recenterKey = normalizedBarangay || "citywide";
+  const normalizedBarangay = normalizeBarangayName(barangay);
+  const barangayCenter = getBarangayMapCenter(barangay);
+  const center = barangayCenter || (normalizedBarangay
+    ? [6.951, 126.231]
+    : issues[0]
+      ? [Number(issues[0].latitude) || 6.951, Number(issues[0].longitude) || 126.231]
+      : [6.951, 126.231]);
+  const zoom = barangayCenter ? 15 : 14;
+  const recenterKey = barangayCenter ? normalizedBarangay : "citywide";
 
   return (
     <div className={`leaflet-map-wrap ${large ? "large" : ""}`}>

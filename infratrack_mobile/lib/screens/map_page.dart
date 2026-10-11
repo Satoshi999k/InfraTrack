@@ -8,9 +8,20 @@ class MapPage extends StatefulWidget {
 }
 
 class _MapPageState extends State<MapPage> {
-  static const _matiCity = LatLng(6.9551, 126.2166);
+  static const _matiCity = LatLng(6.9530, 126.2280);
+  static const _barangayCenters = {
+    'central': LatLng(6.9612515, 126.2069944),
+    'purok 3': LatLng(6.9612515, 126.2069944),
+    'dawan': LatLng(6.8993278, 126.1510600),
+    'sainz': LatLng(6.9588636, 126.2201871),
+    'bobon': LatLng(6.8683574, 126.3264295),
+    'matiao': LatLng(6.9450796, 126.2323952),
+  };
   final _mapController = MapController();
   final _searchController = TextEditingController();
+  late final LatLng _mapCenter = _centerForBarangay(
+    ApiService.currentUser?['barangay']?.toString(),
+  );
   String? _selectedReport;
   String _activeCategory = 'All';
   double _zoom = 15;
@@ -18,6 +29,19 @@ class _MapPageState extends State<MapPage> {
   bool _satelliteView = false;
   List<_MapReport> _reports = [];
   bool _loadingReports = true;
+
+  static LatLng _centerForBarangay(String? barangay) {
+    final normalized = barangay?.trim().toLowerCase().replaceFirst(
+      RegExp(r'^(?:brgy\.?|barangay)\s*'),
+      '',
+    );
+    return _barangayCenters[normalized] ?? _matiCity;
+  }
+
+  String get _centerLabel {
+    final barangay = ApiService.currentUser?['barangay']?.toString().trim();
+    return barangay == null || barangay.isEmpty ? 'Mati City' : barangay;
+  }
 
   @override
   void initState() {
@@ -85,7 +109,7 @@ class _MapPageState extends State<MapPage> {
 
   void _changeZoom(double amount) {
     _zoom = (_zoom + amount).clamp(12, 19);
-    _mapController.move(_matiCity, _zoom);
+    _mapController.move(_mapCenter, _zoom);
     setState(() {});
   }
 
@@ -96,7 +120,7 @@ class _MapPageState extends State<MapPage> {
         FlutterMap(
           mapController: _mapController,
           options: MapOptions(
-            initialCenter: _matiCity,
+            initialCenter: _mapCenter,
             initialZoom: _zoom,
             minZoom: 12,
             maxZoom: 19,
@@ -243,9 +267,9 @@ class _MapPageState extends State<MapPage> {
               const SizedBox(height: 12),
               _MapControlButton(
                 icon: Icons.my_location,
-                tooltip: 'Center on Mati City',
+                tooltip: 'Center on $_centerLabel',
                 onPressed: () {
-                  _mapController.move(_matiCity, 15);
+                  _mapController.move(_mapCenter, 15);
                   setState(() => _zoom = 15);
                 },
               ),
