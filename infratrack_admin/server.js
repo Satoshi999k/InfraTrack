@@ -141,6 +141,11 @@ async function readSystemSettings() {
 
 async function queueNotification({ userId, reportId = null, advisoryId = null, type, title, message, channel = "push" }) {
   if (!userId || !title || !message) return null;
+  const [[preferences]] = await pool.query(
+    "SELECT allow_notifications FROM user_preferences WHERE user_id = ?",
+    [Number(userId)],
+  );
+  if (preferences && Number(preferences.allow_notifications) === 0) return null;
   await pool.query(
     "INSERT INTO notifications (user_id, report_id, advisory_id, type, title, message, channel) VALUES (?, ?, ?, ?, ?, ?, ?)",
     [Number(userId), reportId ?? null, advisoryId ?? null, type || "system", title, message, channel],
@@ -503,28 +508,285 @@ app.use((req, res, next) => {
   next();
 });
 app.use(async (req, res, next) => {
+  const publicMobileRoutes = new Set([
+    "/api/mobile/issues",
+    "/api/mobile/overview",
+    "/api/mobile/advisories",
+  ]);
+  const isMobileRoute = req.path.startsWith("/api/mobile/");
+  const isPublicMobileRoute = req.method === "GET" && publicMobileRoutes.has(req.path);
+  const isMobileUpload = req.path === "/api/uploads" && req.method === "POST";
+  if (isPublicMobileRoute && !req.headers.authorization) return next();
   if (
     !req.path.startsWith("/api/") ||
     req.path === "/api/health" ||
     req.path === "/api/auth/login" ||
     req.path === "/api/auth/register"
   ) return next();
-  // Residents submit and view their reports from the mobile app without an admin session.
-  if (req.path === "/api/reports" && ["GET", "POST"].includes(req.method)) return next();
   const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
   if (!token) return res.status(401).json({ error: "Authentication required" });
   const [[user]] = await pool.query(
-    "SELECT u.id, u.name, u.email, u.barangay, u.role FROM admin_sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > CURRENT_TIMESTAMP",
+    "SELECT u.id, u.name, u.email, u.mobile, u.barangay, u.role, u.standing, u.created_at FROM admin_sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > CURRENT_TIMESTAMP",
     [hashSessionToken(token)],
   );
-  if (!user || !["lgu", "admin", "barangay_staff"].includes(user.role)) return res.status(401).json({ error: "Session expired or invalid" });
+  if (!user || (!isMobileRoute && !isMobileUpload && !["lgu", "admin", "barangay_staff"].includes(user.role))) {
+    return res.status(401).json({ error: "Session expired or invalid" });
+  }
+  if (isMobileRoute && !isPublicMobileRoute && user.standing !== "Active") {
+    return res.status(403).json({ error: "This account is not active" });
+  }
   req.auth = user;
+  req.authToken = token;
   next();
 });
 app.use("/uploads", express.static(uploadDirectory, { maxAge: "1h", etag: true }));
 app.get("/api/health", async (_req, res) => {
   try { await pool.query("SELECT 1"); res.json({ ok: true, service: "InfraTrack Admin API", database: dbName }); }
   catch { res.status(503).json({ ok: false, error: "Database unavailable" }); }
+});
+app.get("/api/mobile/issues", async (_req, res) => {
+  const [issues] = await pool.query(`SELECT r.public_id, r.title, r.description, r.category,
+    r.location, r.latitude, r.longitude, r.severity, r.status, r.created_at, r.updated_at,
+    (SELECT m.file_path FROM media m WHERE m.report_id = r.id ORDER BY m.id LIMIT 1) AS media_url
+    FROM reports r
+    WHERE r.status <> 'Archived' ORDER BY r.created_at DESC`);
+  res.json({ issues: issues.map((issue) => ({
+    ...issue,
+    media_url: publicMediaUrl(_req, issue.media_url),
+  })) });
+});
+app.get("/api/mobile/overview", async (_req, res) => {
+  const [[summary]] = await pool.query(`SELECT COUNT(*) AS total,
+    SUM(status IN ('Reported', 'Verified by inspector')) AS pending,
+    SUM(status = 'Resolved') AS resolved,
+    ROUND(AVG(CASE WHEN status = 'Resolved' THEN TIMESTAMPDIFF(HOUR, created_at, updated_at) / 24 END), 1) AS avg_resolution_days
+    FROM reports WHERE status <> 'Archived'`);
+  res.json({
+    summary: {
+      total: Number(summary.total || 0),
+      pending: Number(summary.pending || 0),
+      resolved: Number(summary.resolved || 0),
+      avgResolutionDays: Number(summary.avg_resolution_days || 0),
+      completionRate: summary.total
+        ? Math.round((Number(summary.resolved || 0) / Number(summary.total)) * 100)
+        : 0,
+    },
+  });
+});
+app.get("/api/mobile/advisories", async (req, res) => {
+  const scope = req.auth?.barangay
+    ? {
+        sql: ` AND (
+          a.audience = 'All barangays' OR a.barangay = ?
+          OR REPLACE(REPLACE(LOWER(a.audience), 'barangay ', ''), 'brgy. ', '')
+             = REPLACE(REPLACE(LOWER(?), 'barangay ', ''), 'brgy. ', '')
+        )`,
+        params: [req.auth.barangay, req.auth.barangay],
+      }
+    : { sql: " AND a.audience = 'All barangays'", params: [] };
+  const [advisories] = await pool.query(`SELECT a.id, a.type, a.title, a.message,
+    a.audience, a.barangay, a.published_at, a.created_at,
+    am.file_path AS media_url, am.media_type AS media_kind
+    FROM advisories a LEFT JOIN advisory_media am ON am.advisory_id = a.id
+    WHERE a.status = 'published'${scope.sql} ORDER BY a.created_at DESC`,
+  scope.params);
+  res.json({ advisories: advisories.map((advisory) => ({
+    ...advisory,
+    media_url: publicMediaUrl(req, advisory.media_url),
+  })) });
+});
+app.get("/api/mobile/reports", async (req, res) => {
+  const [reports] = await pool.query(`SELECT r.*, u.name AS reporter,
+    (SELECT m.file_path FROM media m WHERE m.report_id = r.id ORDER BY m.id LIMIT 1) AS media_url
+    FROM reports r LEFT JOIN users u ON u.id = r.reporter_id
+    WHERE r.reporter_id = ? ORDER BY r.created_at DESC`, [req.auth.id]);
+  res.json({ reports: reports.map((report) => ({
+    ...report,
+    media_url: publicMediaUrl(req, report.media_url),
+  })) });
+});
+app.post("/api/mobile/reports", async (req, res) => {
+  const { title, description, category, location, latitude, longitude, severity = "Medium", mediaUrl, mediaType = "photo" } = req.body ?? {};
+  if (!title || !description || !category) {
+    return res.status(400).json({ error: "Title, description, and category are required" });
+  }
+  const [[preferences]] = await pool.query(
+    "SELECT show_location_on_reports FROM user_preferences WHERE user_id = ?",
+    [req.auth.id],
+  );
+  const shareLocation = !preferences || Number(preferences.show_location_on_reports) === 1;
+  const parsedLat = !shareLocation || latitude == null || latitude === "" ? null : Number(latitude);
+  const parsedLng = !shareLocation || longitude == null || longitude === "" ? null : Number(longitude);
+  if ((parsedLat == null) !== (parsedLng == null) ||
+      (parsedLat != null && (!Number.isFinite(parsedLat) || !Number.isFinite(parsedLng)))) {
+    return res.status(400).json({ error: "Provide valid latitude and longitude coordinates" });
+  }
+  if (parsedLat != null) {
+    const boundaryResult = validateBarangayCoordinates({ latitude: parsedLat, longitude: parsedLng, location });
+    if (!boundaryResult.valid) return res.status(422).json({ error: boundaryResult.reason });
+  }
+  let storedMediaUrl = null;
+  if (mediaUrl != null) {
+    try {
+      if (typeof mediaUrl !== "string") throw new Error("Invalid report media URL");
+      const origin = `${req.protocol}://${req.get("host")}`;
+      const parsedMediaUrl = new URL(mediaUrl, `${origin}/`);
+      const filename = path.basename(parsedMediaUrl.pathname);
+      if (
+        parsedMediaUrl.origin !== origin ||
+        parsedMediaUrl.pathname !== `/uploads/${filename}` ||
+        !fs.existsSync(path.join(uploadDirectory, filename))
+      ) {
+        throw new Error("Invalid report media URL");
+      }
+      storedMediaUrl = `${origin}${parsedMediaUrl.pathname}`;
+    } catch {
+      return res.status(400).json({ error: "Invalid report media URL" });
+    }
+  }
+  if (mediaUrl != null && !["photo", "video", "gif"].includes(mediaType)) {
+    return res.status(400).json({ error: "Invalid report media type" });
+  }
+  const resolvedLocation = !shareLocation
+    ? "Mati City"
+    : location ||
+      (parsedLat != null
+      ? validateBarangayCoordinates({ latitude: parsedLat, longitude: parsedLng, location }).matchedBarangay || "Mati City"
+      : "Mati City");
+  const connection = await pool.getConnection();
+  let report;
+  try {
+    await connection.beginTransaction();
+    const id = publicId();
+    const [result] = await connection.query(
+      "INSERT INTO reports (public_id, title, description, category, location, latitude, longitude, severity, reporter_id, due_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 3 DAY))",
+      [id, title, description, category, resolvedLocation, parsedLat, parsedLng, severity, req.auth.id],
+    );
+    await connection.query(
+      "INSERT INTO report_events (report_id, status, note) VALUES (?, 'Reported', ?)",
+      [result.insertId, "Report submitted by resident"],
+    );
+    if (storedMediaUrl) {
+      await connection.query(
+        "INSERT INTO media (report_id, file_path, media_type) VALUES (?, ?, ?)",
+        [result.insertId, storedMediaUrl, mediaType],
+      );
+    }
+    const [reports] = await connection.query("SELECT * FROM reports WHERE id = ?", [result.insertId]);
+    report = reports[0];
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+  await evaluateIssueAutomation(report);
+  await writeAuditLog(req, {
+    actorId: req.auth.id,
+    action: "report_created",
+    resourceType: "report",
+    resourceId: report.public_id,
+    details: { title, category, location: resolvedLocation },
+  });
+  res.status(201).json({ report });
+});
+app.get("/api/mobile/notifications", async (req, res) => {
+  const [notifications] = await pool.query(
+    "SELECT id, report_id, advisory_id, type, title, message, read_at, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 100",
+    [req.auth.id],
+  );
+  res.json({ notifications });
+});
+app.post("/api/mobile/auth/logout", async (req, res) => {
+  await pool.query("DELETE FROM admin_sessions WHERE token_hash = ?", [hashSessionToken(req.authToken)]);
+  res.status(204).end();
+});
+app.patch("/api/mobile/notifications/read", async (req, res) => {
+  await pool.query(
+    "UPDATE notifications SET read_at = CURRENT_TIMESTAMP WHERE user_id = ? AND read_at IS NULL",
+    [req.auth.id],
+  );
+  res.json({ ok: true });
+});
+app.get("/api/mobile/profile", async (req, res) => {
+  const [users] = await pool.query(
+    "SELECT id, name, email, mobile, barangay, role, standing, verification, created_at FROM users WHERE id = ?",
+    [req.auth.id],
+  );
+  if (!users[0]) return res.status(404).json({ error: "Account not found" });
+  res.json({ user: users[0] });
+});
+app.patch("/api/mobile/profile", async (req, res) => {
+  const { name, mobile, barangay } = req.body ?? {};
+  if (!name || !String(name).trim()) return res.status(400).json({ error: "Name is required" });
+  await pool.query(
+    "UPDATE users SET name = ?, mobile = ?, barangay = ? WHERE id = ?",
+    [String(name).trim(), String(mobile ?? "").trim(), String(barangay ?? "").trim(), req.auth.id],
+  );
+  const [users] = await pool.query(
+    "SELECT id, name, email, mobile, barangay, role, standing, verification, created_at FROM users WHERE id = ?",
+    [req.auth.id],
+  );
+  req.auth = { ...req.auth, ...users[0] };
+  res.json({ user: users[0] });
+});
+app.get("/api/mobile/preferences", async (req, res) => {
+  await pool.query("INSERT IGNORE INTO user_preferences (user_id) VALUES (?)", [req.auth.id]);
+  const [preferences] = await pool.query(
+    "SELECT allow_notifications, show_location_on_reports FROM user_preferences WHERE user_id = ?",
+    [req.auth.id],
+  );
+  res.json({
+    preferences: {
+      allowNotifications: Number(preferences[0].allow_notifications) === 1,
+      showLocationOnReports: Number(preferences[0].show_location_on_reports) === 1,
+    },
+  });
+});
+app.patch("/api/mobile/preferences", async (req, res) => {
+  const { allowNotifications, showLocationOnReports } = req.body ?? {};
+  if (typeof allowNotifications !== "boolean" || typeof showLocationOnReports !== "boolean") {
+    return res.status(400).json({ error: "Both privacy preference values must be provided" });
+  }
+  await pool.query(
+    `INSERT INTO user_preferences (user_id, allow_notifications, show_location_on_reports)
+     VALUES (?, ?, ?)
+     ON DUPLICATE KEY UPDATE allow_notifications = VALUES(allow_notifications),
+       show_location_on_reports = VALUES(show_location_on_reports)`,
+    [req.auth.id, allowNotifications, showLocationOnReports],
+  );
+  res.json({
+    preferences: { allowNotifications, showLocationOnReports },
+  });
+});
+app.patch("/api/mobile/profile/password", async (req, res) => {
+  const { currentPassword, newPassword } = req.body ?? {};
+  if (!currentPassword || !newPassword || String(newPassword).length < 8) {
+    return res.status(400).json({ error: "New password must be at least 8 characters" });
+  }
+  const [[user]] = await pool.query(
+    "SELECT id, name, email, password_hash FROM users WHERE id = ?",
+    [req.auth.id],
+  );
+  if (!user || !verifyPassword(String(currentPassword), user.password_hash)) {
+    return res.status(400).json({ error: "Current password is incorrect" });
+  }
+  await pool.query(
+    "UPDATE users SET password_hash = ? WHERE id = ?",
+    [hashPassword(String(newPassword)), user.id],
+  );
+  await pool.query(
+    "DELETE FROM admin_sessions WHERE user_id = ? AND token_hash <> ?",
+    [user.id, hashSessionToken(req.authToken)],
+  );
+  await writeAuditLog(req, {
+    actorId: user.id,
+    action: "password_changed",
+    resourceType: "account",
+    resourceId: user.id,
+  });
+  res.json({ ok: true });
 });
 app.post("/api/auth/login", async (req, res) => {
   const { email, password, recaptchaToken } = req.body ?? {};
@@ -643,12 +905,31 @@ app.get("/api/admin/export/:type", async (req, res) => {
 app.post("/api/auth/register", async (req, res) => {
   const { name, email, mobile, barangay, password } = req.body ?? {};
   if (!name || !email || !password) return res.status(400).json({ error: "Name, email, and password are required" });
+  const connection = await pool.getConnection();
+  let transactionStarted = false;
   try {
-    const [result] = await pool.query("INSERT INTO users (name, email, mobile, barangay, password_hash) VALUES (?, ?, ?, ?, ?)", [name.trim(), email.trim().toLowerCase(), mobile ?? "", barangay ?? "Mati City", hashPassword(password)]);
-    res.status(201).json({ user: { id: result.insertId, name, email, barangay, role: "resident" } });
+    await connection.beginTransaction();
+    transactionStarted = true;
+    const [result] = await connection.query(
+      "INSERT INTO users (name, email, mobile, barangay, password_hash) VALUES (?, ?, ?, ?, ?)",
+      [name.trim(), email.trim().toLowerCase(), mobile ?? "", barangay ?? "Mati City", hashPassword(password)],
+    );
+    const sessionToken = createSessionToken();
+    await connection.query(
+      "INSERT INTO admin_sessions (token_hash, user_id, expires_at) VALUES (?, ?, DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 8 HOUR))",
+      [hashSessionToken(sessionToken), result.insertId],
+    );
+    await connection.commit();
+    res.status(201).json({
+      token: sessionToken,
+      user: { id: result.insertId, name: name.trim(), email: email.trim().toLowerCase(), mobile: mobile ?? "", barangay: barangay ?? "Mati City", role: "resident" },
+    });
   } catch (error) {
+    if (transactionStarted) await connection.rollback();
     if (error.code === "ER_DUP_ENTRY") return res.status(409).json({ error: "An account with this email already exists" });
     res.status(500).json({ error: "Could not create account" });
+  } finally {
+    connection.release();
   }
 });
 app.get("/api/issues", async (req, res) => {
@@ -1027,6 +1308,20 @@ app.patch("/api/issues/:id", async (req, res) => {
   if (editor?.role === "barangay_staff" && editor.barangay !== report.location) return res.status(403).json({ error: "You can only manage issues in your barangay" });
   await pool.query("UPDATE reports SET status = COALESCE(?, status), assigned_team = COALESCE(?, assigned_team), resolution_note = COALESCE(?, resolution_note), severity = COALESCE(?, severity) WHERE id = ?", [status ?? null, assignedTeam ?? null, resolutionNote ?? null, severity ?? null, report.id]);
   if (status && status !== report.status) await pool.query("INSERT INTO report_events (report_id, status, note) VALUES (?, ?, ?)", [report.id, status, resolutionNote ?? null]);
+  const statusChanged = Boolean(status && status !== report.status);
+  const assignmentChanged = Boolean(assignedTeam && assignedTeam !== report.assigned_team);
+  if (report.reporter_id && (statusChanged || assignmentChanged)) {
+    const updateMessage = statusChanged
+      ? `Your report "${report.title}" is now ${status}.`
+      : `A response team has been assigned to your report "${report.title}".`;
+    await queueNotification({
+      userId: report.reporter_id,
+      reportId: report.id,
+      type: "report",
+      title: "Report status update",
+      message: updateMessage,
+    });
+  }
   const [updated] = await pool.query("SELECT * FROM reports WHERE id = ?", [report.id]);
   const action = status === "Verified by inspector" ? "issue_accepted" : status === "Rejected" ? "issue_rejected" : status === "Resolved" ? "issue_resolved" : status === "Archived" ? "issue_archived" : assignedTeam && assignedTeam !== report.assigned_team ? "issue_assigned" : "issue_updated";
   await evaluateIssueAutomation(updated[0]);

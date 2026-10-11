@@ -55,7 +55,7 @@ class _NewsPageState extends State<NewsPage> {
 
   List<({String image, String title, String subtitle})> get _stories =>
       _advisories.map((advisory) {
-        final mediaUrl = advisory['media_url'] as String?;
+        final mediaUrl = publicMediaUrl(advisory['media_url'] as String?);
         return (
           image: mediaUrl ?? '',
           title: advisory['title'] as String? ?? 'City advisory',

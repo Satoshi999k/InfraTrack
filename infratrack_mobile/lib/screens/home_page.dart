@@ -14,34 +14,32 @@ class _HomePageState extends State<HomePage> {
   String _activeFilter = 'All';
   List<Map<String, dynamic>> _issues = [];
   List<Map<String, dynamic>> _myReports = [];
+  List<Map<String, dynamic>> _notifications = [];
   Map<String, dynamic>? _overview;
   bool _loadingIssues = true;
   String? _loadError;
 
-  final _featuredStories = const [
-    (
-      image: 'https://images.unsplash.com/photo-1558690194-5aaa922b59b6?auto=format&fit=crop&w=900&q=80',
-      title: 'Chapel St. pothole repaired',
-      subtitle: 'Resolved in 13 days',
-    ),
-    (
-      image: 'https://images.unsplash.com/photo-1577558678587-4a8af447679c?auto=format&fit=crop&w=900&q=80',
-      title: 'Purok 3 canal fully cleared',
-      subtitle: 'Completed maintenance',
-    ),
-    (
-      image: 'https://images.unsplash.com/photo-1543518360-68b9612a7c8c?auto=format&fit=crop&w=900&q=80',
-      title: 'J.P. Laurel streetlights restored',
-      subtitle: '4 fixtures replaced',
-    ),
-  ];
+  List<({String image, String title, String subtitle})>
+  get _featuredStories => _issues.take(5).map((issue) {
+    final mediaUrl = publicMediaUrl(issue['media_url'] as String?);
+    return (
+      image: mediaUrl ?? '',
+      title: issue['title'] as String? ?? 'Infrastructure report',
+      subtitle:
+          '${issue['status'] ?? 'Reported'} · ${issue['location'] ?? 'Mati City'}',
+    );
+  }).toList();
 
   @override
   void initState() {
     super.initState();
     _loadDashboardData();
     _featuredTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (!mounted || !_featuredController.hasClients) return;
+      if (!mounted ||
+          !_featuredController.hasClients ||
+          _featuredStories.isEmpty) {
+        return;
+      }
       _featuredController.animateToPage(
         (_featuredIndex + 1) % _featuredStories.length,
         duration: const Duration(milliseconds: 500),
@@ -56,12 +54,14 @@ class _HomePageState extends State<HomePage> {
         ApiService.issues(),
         ApiService.reports(),
         ApiService.overview(),
+        ApiService.notifications(),
       ]);
       if (!mounted) return;
       setState(() {
         _issues = results[0] as List<Map<String, dynamic>>;
         _myReports = results[1] as List<Map<String, dynamic>>;
         _overview = results[2] as Map<String, dynamic>;
+        _notifications = results[3] as List<Map<String, dynamic>>;
         _loadingIssues = false;
       });
     } catch (_) {
@@ -90,7 +90,8 @@ class _HomePageState extends State<HomePage> {
           children: [
             AppHeader(
               eyebrow: 'MATI CITY · DAVAO ORIENTAL',
-              title: 'Good morning, Elena',
+              title:
+                  'Welcome, ${ApiService.currentUser?['name'] ?? 'neighbor'}',
               trailing: IconButton(
                 style: IconButton.styleFrom(
                   backgroundColor: Colors.white.withValues(alpha: .62),
@@ -100,27 +101,42 @@ class _HomePageState extends State<HomePage> {
                   MaterialPageRoute(builder: (_) => const NotificationsPage()),
                 ),
                 tooltip: 'Notifications',
-                icon: const Badge(
-                  label: Text('3'),
-                  child: Icon(Icons.notifications_outlined),
+                icon: Badge(
+                  isLabelVisible: _notifications.any(
+                    (item) => item['read_at'] == null,
+                  ),
+                  label: Text(
+                    '${_notifications.where((item) => item['read_at'] == null).length}',
+                  ),
+                  child: const Icon(Icons.notifications_outlined),
                 ),
               ),
             ),
-            _FeaturedBanner(
-              stories: _featuredStories,
-              controller: _featuredController,
-              currentIndex: _featuredIndex,
-              onPageChanged: (index) => setState(() => _featuredIndex = index),
-            ),
+            if (_featuredStories.isNotEmpty)
+              _FeaturedBanner(
+                stories: _featuredStories,
+                controller: _featuredController,
+                currentIndex: _featuredIndex,
+                onPageChanged: (index) =>
+                    setState(() => _featuredIndex = index),
+              )
+            else
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: Text(
+                  'Community reports will appear here.',
+                  style: TextStyle(color: inkSoft),
+                ),
+              ),
             const SizedBox(height: 18),
-            const _HeroUpdate(),
+            if (_issues.isNotEmpty) _HeroUpdate(issue: _issues.first),
             const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
                   child: StatCard(
                     number:
-                        '${_myReports.where((issue) => issue['status'] != 'Resolved').length}',
+                        '${_myReports.where((issue) => !['Resolved', 'Rejected', 'Archived'].contains(issue['status'])).length}',
                     label: 'Your open reports',
                     dark: true,
                   ),
@@ -286,44 +302,49 @@ class _ReportFilter extends StatelessWidget {
 }
 
 class _HeroUpdate extends StatelessWidget {
-  const _HeroUpdate();
+  const _HeroUpdate({required this.issue});
+  final Map<String, dynamic> issue;
+
   @override
-  Widget build(BuildContext context) => ClipRRect(
-    borderRadius: BorderRadius.circular(18),
-    child: BackdropFilter(
-      filter: ui.ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: .58),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.white.withValues(alpha: .9)),
-        ),
-        child: const ListTile(
-          contentPadding: EdgeInsets.all(13),
-          leading: CircleAvatar(
-            backgroundColor: Color(0xB8E4F2F0),
-            child: Icon(Icons.sync, color: teal),
+  Widget build(BuildContext context) {
+    final createdAt = issue['created_at']?.toString() ?? '';
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: .58),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.white.withValues(alpha: .9)),
           ),
-          title: Text(
-            'REPORT UPDATE · 2H AGO',
-            style: TextStyle(
-              color: teal,
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
+          child: ListTile(
+            contentPadding: const EdgeInsets.all(13),
+            leading: const CircleAvatar(
+              backgroundColor: Color(0xB8E4F2F0),
+              child: Icon(Icons.sync, color: teal),
             ),
-          ),
-          subtitle: Padding(
-            padding: EdgeInsets.only(top: 4),
-            child: Text(
-              'Deep pothole along Rizal St. is now Scheduled for repair',
-              style: TextStyle(fontWeight: FontWeight.w700, color: ink),
+            title: Text(
+              'REPORT UPDATE${createdAt.isEmpty ? '' : ' · $createdAt'}',
+              style: const TextStyle(
+                color: teal,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+              ),
             ),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '${issue['title'] ?? 'Infrastructure report'} · ${issue['status'] ?? 'Reported'}',
+                style: const TextStyle(fontWeight: FontWeight.w700, color: ink),
+              ),
+            ),
+            trailing: const Icon(Icons.chevron_right, color: inkSoft),
           ),
-          trailing: Icon(Icons.chevron_right, color: inkSoft),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _FeaturedBanner extends StatelessWidget {
@@ -386,7 +407,7 @@ class _FeaturedBanner extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         const Text(
-                          'RECENTLY FIXED IN MATI',
+                          'COMMUNITY INFRASTRUCTURE UPDATE',
                           style: TextStyle(
                             color: Color(0xFFB9E0E2),
                             fontSize: 9,

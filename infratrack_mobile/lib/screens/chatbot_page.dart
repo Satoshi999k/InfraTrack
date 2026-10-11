@@ -12,8 +12,9 @@ class _ChatbotPageState extends State<ChatbotPage> {
   final _scrollController = ScrollController();
   bool _isThinking = false;
   final _messages = <_ChatMessage>[
-    const _ChatMessage(
-      text: 'Hi Elena! I can help you track reports, understand city updates, or submit an infrastructure issue.',
+    _ChatMessage(
+      text:
+          'Hi ${ApiService.currentUser?['name'] ?? 'there'}! I can help you track reports, understand city updates, or submit an infrastructure issue.',
       fromUser: false,
       time: 'Now',
     ),
@@ -292,19 +293,19 @@ class _ChatIntro extends StatelessWidget {
             ),
             border: Border.all(color: Colors.white.withValues(alpha: .9)),
           ),
-          child: const Column(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Good to see you, Elena 👋',
+                'Good to see you, ${ApiService.currentUser?['name'] ?? 'neighbor'}',
                 style: TextStyle(
                   color: navy,
                   fontWeight: FontWeight.w800,
                   fontSize: 13,
                 ),
               ),
-              SizedBox(height: 5),
-              Text(
+              const SizedBox(height: 5),
+              const Text(
                 'I’m your local infrastructure guide. Ask me anything about reports and city services.',
                 style: TextStyle(color: inkSoft, fontSize: 11, height: 1.4),
               ),

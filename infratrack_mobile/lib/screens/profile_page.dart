@@ -9,9 +9,51 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   XFile? _profileImage;
+  Map<String, dynamic> _profile = ApiService.currentUser ?? {};
+  List<Map<String, dynamic>> _reports = [];
+  List<Map<String, dynamic>> _notifications = [];
+  String? _loadError;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    if (!ApiService.isSignedIn) return;
+    try {
+      final results = await Future.wait([
+        ApiService.profile(),
+        ApiService.reports(),
+        ApiService.notifications(),
+      ]);
+      if (context.mounted) {
+        setState(() {
+          _profile = results[0] as Map<String, dynamic>;
+          _reports = results[1] as List<Map<String, dynamic>>;
+          _notifications = results[2] as List<Map<String, dynamic>>;
+        });
+      }
+    } catch (error) {
+      if (context.mounted) {
+        setState(
+          () => _loadError = error.toString().replaceFirst('Exception: ', ''),
+        );
+      }
+    }
+  }
 
   Future<void> _editProfile(BuildContext context) async {
-    final nameController = TextEditingController(text: 'Elena Marasigan');
+    if (!ApiService.isSignedIn) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sign in to edit your profile.')),
+      );
+      return;
+    }
+    final nameController = TextEditingController(
+      text: _profile['name'] as String? ?? '',
+    );
     XFile? selectedImage = _profileImage;
     final result = await showDialog<(String, XFile?)>(
       context: context,
@@ -97,9 +139,9 @@ class _ProfilePageState extends State<ProfilePage> {
                           ? null
                           : FileImage(File(selectedImage!.path)),
                       child: selectedImage == null
-                          ? const Text(
-                              'EM',
-                              style: TextStyle(
+                          ? Text(
+                              _initialsFor(_profile['name']?.toString() ?? ''),
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w800,
                                 fontSize: 22,
@@ -157,10 +199,34 @@ class _ProfilePageState extends State<ProfilePage> {
     );
     nameController.dispose();
     if (result != null && result.$1.isNotEmpty && context.mounted) {
-      setState(() => _profileImage = result.$2);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile changes saved on this device.')),
-      );
+      try {
+        final updated = await ApiService.updateProfile(
+          name: result.$1,
+          mobile: _profile['mobile'] as String? ?? '',
+          barangay: _profile['barangay'] as String? ?? 'Mati City',
+        );
+        if (context.mounted) {
+          setState(() {
+            _profile = updated;
+            _profileImage = result.$2;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Your name was saved. Your photo remains on this device.',
+              ),
+            ),
+          );
+        }
+      } catch (error) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(error.toString().replaceFirst('Exception: ', '')),
+            ),
+          );
+        }
+      }
     }
   }
 
@@ -214,6 +280,18 @@ class _ProfilePageState extends State<ProfilePage> {
     );
 
     if (shouldLogout == true && context.mounted) {
+      try {
+        await ApiService.logout();
+      } catch (error) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(error.toString().replaceFirst('Exception: ', '')),
+            ),
+          );
+        }
+      }
+      if (!context.mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const LoginPage()),
         (_) => false,
@@ -506,50 +584,92 @@ class _ProfilePageState extends State<ProfilePage> {
           _ProfileHeader(
             onEdit: () => _editProfile(context),
             profileImage: _profileImage,
+            profile: _profile,
           ),
-          Transform.translate(
-            offset: const Offset(0, -21),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: Row(
-                children: const [
-                  Expanded(
-                    child: _ProfileStat(
-                      number: '12',
-                      label: 'Reports filed',
-                      icon: Icons.description_outlined,
-                      color: teal,
-                    ),
-                  ),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: _ProfileStat(
-                      number: '9',
-                      label: 'Resolved',
-                      icon: Icons.check_circle_outline,
-                      color: green,
-                    ),
-                  ),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: _ProfileStat(
-                      number: '4.8',
-                      label: 'Avg. rating',
-                      icon: Icons.star_outline,
-                      color: amber,
-                    ),
-                  ),
-                ],
-              ),
+          if (_loadError != null)
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Text(_loadError!, style: const TextStyle(color: clay)),
             ),
+          Builder(
+            builder: (context) {
+              final resolved = _reports
+                  .where((report) => report['status'] == 'Resolved')
+                  .length;
+              final open = _reports
+                  .where(
+                    (report) => ![
+                      'Resolved',
+                      'Rejected',
+                      'Archived',
+                    ].contains(report['status']),
+                  )
+                  .length;
+              return Transform.translate(
+                offset: const Offset(0, -21),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _ProfileStat(
+                          number: '${_reports.length}',
+                          label: 'Reports filed',
+                          icon: Icons.description_outlined,
+                          color: teal,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _ProfileStat(
+                          number: '$resolved',
+                          label: 'Resolved',
+                          icon: Icons.check_circle_outline,
+                          color: green,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _ProfileStat(
+                          number: '$open',
+                          label: 'Open',
+                          icon: Icons.pending_actions_outlined,
+                          color: amber,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
           const _ProfileSectionTitle(title: 'YOUR ACTIVITY'),
-          const _ImpactCard(),
+          _ImpactCard(
+            resolvedCount: _reports
+                .where((report) => report['status'] == 'Resolved')
+                .length,
+          ),
           const SizedBox(height: 12),
-          const _ProfileCompletionCard(),
+          _ProfileCompletionCard(
+            verification:
+                _profile['verification']?.toString() ?? 'Guest access',
+          ),
           const SizedBox(height: 20),
           const _ProfileSectionTitle(title: 'ACTIVITY & TOOLS'),
           _SettingsGroup(
+            reportCount: _reports.length,
+            openReportCount: _reports
+                .where(
+                  (report) => ![
+                    'Resolved',
+                    'Rejected',
+                    'Archived',
+                  ].contains(report['status']),
+                )
+                .length,
+            unreadNotificationCount: _notifications
+                .where((notification) => notification['read_at'] == null)
+                .length,
             onMyReportsTap: () => Navigator.of(context)
                 .push(MaterialPageRoute(builder: (_) => const MyReportsPage())),
             onNotificationsTap: () => Navigator.of(context).push(
@@ -587,122 +707,155 @@ class _ProfilePageState extends State<ProfilePage> {
   );
 }
 
+String _initialsFor(String name) {
+  final parts = name
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((part) => part.isNotEmpty)
+      .take(2);
+  final initials = parts
+      .map((part) => part.substring(0, 1))
+      .join()
+      .toUpperCase();
+  return initials.isEmpty ? '?' : initials;
+}
+
 class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader({required this.onEdit, this.profileImage});
+  const _ProfileHeader({
+    required this.onEdit,
+    required this.profile,
+    this.profileImage,
+  });
 
   final VoidCallback onEdit;
   final XFile? profileImage;
+  final Map<String, dynamic> profile;
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.fromLTRB(18, 18, 18, 46),
-    decoration: const BoxDecoration(
-      gradient: LinearGradient(
-        colors: [deepNavy, navy, Color(0xFF155B66)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
+  Widget build(BuildContext context) {
+    final name = profile['name']?.toString() ?? 'Guest';
+    final barangay = profile['barangay']?.toString() ?? 'Mati City';
+    final createdAt = DateTime.tryParse(
+      profile['created_at']?.toString() ?? '',
+    );
+    final membership = createdAt == null
+        ? 'Browsing without an account'
+        : 'Member since ${createdAt.month}/${createdAt.year}';
+    final accountStatus =
+        profile['verification']?.toString() ??
+        profile['standing']?.toString() ??
+        'Guest access';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 46),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [deepNavy, navy, Color(0xFF155B66)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
       ),
-      borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
-    ),
-    child: Stack(
-      children: [
-        Positioned(
-          right: -35,
-          top: -45,
-          child: Container(
-            width: 180,
-            height: 180,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white12),
-            ),
-          ),
-        ),
-        Positioned(
-          top: -4,
-          right: -4,
-          child: IconButton(
-            onPressed: onEdit,
-            style: IconButton.styleFrom(
-              minimumSize: const Size(34, 34),
-              padding: EdgeInsets.zero,
-              backgroundColor: Colors.white12,
-              foregroundColor: Colors.white,
-            ),
-            icon: const Icon(Icons.edit_outlined, size: 18),
-          ),
-        ),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'MY PROFILE',
-              style: TextStyle(
-                color: Color(0xFF9FC2C9),
-                fontSize: 10,
-                letterSpacing: 1.3,
-                fontWeight: FontWeight.w700,
+      child: Stack(
+        children: [
+          Positioned(
+            right: -35,
+            top: -45,
+            child: Container(
+              width: 180,
+              height: 180,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white12),
               ),
             ),
-            SizedBox(height: 14),
-            Row(
-              children: [
-                _ProfileAvatar(image: profileImage),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Elena Marasigan',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
+          ),
+          Positioned(
+            top: -4,
+            right: -4,
+            child: IconButton(
+              onPressed: onEdit,
+              style: IconButton.styleFrom(
+                minimumSize: const Size(34, 34),
+                padding: EdgeInsets.zero,
+                backgroundColor: Colors.white12,
+                foregroundColor: Colors.white,
+              ),
+              icon: const Icon(Icons.edit_outlined, size: 18),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'MY PROFILE',
+                style: TextStyle(
+                  color: Color(0xFF9FC2C9),
+                  fontSize: 10,
+                  letterSpacing: 1.3,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              SizedBox(height: 14),
+              Row(
+                children: [
+                  _ProfileAvatar(image: profileImage, name: name),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'Member since Feb 2026',
-                        style: TextStyle(color: Color(0xFFB9CBD1)),
-                      ),
-                    ],
+                        SizedBox(height: 2),
+                        Text(
+                          membership,
+                          style: TextStyle(color: Color(0xFFB9CBD1)),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-            SizedBox(height: 11),
-            Row(
-              children: [
-                Icon(
-                  Icons.location_on_outlined,
-                  color: Color(0xFF8FD6CE),
-                  size: 14,
-                ),
-                SizedBox(width: 3),
-                Text(
-                  'Barangay Central',
-                  style: TextStyle(color: Color(0xFFD9E7E9), fontSize: 11),
-                ),
-                SizedBox(width: 9),
-                Icon(Icons.star_rounded, color: amber, size: 14),
-                SizedBox(width: 3),
-                Text(
-                  'Top reporter',
-                  style: TextStyle(color: Color(0xFFD9E7E9), fontSize: 11),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ],
-    ),
-  );
+                ],
+              ),
+              SizedBox(height: 11),
+              Row(
+                children: [
+                  Icon(
+                    Icons.location_on_outlined,
+                    color: Color(0xFF8FD6CE),
+                    size: 14,
+                  ),
+                  SizedBox(width: 3),
+                  Text(
+                    barangay,
+                    style: TextStyle(color: Color(0xFFD9E7E9), fontSize: 11),
+                  ),
+                  SizedBox(width: 9),
+                  Icon(Icons.verified_user_outlined, color: amber, size: 14),
+                  SizedBox(width: 3),
+                  Text(
+                    accountStatus,
+                    style: TextStyle(color: Color(0xFFD9E7E9), fontSize: 11),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _ProfileAvatar extends StatelessWidget {
-  const _ProfileAvatar({this.image});
+  const _ProfileAvatar({required this.name, this.image});
+  final String name;
   final XFile? image;
   @override
   Widget build(BuildContext context) => SizedBox(
@@ -723,9 +876,9 @@ class _ProfileAvatar extends StatelessWidget {
                 ? null
                 : FileImage(File(image!.path)),
             child: image == null
-                ? const Text(
-                    'EM',
-                    style: TextStyle(
+                ? Text(
+                    _initialsFor(name),
+                    style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
                       fontSize: 18,
@@ -829,7 +982,9 @@ class _ProfileStat extends StatelessWidget {
 }
 
 class _ImpactCard extends StatelessWidget {
-  const _ImpactCard();
+  const _ImpactCard({required this.resolvedCount});
+  final int resolvedCount;
+
   @override
   Widget build(BuildContext context) => Container(
     width: double.infinity,
@@ -849,7 +1004,7 @@ class _ImpactCard extends StatelessWidget {
         ),
       ],
     ),
-    child: const Row(
+    child: Row(
       children: [
         Expanded(
           child: Column(
@@ -865,8 +1020,8 @@ class _ImpactCard extends StatelessWidget {
               ),
               SizedBox(height: 7),
               Text(
-                '9 issues helped move\ntoward resolution',
-                style: TextStyle(
+                '$resolvedCount reports resolved',
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
@@ -875,7 +1030,7 @@ class _ImpactCard extends StatelessWidget {
             ],
           ),
         ),
-        CircleAvatar(
+        const CircleAvatar(
           radius: 27,
           backgroundColor: Colors.white24,
           child: Icon(Icons.volunteer_activism_outlined, color: Colors.white),
@@ -886,58 +1041,71 @@ class _ImpactCard extends StatelessWidget {
 }
 
 class _ProfileCompletionCard extends StatelessWidget {
-  const _ProfileCompletionCard();
+  const _ProfileCompletionCard({required this.verification});
+
+  final String verification;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.fromLTRB(16, 14, 16, 15),
-    decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: .72),
-      borderRadius: BorderRadius.circular(19),
-      border: Border.all(color: Colors.white.withValues(alpha: .92)),
-    ),
-    child: Row(
-      children: [
-        SizedBox(
-          width: 48,
-          height: 48,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              CircularProgressIndicator(
-                value: 1,
-                strokeWidth: 4,
-                color: green.withValues(alpha: .20),
-              ),
-              const Icon(Icons.check, color: green, size: 20),
-            ],
-          ),
-        ),
-        const SizedBox(width: 12),
-        const Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Profile complete',
-                style: TextStyle(
-                  color: navy,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
+  Widget build(BuildContext context) {
+    final isVerified = verification.toLowerCase().contains('verified');
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 15),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: .72),
+        borderRadius: BorderRadius.circular(19),
+        border: Border.all(color: Colors.white.withValues(alpha: .92)),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 48,
+            height: 48,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                CircularProgressIndicator(
+                  value: isVerified ? 1 : .5,
+                  strokeWidth: 4,
+                  color: isVerified ? green : amber,
                 ),
-              ),
-              SizedBox(height: 4),
-              Text(
-                'Identity verified · Ready to report',
-                style: TextStyle(color: inkSoft, fontSize: 10.5),
-              ),
-            ],
+                Icon(
+                  isVerified ? Icons.check : Icons.hourglass_top,
+                  color: isVerified ? green : amber,
+                  size: 20,
+                ),
+              ],
+            ),
           ),
-        ),
-        const Icon(Icons.verified_user_outlined, color: green, size: 20),
-      ],
-    ),
-  );
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isVerified ? 'Identity verified' : 'Verification status',
+                  style: const TextStyle(
+                    color: navy,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  verification,
+                  style: const TextStyle(color: inkSoft, fontSize: 10.5),
+                ),
+              ],
+            ),
+          ),
+          Icon(
+            isVerified ? Icons.verified_user_outlined : Icons.info_outline,
+            color: isVerified ? green : amber,
+            size: 20,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _SettingsGroup extends StatelessWidget {
@@ -945,10 +1113,16 @@ class _SettingsGroup extends StatelessWidget {
     required this.onMyReportsTap,
     required this.onNotificationsTap,
     required this.onChatbotTap,
+    required this.reportCount,
+    required this.openReportCount,
+    required this.unreadNotificationCount,
   });
   final VoidCallback onMyReportsTap;
   final VoidCallback onNotificationsTap;
   final VoidCallback onChatbotTap;
+  final int reportCount;
+  final int openReportCount;
+  final int unreadNotificationCount;
   @override
   Widget build(BuildContext context) => Container(
     clipBehavior: Clip.antiAlias,
@@ -962,8 +1136,9 @@ class _SettingsGroup extends StatelessWidget {
         MenuRow(
           icon: Icons.description_outlined,
           title: 'My reports',
-          subtitle: '3 open · 9 resolved',
-          badge: '12',
+          subtitle:
+              '$openReportCount open · ${reportCount - openReportCount} resolved',
+          badge: '$reportCount',
           accentColor: teal,
           inGroup: true,
           onTap: onMyReportsTap,
@@ -971,8 +1146,8 @@ class _SettingsGroup extends StatelessWidget {
         MenuRow(
           icon: Icons.notifications_none,
           title: 'Notifications',
-          subtitle: '3 new',
-          badge: '3 new',
+          subtitle: '$unreadNotificationCount unread',
+          badge: '$unreadNotificationCount',
           accentColor: amber,
           inGroup: true,
           onTap: onNotificationsTap,
@@ -1301,8 +1476,74 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
   bool _location = true;
   bool _notifications = true;
   bool _biometric = false;
+  String? _preferencesError;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    if (!ApiService.isSignedIn) return;
+    try {
+      final preferences = await ApiService.preferences();
+      if (mounted) {
+        setState(() {
+          _location = preferences['showLocationOnReports'] as bool;
+          _notifications = preferences['allowNotifications'] as bool;
+        });
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () => _preferencesError = error.toString().replaceFirst(
+            'Exception: ',
+            '',
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _savePreferences({
+    bool? allowNotifications,
+    bool? showLocationOnReports,
+  }) async {
+    if (!ApiService.isSignedIn) return;
+    final nextNotifications = allowNotifications ?? _notifications;
+    final nextLocation = showLocationOnReports ?? _location;
+    try {
+      final preferences = await ApiService.updatePreferences(
+        allowNotifications: nextNotifications,
+        showLocationOnReports: nextLocation,
+      );
+      if (mounted) {
+        setState(() {
+          _notifications = preferences['allowNotifications'] as bool;
+          _location = preferences['showLocationOnReports'] as bool;
+          _preferencesError = null;
+        });
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () => _preferencesError = error.toString().replaceFirst(
+            'Exception: ',
+            '',
+          ),
+        );
+      }
+    }
+  }
 
   Future<void> _changePassword() async {
+    if (!ApiService.isSignedIn) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sign in to change your password.')),
+      );
+      return;
+    }
     final formKey = GlobalKey<FormState>();
     final current = TextEditingController();
     final next = TextEditingController();
@@ -1461,13 +1702,31 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
         ),
       ),
     );
+    final currentPassword = current.text;
+    final newPassword = next.text;
     current.dispose();
     next.dispose();
     confirm.dispose();
-    if (updated == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password updated successfully.')),
-      );
+    if (updated == true) {
+      try {
+        await ApiService.changePassword(
+          currentPassword: currentPassword,
+          newPassword: newPassword,
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Password updated successfully.')),
+          );
+        }
+      } catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(error.toString().replaceFirst('Exception: ', '')),
+            ),
+          );
+        }
+      }
     }
   }
 
@@ -1551,6 +1810,14 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
             title: 'PRIVACY CONTROLS',
             subtitle: 'Choose what InfraTrack can share with you and the city.',
           ),
+          if (_preferencesError != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                _preferencesError!,
+                style: const TextStyle(color: clay),
+              ),
+            ),
           _SettingsCard(
             children: [
               _PrivacySettingTile(
@@ -1559,7 +1826,17 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
                 title: 'Show location on reports',
                 subtitle: 'Helps the city locate reported issues',
                 value: _location,
-                onChanged: (value) => setState(() => _location = value),
+                onChanged: (value) {
+                  if (!ApiService.isSignedIn) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Sign in to update privacy settings.'),
+                      ),
+                    );
+                    return;
+                  }
+                  _savePreferences(showLocationOnReports: value);
+                },
               ),
               _PrivacySettingTile(
                 icon: Icons.notifications_none,
@@ -1567,7 +1844,17 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
                 title: 'Report updates',
                 subtitle: 'Receive status and city advisory alerts',
                 value: _notifications,
-                onChanged: (value) => setState(() => _notifications = value),
+                onChanged: (value) {
+                  if (!ApiService.isSignedIn) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Sign in to update privacy settings.'),
+                      ),
+                    );
+                    return;
+                  }
+                  _savePreferences(allowNotifications: value);
+                },
               ),
             ],
           ),

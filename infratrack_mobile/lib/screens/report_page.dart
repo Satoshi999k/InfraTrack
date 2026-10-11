@@ -29,6 +29,9 @@ class _ReportPageState extends State<ReportPage> {
       return;
     }
     try {
+      final mediaUrl = _capturedMedia == null
+          ? null
+          : await ApiService.uploadMedia(File(_capturedMedia!.path));
       await ApiService.createReport(
         title:
             '${category == 'Road' ? 'Road' : category} issue reported by resident',
@@ -37,9 +40,15 @@ class _ReportPageState extends State<ReportPage> {
         location: 'Mati City',
         latitude: 6.9530,
         longitude: 126.2280,
+        mediaUrl: mediaUrl,
+        mediaType: _capturedVideo ? 'video' : 'photo',
       );
       if (!mounted) return;
       _descriptionController.clear();
+      setState(() {
+        _capturedMedia = null;
+        _capturedVideo = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Report submitted successfully')),
       );

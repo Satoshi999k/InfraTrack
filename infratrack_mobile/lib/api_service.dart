@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -5,9 +6,11 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 const _configuredApiBaseUrl = String.fromEnvironment('API_BASE_URL');
+const _productionApiBaseUrl = 'https://infratrack-3a8u.onrender.com/api';
 
 String get apiBaseUrl {
   if (_configuredApiBaseUrl.isNotEmpty) return _configuredApiBaseUrl;
+  if (kReleaseMode) return _productionApiBaseUrl;
   // Web preview uses the host machine's localhost.
   // Real devices must target the machine running the Node.js API on the same LAN.
   // For Android emulator, override with:
@@ -29,27 +32,107 @@ String? publicMediaUrl(String? value) {
 
 class ApiService {
   static Map<String, dynamic>? currentUser;
+  static String? _sessionToken;
+
+  static bool get isSignedIn => _sessionToken != null;
+
+  static Future<Map<String, dynamic>> _request(
+    String method,
+    String path, {
+    Map<String, dynamic>? body,
+    bool authenticated = false,
+  }) async {
+    if (authenticated && _sessionToken == null) {
+      throw Exception('Please sign in to use this feature.');
+    }
+
+    final client = http.Client();
+    try {
+      final request = http.Request(method, Uri.parse('$apiBaseUrl$path'))
+        ..headers['Accept'] = 'application/json';
+      if (body != null) {
+        request.headers['Content-Type'] = 'application/json';
+        request.body = jsonEncode(body);
+      }
+      if (_sessionToken != null) {
+        request.headers['Authorization'] = 'Bearer $_sessionToken';
+      }
+      final streamedResponse = await client
+          .send(request)
+          .timeout(const Duration(seconds: 30));
+      final response = await http.Response.fromStream(streamedResponse)
+          .timeout(const Duration(seconds: 30));
+      return _decodeResponse(response);
+    } on SocketException {
+      throw Exception(
+        'Unable to reach the backend server. Check your internet connection and API server status.',
+      );
+    } on http.ClientException {
+      throw Exception(
+        'Unable to reach the backend server. Check your internet connection and API server status.',
+      );
+    } on TimeoutException {
+      throw Exception('The server took too long to respond. Please try again.');
+    } finally {
+      client.close();
+    }
+  }
+
+  static Map<String, dynamic> _decodeResponse(http.Response response) {
+    if (response.statusCode == 401) {
+      _sessionToken = null;
+      currentUser = null;
+    }
+    if (response.body.isEmpty) return <String, dynamic>{};
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map) {
+      throw Exception('The server returned an unexpected response.');
+    }
+    final body = Map<String, dynamic>.from(decoded);
+    if (response.statusCode >= 400) {
+      throw Exception(
+        body['error'] ?? 'Request failed (${response.statusCode})',
+      );
+    }
+    return body;
+  }
+
+  static List<Map<String, dynamic>> _readList(
+    Map<String, dynamic> body,
+    String key,
+  ) {
+    final items = body[key];
+    if (items is! List) {
+      throw Exception('The server returned an invalid $key response.');
+    }
+    return items.map((item) => Map<String, dynamic>.from(item as Map)).toList();
+  }
 
   static Future<Map<String, dynamic>> login(
     String email,
     String password,
   ) async {
+    final body = await _request(
+      'POST',
+      '/auth/login',
+      body: {'email': email, 'password': password},
+    );
+    _sessionToken = body['token'] as String?;
+    if (_sessionToken == null) {
+      throw Exception('The server did not provide a sign-in session.');
+    }
+    currentUser = Map<String, dynamic>.from(body['user'] as Map);
+    return currentUser!;
+  }
+
+  static Future<void> logout() async {
     try {
-      final response = await http.post(
-        Uri.parse('$apiBaseUrl/auth/login'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': email, 'password': password}),
-      );
-      final body = jsonDecode(response.body) as Map<String, dynamic>;
-      if (response.statusCode >= 400) {
-        throw Exception(body['error'] ?? 'Sign in failed');
+      if (isSignedIn) {
+        await _request('POST', '/mobile/auth/logout', authenticated: true);
       }
-      currentUser = Map<String, dynamic>.from(body['user'] as Map);
-      return currentUser!;
-    } on http.ClientException {
-      throw Exception(
-        'Unable to reach the backend server. Ensure the app is using the correct PC IP on your network.',
-      );
+    } finally {
+      _sessionToken = null;
+      currentUser = null;
     }
   }
 
@@ -60,71 +143,110 @@ class ApiService {
     required String barangay,
     required String password,
   }) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$apiBaseUrl/auth/register'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'name': name,
-          'email': email,
-          'mobile': mobile,
-          'barangay': barangay,
-          'password': password,
-        }),
-      );
-      final body = jsonDecode(response.body) as Map<String, dynamic>;
-      if (response.statusCode >= 400) {
-        throw Exception(body['error'] ?? 'Registration failed');
-      }
-      currentUser = Map<String, dynamic>.from(body['user'] as Map);
-      return currentUser!;
-    } on http.ClientException {
-      throw Exception(
-        'Unable to reach the backend server. Ensure the app is using the correct PC IP on your network.',
-      );
+    final body = await _request(
+      'POST',
+      '/auth/register',
+      body: {
+        'name': name,
+        'email': email,
+        'mobile': mobile,
+        'barangay': barangay,
+        'password': password,
+      },
+    );
+    _sessionToken = body['token'] as String?;
+    if (_sessionToken == null) {
+      throw Exception('The server did not provide an account session.');
     }
+    currentUser = Map<String, dynamic>.from(body['user'] as Map);
+    return currentUser!;
   }
 
   static Future<List<Map<String, dynamic>>> reports() async {
-    final userId = currentUser?['id'];
-    final uri = Uri.parse(
-      '$apiBaseUrl/reports${userId == null ? '' : '?userId=$userId'}',
+    if (!isSignedIn) return [];
+    return _readList(
+      await _request('GET', '/mobile/reports', authenticated: true),
+      'reports',
     );
-    final response = await http.get(uri);
-    if (response.statusCode >= 400) {
-      throw Exception('Could not load reports');
-    }
-    return (jsonDecode(response.body)['reports'] as List)
-        .map((item) => Map<String, dynamic>.from(item))
-        .toList();
   }
 
-  static Future<List<Map<String, dynamic>>> issues() async {
-    final response = await http.get(Uri.parse('$apiBaseUrl/issues'));
-    if (response.statusCode >= 400) {
-      throw Exception('Could not load infrastructure issues');
-    }
-    return (jsonDecode(response.body)['issues'] as List)
-        .map((item) => Map<String, dynamic>.from(item))
-        .toList();
+  static Future<List<Map<String, dynamic>>> issues() async =>
+      _readList(await _request('GET', '/mobile/issues'), 'issues');
+
+  static Future<Map<String, dynamic>> overview() =>
+      _request('GET', '/mobile/overview');
+
+  static Future<List<Map<String, dynamic>>> advisories() async =>
+      _readList(await _request('GET', '/mobile/advisories'), 'advisories');
+
+  static Future<List<Map<String, dynamic>>> notifications() async {
+    if (!isSignedIn) return [];
+    return _readList(
+      await _request('GET', '/mobile/notifications', authenticated: true),
+      'notifications',
+    );
   }
 
-  static Future<Map<String, dynamic>> overview() async {
-    final response = await http.get(Uri.parse('$apiBaseUrl/overview'));
-    if (response.statusCode >= 400) {
-      throw Exception('Could not load dashboard overview');
-    }
-    return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+  static Future<void> markNotificationsRead() async {
+    await _request('PATCH', '/mobile/notifications/read', authenticated: true);
   }
 
-  static Future<List<Map<String, dynamic>>> advisories() async {
-    final response = await http.get(Uri.parse('$apiBaseUrl/advisories'));
-    if (response.statusCode >= 400) {
-      throw Exception('Could not load public advisories');
-    }
-    return (jsonDecode(response.body)['advisories'] as List)
-        .map((item) => Map<String, dynamic>.from(item))
-        .toList();
+  static Future<Map<String, dynamic>> profile() async {
+    final body = await _request('GET', '/mobile/profile', authenticated: true);
+    currentUser = Map<String, dynamic>.from(body['user'] as Map);
+    return currentUser!;
+  }
+
+  static Future<Map<String, dynamic>> updateProfile({
+    required String name,
+    required String mobile,
+    required String barangay,
+  }) async {
+    final body = await _request(
+      'PATCH',
+      '/mobile/profile',
+      authenticated: true,
+      body: {'name': name, 'mobile': mobile, 'barangay': barangay},
+    );
+    currentUser = Map<String, dynamic>.from(body['user'] as Map);
+    return currentUser!;
+  }
+
+  static Future<Map<String, dynamic>> preferences() async {
+    final body = await _request(
+      'GET',
+      '/mobile/preferences',
+      authenticated: true,
+    );
+    return Map<String, dynamic>.from(body['preferences'] as Map);
+  }
+
+  static Future<Map<String, dynamic>> updatePreferences({
+    required bool allowNotifications,
+    required bool showLocationOnReports,
+  }) async {
+    final body = await _request(
+      'PATCH',
+      '/mobile/preferences',
+      authenticated: true,
+      body: {
+        'allowNotifications': allowNotifications,
+        'showLocationOnReports': showLocationOnReports,
+      },
+    );
+    return Map<String, dynamic>.from(body['preferences'] as Map);
+  }
+
+  static Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    await _request(
+      'PATCH',
+      '/mobile/profile/password',
+      authenticated: true,
+      body: {'currentPassword': currentPassword, 'newPassword': newPassword},
+    );
   }
 
   static Future<Map<String, dynamic>> createReport({
@@ -134,39 +256,56 @@ class ApiService {
     required String location,
     double? latitude,
     double? longitude,
+    String? mediaUrl,
+    String? mediaType,
   }) async {
-    final response = await http.post(
-      Uri.parse('$apiBaseUrl/reports'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
+    final body = await _request(
+      'POST',
+      '/mobile/reports',
+      authenticated: true,
+      body: {
         'title': title,
         'description': description,
         'category': category,
         'location': location,
         'latitude': latitude,
         'longitude': longitude,
-        'reporterId': currentUser?['id'],
-      }),
+        'mediaUrl': mediaUrl,
+        'mediaType': mediaType,
+      },
     );
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
-    if (response.statusCode >= 400) {
-      throw Exception(body['error'] ?? 'Could not submit report');
-    }
     return Map<String, dynamic>.from(body['report'] as Map);
   }
 
   static Future<String> uploadMedia(File file) async {
-    final request = http.MultipartRequest(
-      'POST',
-      Uri.parse('$apiBaseUrl/uploads'),
-    )..files.add(await http.MultipartFile.fromPath('file', file.path));
-    final response = await request.send();
-    final body = jsonDecode(
-      await response.stream.bytesToString(),
-    ) as Map<String, dynamic>;
-    if (response.statusCode >= 400) {
-      throw Exception(body['error'] ?? 'Could not upload media');
+    if (_sessionToken == null) {
+      throw Exception('Please sign in before uploading report media.');
     }
-    return body['url'] as String;
+    final request =
+        http.MultipartRequest('POST', Uri.parse('$apiBaseUrl/uploads'))
+          ..headers['Accept'] = 'application/json'
+          ..headers['Authorization'] = 'Bearer $_sessionToken'
+          ..files.add(await http.MultipartFile.fromPath('file', file.path));
+    final client = http.Client();
+    try {
+      final streamedResponse = await client
+          .send(request)
+          .timeout(const Duration(seconds: 60));
+      final response = await http.Response.fromStream(streamedResponse)
+          .timeout(const Duration(seconds: 60));
+      return _decodeResponse(response)['url'] as String;
+    } on SocketException {
+      throw Exception(
+        'Unable to reach the backend server. Check your internet connection and API server status.',
+      );
+    } on http.ClientException {
+      throw Exception(
+        'Unable to reach the backend server. Check your internet connection and API server status.',
+      );
+    } on TimeoutException {
+      throw Exception('The upload took too long. Please try again.');
+    } finally {
+      client.close();
+    }
   }
 }

@@ -29,6 +29,7 @@ class _MapPageState extends State<MapPage> {
   bool _satelliteView = false;
   List<_MapReport> _reports = [];
   bool _loadingReports = true;
+  String? _loadError;
 
   static LatLng _centerForBarangay(String? barangay) {
     final normalized = barangay?.trim().toLowerCase().replaceFirst(
@@ -54,11 +55,23 @@ class _MapPageState extends State<MapPage> {
       final issues = await ApiService.issues();
       if (!mounted) return;
       setState(() {
-        _reports = issues.map(_mapReportFromIssue).toList();
+        _reports = issues
+            .where(
+              (issue) =>
+                  double.tryParse('${issue['latitude']}') != null &&
+                  double.tryParse('${issue['longitude']}') != null,
+            )
+            .map(_mapReportFromIssue)
+            .toList();
         _loadingReports = false;
       });
-    } catch (_) {
-      if (mounted) setState(() => _loadingReports = false);
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _loadingReports = false;
+          _loadError = error.toString().replaceFirst('Exception: ', '');
+        });
+      }
     }
   }
 
@@ -230,6 +243,23 @@ class _MapPageState extends State<MapPage> {
                         _activeCategory = category;
                         _selectedReport = null;
                       }),
+                    ),
+                  ),
+                if (_loadError != null)
+                  Positioned(
+                    top: 122,
+                    left: 16,
+                    right: 16,
+                    child: Material(
+                      color: Colors.white.withValues(alpha: .94),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: Text(
+                          _loadError!,
+                          style: const TextStyle(color: clay, fontSize: 11),
+                        ),
+                      ),
                     ),
                   ),
               ],

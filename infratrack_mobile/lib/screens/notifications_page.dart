@@ -9,54 +9,95 @@ class NotificationsPage extends StatefulWidget {
 
 class _NotificationsPageState extends State<NotificationsPage> {
   String filter = 'All';
+  List<Map<String, dynamic>> _serverNotifications = [];
+  bool _loading = true;
+  String? _loadError;
 
-  final notifications = const [
-    _NotificationItem(
-      group: 'TODAY',
-      title: 'Your report moved to Scheduled for repair',
-      message: 'Deep pothole along Rizal St. · Work order issued to Team Alpha',
-      time: '2h ago',
-      label: 'REPORT PROGRESS',
-      color: teal,
-      icon: Icons.sync,
-      type: 'Report updates',
-      unread: true,
-    ),
-    _NotificationItem(
-      group: 'TODAY',
-      title: '32 more residents are watching your report',
-      message: 'No water supply, Purok 3 · now 87 watching',
-      time: '5h ago',
-      label: 'COMMUNITY ACTIVITY',
-      color: clay,
-      icon: Icons.groups_outlined,
-      type: 'Similar reports',
-      unread: true,
-    ),
-    _NotificationItem(
-      group: 'YESTERDAY',
-      title: 'A similar report was spotted near yours',
-      message:
-          'Clogged drainage near market · 2 reports merged into one ticket',
-      time: '1d ago',
-      label: 'SIMILAR REPORT',
-      color: amber,
-      icon: Icons.near_me_outlined,
-      type: 'Similar reports',
-      unread: true,
-    ),
-    _NotificationItem(
-      group: 'YESTERDAY',
-      title: 'Your report was marked Resolved',
-      message: 'Streetlight repaired, J.P. Laurel · Rate the repair',
-      time: '1d ago',
-      label: 'RESOLVED',
-      color: green,
-      icon: Icons.check,
-      type: 'Report updates',
-      unread: false,
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadNotifications();
+  }
+
+  Future<void> _loadNotifications() async {
+    try {
+      final items = await ApiService.notifications();
+      if (mounted) {
+        setState(() {
+          _serverNotifications = items;
+          _loading = false;
+        });
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _loadError = error.toString().replaceFirst('Exception: ', '');
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _markAllRead() async {
+    try {
+      await ApiService.markNotificationsRead();
+      await _loadNotifications();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error.toString().replaceFirst('Exception: ', '')),
+          ),
+        );
+      }
+    }
+  }
+
+  List<_NotificationItem> get notifications => _serverNotifications.map((item) {
+    final rawType = (item['type'] as String? ?? 'system').toLowerCase();
+    final type = switch (rawType) {
+      'report' ||
+      'duplicate_issue' ||
+      'priority_escalation' => 'Report updates',
+      'account' => 'Account',
+      _ => 'City updates',
+    };
+    final createdAt = DateTime.tryParse(item['created_at']?.toString() ?? '');
+    final now = DateTime.now();
+    final daysAgo = createdAt == null
+        ? null
+        : DateTime(now.year, now.month, now.day)
+              .difference(
+                DateTime(createdAt.year, createdAt.month, createdAt.day),
+              )
+              .inDays;
+    final group = createdAt == null
+        ? 'EARLIER'
+        : daysAgo == 0
+        ? 'TODAY'
+        : daysAgo == 1
+        ? 'YESTERDAY'
+        : 'EARLIER';
+    return _NotificationItem(
+      group: group,
+      title: item['title'] as String? ?? 'InfraTrack update',
+      message: item['message'] as String? ?? '',
+      time: createdAt?.toLocal().toString().split('.').first ?? '',
+      label: rawType.replaceAll('_', ' ').toUpperCase(),
+      color: type == 'Report updates'
+          ? teal
+          : type == 'Account'
+          ? clay
+          : amber,
+      icon: type == 'Report updates'
+          ? Icons.sync
+          : type == 'Account'
+          ? Icons.person_outline
+          : Icons.notifications_active_outlined,
+      type: type,
+      unread: item['read_at'] == null,
+    );
+  }).toList();
 
   @override
   Widget build(BuildContext context) {
@@ -104,7 +145,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                       ),
                     ),
                     IconButton(
-                      onPressed: () => setState(() {}),
+                      onPressed: _markAllRead,
                       tooltip: 'Mark all as read',
                       icon: const Icon(Icons.done_all, color: teal),
                     ),
@@ -116,56 +157,76 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   physics: const BouncingScrollPhysics(),
                   clipBehavior: Clip.none,
                   child: Row(
-                    children: ['All', 'Report updates', 'Similar reports'].map((
-                      item,
-                    ) {
-                      final selected = filter == item;
-                      final count = item == 'All'
-                          ? notifications.where((item) => item.unread).length
-                          : notifications
-                                .where(
-                                  (entry) => entry.type == item && entry.unread,
-                                )
-                                .length;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: FilterChip(
-                          label: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(item),
-                              if (count > 0) ...[
-                                const SizedBox(width: 6),
-                                _CountBadge(count: count, selected: selected),
-                              ],
-                            ],
-                          ),
-                          selected: selected,
-                          showCheckmark: false,
-                          onSelected: (_) => setState(() => filter = item),
-                          selectedColor: navy,
-                          backgroundColor: Colors.white.withValues(alpha: .72),
-                          side: BorderSide(color: selected ? navy : line),
-                          shape: const StadiumBorder(),
-                          labelStyle: TextStyle(
-                            color: selected ? Colors.white : inkSoft,
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w700,
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 7,
-                            vertical: 5,
-                          ),
-                        ),
-                      );
-                    }).toList(),
+                    children:
+                        [
+                          'All',
+                          'Report updates',
+                          'City updates',
+                          'Account',
+                        ].map((item) {
+                          final selected = filter == item;
+                          final count = item == 'All'
+                              ? notifications
+                                    .where((item) => item.unread)
+                                    .length
+                              : notifications
+                                    .where(
+                                      (entry) =>
+                                          entry.type == item && entry.unread,
+                                    )
+                                    .length;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: FilterChip(
+                              label: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(item),
+                                  if (count > 0) ...[
+                                    const SizedBox(width: 6),
+                                    _CountBadge(
+                                      count: count,
+                                      selected: selected,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              selected: selected,
+                              showCheckmark: false,
+                              onSelected: (_) => setState(() => filter = item),
+                              selectedColor: navy,
+                              backgroundColor: Colors.white.withValues(
+                                alpha: .72,
+                              ),
+                              side: BorderSide(color: selected ? navy : line),
+                              shape: const StadiumBorder(),
+                              labelStyle: TextStyle(
+                                color: selected ? Colors.white : inkSoft,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w700,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 5,
+                              ),
+                            ),
+                          );
+                        }).toList(),
                   ),
                 ),
                 const SizedBox(height: 16),
-                if (visible.isEmpty)
-                  const _EmptyNotifications()
+                if (_loading)
+                  const Center(child: CircularProgressIndicator())
+                else if (_loadError != null)
+                  Text(_loadError!, style: const TextStyle(color: clay))
+                else if (visible.isEmpty)
+                  _EmptyNotifications(
+                    message: ApiService.isSignedIn
+                        ? 'No notifications in this category.'
+                        : 'Sign in to view your notifications.',
+                  )
                 else
-                  for (final group in ['TODAY', 'YESTERDAY'])
+                  for (final group in ['TODAY', 'YESTERDAY', 'EARLIER'])
                     if (groups.contains(group)) ...[
                       Text(
                         group,
@@ -352,7 +413,8 @@ class _NotificationCard extends StatelessWidget {
 }
 
 class _EmptyNotifications extends StatelessWidget {
-  const _EmptyNotifications();
+  const _EmptyNotifications({required this.message});
+  final String message;
   @override
   Widget build(BuildContext context) => Center(
     child: Padding(
@@ -370,10 +432,7 @@ class _EmptyNotifications extends StatelessWidget {
             style: TextStyle(color: navy, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'No notifications in this category.',
-            style: TextStyle(color: inkSoft, fontSize: 11),
-          ),
+          Text(message, style: const TextStyle(color: inkSoft, fontSize: 11)),
         ],
       ),
     ),
