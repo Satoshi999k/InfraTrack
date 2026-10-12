@@ -10,7 +10,7 @@ const defaultSettings = {
   reportAlerts: true,
   publicAdvisoryAlerts: false,
 };
-const auditLogPageSize = 5;
+const auditLogPageSize = 20;
 
 export default function SettingsPage({ user, logsOnly = false }) {
   const isBarangayStaff = user?.role === "barangay_staff";
