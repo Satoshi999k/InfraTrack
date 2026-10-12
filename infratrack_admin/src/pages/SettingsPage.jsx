@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { CircleMarker, MapContainer, TileLayer } from "react-leaflet";
+import { ExternalLink, MapPin, X } from "lucide-react";
 import { API_BASE, apiFetch } from "../api";
 import { canManageSystemSettings } from "../../permissions";
 
@@ -12,6 +14,15 @@ const defaultSettings = {
 };
 const auditLogPageSize = 20;
 
+function isPublicIpAddress(value) {
+  const ip = String(value || "").trim();
+  if (!ip || ip === "::1" || ip === "127.0.0.1" || ip.toLowerCase() === "localhost") return false;
+  if (/^(10\.|127\.|192\.168\.|169\.254\.)/.test(ip)) return false;
+  if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(ip)) return false;
+  if (/^(fc|fd|fe8|fe9|fea|feb)/i.test(ip)) return false;
+  return true;
+}
+
 export default function SettingsPage({ user, logsOnly = false }) {
   const isBarangayStaff = user?.role === "barangay_staff";
   const canManageSettings = canManageSystemSettings(user?.role);
@@ -23,6 +34,7 @@ export default function SettingsPage({ user, logsOnly = false }) {
   const [passwordMessage, setPasswordMessage] = useState("");
   const [dataMessage, setDataMessage] = useState("");
   const [teams, setTeams] = useState([]);
+  const [selectedIp, setSelectedIp] = useState("");
   const [teamForm, setTeamForm] = useState({ name: "", department: "", contactPhone: "" });
   const [logs, setLogs] = useState([]);
   const [auditTotal, setAuditTotal] = useState(0);
@@ -415,7 +427,15 @@ export default function SettingsPage({ user, logsOnly = false }) {
                     <td style={{ padding: "12px 8px" }}>{log.action.replaceAll("_", " ")}</td>
                     <td style={{ padding: "12px 8px" }}>{log.resource_type ? `${log.resource_type}${log.resource_id ? ` #${log.resource_id}` : ""}` : "—"}</td>
                     <td style={{ padding: "12px 8px", fontSize: 11 }}>{formatAuditChange(details)}</td>
-                    <td style={{ padding: "12px 8px" }}>{log.ip_address === "::1" ? "Localhost (::1)" : log.ip_address || "—"}</td>
+                    <td style={{ padding: "12px 8px" }}>
+                      {isPublicIpAddress(log.ip_address) ? (
+                        <button type="button" className="audit-ip-link" onClick={() => setSelectedIp(log.ip_address)}>
+                          <MapPin size={13} /> {log.ip_address}
+                        </button>
+                      ) : (
+                        log.ip_address === "::1" ? "Localhost (::1)" : log.ip_address || "—"
+                      )}
+                    </td>
                     </>; })()}
                   </tr>
                 ))}
@@ -450,6 +470,71 @@ export default function SettingsPage({ user, logsOnly = false }) {
           </div>
         )}
       </article>}
+      {selectedIp && <IpLocationModal ip={selectedIp} onClose={() => setSelectedIp("")} />}
+    </div>
+  );
+}
+
+function IpLocationModal({ ip, onClose }) {
+  const [location, setLocation] = useState(null);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    setError("");
+    setLocation(null);
+    fetch(`https://ipwho.is/${encodeURIComponent(ip)}`, { signal: controller.signal })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok || data.success === false) throw new Error(data.message || "Could not locate this IP address.");
+        return data;
+      })
+      .then(setLocation)
+      .catch((requestError) => {
+        if (requestError.name !== "AbortError") setError(requestError.message || "Could not locate this IP address.");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, [ip]);
+
+  const coordinates = location?.latitude && location?.longitude
+    ? [Number(location.latitude), Number(location.longitude)]
+    : null;
+  const mapUrl = coordinates ? `https://www.openstreetmap.org/?mlat=${coordinates[0]}&mlon=${coordinates[1]}#map=12/${coordinates[0]}/${coordinates[1]}` : "";
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal ip-location-modal" role="dialog" aria-modal="true" aria-labelledby="ip-location-title" onClick={(event) => event.stopPropagation()}>
+        <button type="button" className="modal-close" aria-label="Close IP location" onClick={onClose}><X size={18} /></button>
+        <div className="ip-location-heading">
+          <div>
+            <span className="eyebrow">Audit log location</span>
+            <h2 id="ip-location-title">IP Location: {ip}</h2>
+          </div>
+          {coordinates && <a className="secondary-button ip-map-link" href={mapUrl} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Open in Maps</a>}
+        </div>
+        {loading && <p className="ip-location-state">Loading approximate location…</p>}
+        {error && <p className="ip-location-state error" role="alert">{error}</p>}
+        {coordinates && location && (
+          <>
+            <div className="ip-location-map">
+              <MapContainer center={coordinates} zoom={11} scrollWheelZoom className="leaflet-map">
+                <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                <CircleMarker center={coordinates} radius={10} pathOptions={{ color: "#c1592b", fillColor: "#c1592b", fillOpacity: 0.8 }} />
+              </MapContainer>
+            </div>
+            <div className="ip-location-details">
+              <strong>{[location.city, location.region, location.country].filter(Boolean).join(", ") || "Approximate location"}</strong>
+              <span>{location.isp || location.org || "Network details unavailable"}</span>
+              <span>Coordinates: {coordinates[0].toFixed(4)}, {coordinates[1].toFixed(4)}</span>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

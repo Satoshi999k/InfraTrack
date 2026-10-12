@@ -2957,6 +2957,73 @@ tbody tr:last-child td {
   color: var(--navy);
   font: 500 12px "DM Sans", sans-serif;
 }
+.audit-ip-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--teal);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.audit-ip-link:hover {
+  color: var(--navy);
+}
+.ip-location-modal {
+  width: min(720px, calc(100vw - 32px));
+  max-width: 720px;
+  padding: 20px;
+}
+.ip-location-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-right: 36px;
+}
+.ip-location-heading h2 {
+  margin: 6px 0 0;
+  font-size: 18px;
+}
+.ip-map-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.ip-location-map {
+  height: 300px;
+  overflow: hidden;
+  margin-top: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.ip-location-map .leaflet-map {
+  height: 100%;
+}
+.ip-location-details {
+  display: grid;
+  gap: 4px;
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.ip-location-details strong {
+  color: var(--navy);
+  font-size: 14px;
+}
+.ip-location-state {
+  margin: 28px 0 8px;
+  color: var(--muted);
+}
+.ip-location-state.error {
+  color: var(--red);
+}
 .data-management-card {
   grid-column: 1 / -1;
 }
@@ -3702,6 +3769,60 @@ tbody tr:last-child td {
   .safety-card textarea {
     min-height: 72px;
   }
+  .progress-input-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .progress-input-row input {
+    flex: 1;
+    accent-color: var(--teal);
+  }
+  .progress-input-row output {
+    min-width: 42px;
+    color: var(--teal);
+    font-weight: 800;
+    text-align: right;
+  }
+  .progress-track {
+    height: 6px;
+    overflow: hidden;
+    border-radius: 99px;
+    background: #dfe9e6;
+  }
+  .progress-track span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--teal);
+    transition: width 0.25s ease;
+  }
+  .progress-field .progress-track {
+    margin-top: 8px;
+  }
+  .queue-status {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: max-content;
+    min-width: 110px;
+    margin: 0 auto;
+  }
+  .queue-progress {
+    display: grid;
+    gap: 4px;
+    width: 100%;
+    margin-top: 7px;
+    justify-items: center;
+    text-align: center;
+  }
+  .queue-progress .progress-track {
+    width: 90px;
+  }
+  .queue-progress small {
+    color: var(--muted);
+    font-size: 10px;
+  }
   .full-button {
     width: 100%;
     justify-content: center;
@@ -4172,6 +4293,47 @@ tbody tr:last-child td {
 .case-management textarea,
 .safety-card textarea {
   min-height: 72px;
+}
+.progress-track {
+  width: 100%;
+  height: 7px;
+  overflow: hidden;
+  border: 1px solid #c6ddd8;
+  border-radius: 99px;
+  background: #e5efed;
+}
+.progress-track span {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #1b8a83, #2aa99f);
+  transition: width 0.3s ease;
+}
+.queue-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 125px;
+  min-width: 125px;
+  margin: 0 auto;
+}
+.queue-progress {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  width: 125px;
+  margin-top: 7px;
+  text-align: center;
+}
+.queue-progress .progress-track {
+  width: 125px;
+  height: 7px;
+}
+.queue-progress small {
+  color: var(--navy);
+  font-size: 10px;
+  font-weight: 700;
 }
 .full-button {
   width: 100%;

@@ -326,6 +326,7 @@ async function initializeDatabase() {
     severity VARCHAR(30) NOT NULL DEFAULT 'Medium', status VARCHAR(40) NOT NULL DEFAULT 'Reported',
     duplicate_of INT UNSIGNED NULL, duplicate_reason VARCHAR(255) NULL, escalated_at TIMESTAMP NULL,
     reporter_id INT UNSIGNED NULL, assigned_team VARCHAR(160), resolution_note TEXT,
+    progress_percentage TINYINT UNSIGNED NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT reports_reporter_fk FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE SET NULL
   ) ENGINE=InnoDB`);
@@ -333,6 +334,7 @@ async function initializeDatabase() {
   await pool.query("ALTER TABLE reports ADD COLUMN IF NOT EXISTS duplicate_of INT UNSIGNED NULL");
   await pool.query("ALTER TABLE reports ADD COLUMN IF NOT EXISTS duplicate_reason VARCHAR(255) NULL");
   await pool.query("ALTER TABLE reports ADD COLUMN IF NOT EXISTS escalated_at TIMESTAMP NULL");
+  await pool.query("ALTER TABLE reports ADD COLUMN IF NOT EXISTS progress_percentage TINYINT UNSIGNED NOT NULL DEFAULT 0");
   await pool.query(`CREATE TABLE IF NOT EXISTS report_events (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, report_id INT UNSIGNED NOT NULL,
     status VARCHAR(40) NOT NULL, note TEXT, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1319,13 +1321,17 @@ app.post("/api/reports", async (req, res) => {
   res.status(201).json({ report });
 });
 app.patch("/api/issues/:id", async (req, res) => {
-  const { status, assignedTeam, resolutionNote, severity } = req.body ?? {};
+  const { status, assignedTeam, resolutionNote, severity, progressPercentage } = req.body ?? {};
+  const parsedProgress = Number(progressPercentage);
+  const progress = Number.isFinite(parsedProgress)
+    ? Math.min(100, Math.max(0, Math.round(parsedProgress)))
+    : null;
   const [rows] = await pool.query("SELECT * FROM reports WHERE public_id = ? OR id = ?", [req.params.id, Number(req.params.id)]);
   const report = rows[0];
   if (!report) return res.status(404).json({ error: "Report not found" });
   const editor = req.auth;
   if (editor?.role === "barangay_staff" && editor.barangay !== report.location) return res.status(403).json({ error: "You can only manage issues in your barangay" });
-  await pool.query("UPDATE reports SET status = COALESCE(?, status), assigned_team = COALESCE(?, assigned_team), resolution_note = COALESCE(?, resolution_note), severity = COALESCE(?, severity) WHERE id = ?", [status ?? null, assignedTeam ?? null, resolutionNote ?? null, severity ?? null, report.id]);
+  await pool.query("UPDATE reports SET status = COALESCE(?, status), assigned_team = COALESCE(?, assigned_team), resolution_note = COALESCE(?, resolution_note), severity = COALESCE(?, severity), progress_percentage = COALESCE(?, progress_percentage) WHERE id = ?", [status ?? null, assignedTeam ?? null, resolutionNote ?? null, severity ?? null, progress, report.id]);
   if (status && status !== report.status) await pool.query("INSERT INTO report_events (report_id, status, note) VALUES (?, ?, ?)", [report.id, status, resolutionNote ?? null]);
   const statusChanged = Boolean(status && status !== report.status);
   const assignmentChanged = Boolean(assignedTeam && assignedTeam !== report.assigned_team);

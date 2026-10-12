@@ -55,11 +55,17 @@ export default function IssueTable({ issues, onOpenIssue }) {
                   </span>
                 </td>
                 <td>
-                  <span
-                    className={`status ${issue.status.toLowerCase().replace(" ", "-")}`}
-                  >
+                  <div className="queue-status">
+                  <span className={`status ${issue.status.toLowerCase().replace(" ", "-")}`}>
                     {issue.status}
                   </span>
+                  {issue.status === "In progress" && (
+                    <div className="queue-progress" aria-label={`${Number(issue.progress_percentage) || 0}% complete`}>
+                      <div className="progress-track"><span style={{ width: `${Math.min(100, Math.max(0, Number(issue.progress_percentage) || 0))}%` }} /></div>
+                      <small>{Number(issue.progress_percentage) || 0}% complete</small>
+                    </div>
+                  )}
+                  </div>
                 </td>
                 <td>{issue.reporter}</td>
                 <td>

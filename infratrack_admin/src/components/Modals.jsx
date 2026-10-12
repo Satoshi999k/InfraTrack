@@ -284,6 +284,7 @@ export function IssueModal({ data, onClose, onSave }) {
     data.status === "New report" ? "Reported" : data.status,
   );
   const [assigned, setAssigned] = useState("Unassigned");
+  const [progressPercentage, setProgressPercentage] = useState(Number(data.progress_percentage) || 0);
   const [note, setNote] = useState("");
   const [validationError, setValidationError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -312,7 +313,7 @@ export function IssueModal({ data, onClose, onSave }) {
       setValidationError("A resolution note is required.");
       return;
     }
-    void saveChanges({ status, assignedTeam: assigned, resolutionNote: note });
+    void saveChanges({ status, assignedTeam: assigned, resolutionNote: note, progressPercentage });
   };
 
   return (
@@ -390,6 +391,23 @@ export function IssueModal({ data, onClose, onSave }) {
                   {(data.teams || []).map((team) => <option key={team.id} value={team.name}>{team.name}{team.department ? ` — ${team.department}` : ""}</option>)}
                 </select>
               </label>
+              {status === "In progress" && (
+                <label className="progress-field">
+                  Progress
+                  <div className="progress-input-row">
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="5"
+                      value={progressPercentage}
+                      onChange={(event) => setProgressPercentage(Number(event.target.value))}
+                    />
+                    <output>{progressPercentage}%</output>
+                  </div>
+                  <div className="progress-track" aria-hidden="true"><span style={{ width: `${progressPercentage}%` }} /></div>
+                </label>
+              )}
               <label>
                 Priority
                 <select>
