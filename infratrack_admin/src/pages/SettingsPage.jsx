@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { CircleMarker, MapContainer, TileLayer } from "react-leaflet";
 import { ExternalLink, LocateFixed, MapPin, X } from "lucide-react";
-import { createPortal } from "react-dom";
 import { API_BASE, apiFetch } from "../api";
 import { canManageSystemSettings } from "../../permissions";
 
@@ -537,11 +536,7 @@ function IpLocationModal({ log, onClose }) {
     );
   };
 
-  useEffect(() => {
-    requestDeviceLocation();
-  }, []);
-
-  return createPortal(
+  return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal ip-location-modal" role="dialog" aria-modal="true" aria-labelledby="ip-location-title" onClick={(event) => event.stopPropagation()}>
         <button type="button" className="modal-close" aria-label="Close IP location" onClick={onClose}><X size={18} /></button>
@@ -559,7 +554,7 @@ function IpLocationModal({ log, onClose }) {
         </div>
         {loading && <p className="ip-location-state">Loading approximate location…</p>}
         {error && <p className="ip-location-state error" role="alert">{error}</p>}
-        {mapCoordinates && (
+        {coordinates && location && (
           <>
             <div className="ip-location-notice">
               <strong>{deviceCoordinates ? "Device location enabled" : "Approximate only"}</strong>
@@ -581,14 +576,13 @@ function IpLocationModal({ log, onClose }) {
               </div>
             </div>
             <div className="ip-location-details">
-              <strong>Provider estimate: {[location?.city, location?.region, location?.country].filter(Boolean).join(", ") || "Unavailable"}</strong>
-              <span>{location?.isp || location?.org || "Network details unavailable"}</span>
+              <strong>Provider estimate: {[location.city, location.region, location.country].filter(Boolean).join(", ") || "Unavailable"}</strong>
+              <span>{location.isp || location.org || "Network details unavailable"}</span>
               <span>{deviceCoordinates ? "Blue marker: device GPS location" : "InfraTrack operating area"}: {log.actor_barangay ? `${log.actor_barangay}, ` : ""}Mati City, Davao Oriental</span>
             </div>
           </>
         )}
       </div>
-    </div>,
-    document.body,
+    </div>
   );
 }
