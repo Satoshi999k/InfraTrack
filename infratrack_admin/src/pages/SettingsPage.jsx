@@ -537,6 +537,10 @@ function IpLocationModal({ log, onClose }) {
     );
   };
 
+  useEffect(() => {
+    requestDeviceLocation();
+  }, []);
+
   return createPortal(
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal ip-location-modal" role="dialog" aria-modal="true" aria-labelledby="ip-location-title" onClick={(event) => event.stopPropagation()}>
@@ -555,7 +559,7 @@ function IpLocationModal({ log, onClose }) {
         </div>
         {loading && <p className="ip-location-state">Loading approximate location…</p>}
         {error && <p className="ip-location-state error" role="alert">{error}</p>}
-        {coordinates && location && (
+        {mapCoordinates && (
           <>
             <div className="ip-location-notice">
               <strong>{deviceCoordinates ? "Device location enabled" : "Approximate only"}</strong>
@@ -568,7 +572,7 @@ function IpLocationModal({ log, onClose }) {
                 ) : (
                   <TileLayer attribution="Tiles &copy; Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community" url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" />
                 )}
-                <CircleMarker center={coordinates} radius={10} pathOptions={{ color: "#c1592b", fillColor: "#c1592b", fillOpacity: 0.8 }} />
+                {coordinates && <CircleMarker center={coordinates} radius={10} pathOptions={{ color: "#c1592b", fillColor: "#c1592b", fillOpacity: 0.8 }} />}
                 {deviceCoordinates && <CircleMarker center={deviceCoordinates} radius={9} pathOptions={{ color: "#1769aa", fillColor: "#2f8fce", fillOpacity: 0.9 }} />}
               </MapContainer>
               <div className="ip-map-layer-switcher" role="group" aria-label="Location map layer">
@@ -577,15 +581,14 @@ function IpLocationModal({ log, onClose }) {
               </div>
             </div>
             <div className="ip-location-details">
-              <strong>Provider estimate: {[location.city, location.region, location.country].filter(Boolean).join(", ") || "Unavailable"}</strong>
-              <span>{location.isp || location.org || "Network details unavailable"}</span>
+              <strong>Provider estimate: {[location?.city, location?.region, location?.country].filter(Boolean).join(", ") || "Unavailable"}</strong>
+              <span>{location?.isp || location?.org || "Network details unavailable"}</span>
               <span>{deviceCoordinates ? "Blue marker: device GPS location" : "InfraTrack operating area"}: {log.actor_barangay ? `${log.actor_barangay}, ` : ""}Mati City, Davao Oriental</span>
-            </div>,
-            document.body,
-  );
+            </div>
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
