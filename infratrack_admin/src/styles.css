@@ -1801,6 +1801,41 @@ tbody tr:last-child td {
 .resident-rating-panel {
   margin-top: 24px;
 }
+.thematic-analysis-panel {
+  margin-top: 18px;
+}
+.thematic-analysis-note {
+  color: var(--muted);
+  font-size: 12px;
+  margin: -4px 0 18px;
+}
+.thematic-row {
+  margin: 0 0 16px;
+}
+.thematic-row-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--navy);
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+.thematic-row-heading span,
+.thematic-row small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.thematic-track {
+  height: 7px;
+  background: var(--sand);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.thematic-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
 .settings-page {
   display: grid;
   gap: 20px;

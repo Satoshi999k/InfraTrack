@@ -920,6 +920,28 @@ function AnalyticsLive({ user }) {
         <div className="sentiment-gauge"><div className="sentiment-ring"><strong>{data?.ratings.average || "—"}</strong><span>AVG. STAR</span></div></div>
         <p className="sentiment-note">{data?.ratings.total ?? 0} ratings recorded in the selected period.</p>
       </article>
+      <article className="card analytics-panel thematic-analysis-panel">
+        <div className="card-head">
+          <h2>Thematic analysis</h2>
+          <span className="muted">{data?.summary.total ?? 0} reports analyzed</span>
+        </div>
+        <p className="thematic-analysis-note">
+          Primary themes are identified from report categories, titles, and descriptions. Each report is counted once.
+        </p>
+        {(data?.themes ?? []).map((theme, index) => (
+          <div className="thematic-row" key={theme.name}>
+            <div className="thematic-row-heading">
+              <strong>{theme.name}</strong>
+              <span>{theme.count} · {theme.percentage}%</span>
+            </div>
+            <div className="thematic-track" aria-label={`${theme.name}: ${theme.count} reports, ${theme.percentage}%`}>
+              <i className={["clay", "amber", "teal", "purple", "green"][index % 5]} style={{ width: `${theme.percentage}%` }} />
+            </div>
+            <small>{theme.description}</small>
+          </div>
+        ))}
+        {!data?.themes?.length && <p className="muted">No reports to analyze in this period.</p>}
+      </article>
     </>
   );
 }

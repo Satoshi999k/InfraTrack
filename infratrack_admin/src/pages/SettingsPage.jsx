@@ -10,6 +10,7 @@ const defaultSettings = {
   reportAlerts: true,
   publicAdvisoryAlerts: false,
 };
+const auditLogPageSize = 5;
 
 export default function SettingsPage({ user, logsOnly = false }) {
   const isBarangayStaff = user?.role === "barangay_staff";
@@ -24,6 +25,9 @@ export default function SettingsPage({ user, logsOnly = false }) {
   const [teams, setTeams] = useState([]);
   const [teamForm, setTeamForm] = useState({ name: "", department: "", contactPhone: "" });
   const [logs, setLogs] = useState([]);
+  const [auditTotal, setAuditTotal] = useState(0);
+  const [auditPage, setAuditPage] = useState(0);
+  const [auditLoading, setAuditLoading] = useState(false);
   const [logsError, setLogsError] = useState("");
   const [auditFilters, setAuditFilters] = useState({ user: "", action: "", barangay: "", from: "", to: "" });
 
@@ -46,21 +50,44 @@ export default function SettingsPage({ user, logsOnly = false }) {
       .catch((error) => setSettingsError(error.message));
   }, [user?.id, logsOnly, canManageSettings]);
 
-  const loadLogs = () => {
-    if (!user?.id || !["lgu", "admin", "barangay_staff"].includes(user.role)) return;
-    const query = new URLSearchParams({ adminId: user.id, ...Object.fromEntries(Object.entries(auditFilters).filter(([, value]) => value)) });
-    apiFetch(`/audit-logs?${query.toString()}`)
-      .then(async (response) => {
+  useEffect(() => {
+    if (!logsOnly || !user?.id || !["lgu", "admin", "barangay_staff"].includes(user.role)) return;
+    const controller = new AbortController();
+    const query = new URLSearchParams({
+      adminId: user.id,
+      limit: String(auditLogPageSize),
+      offset: String(auditPage * auditLogPageSize),
+      ...Object.fromEntries(Object.entries(auditFilters).filter(([, value]) => value)),
+    });
+
+    const loadLogs = async () => {
+      setAuditLoading(true);
+      setLogsError("");
+      try {
+        const response = await apiFetch(`/audit-logs?${query.toString()}`, { signal: controller.signal });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Could not load audit logs");
         setLogs(data.logs ?? []);
-      })
-      .catch((error) => setLogsError(error.message));
+        setAuditTotal(Number(data.total) || 0);
+      } catch (error) {
+        if (error.name !== "AbortError") setLogsError(error.message);
+      } finally {
+        if (!controller.signal.aborted) setAuditLoading(false);
+      }
+    };
+
+    loadLogs();
+    return () => controller.abort();
+  }, [user, auditFilters, logsOnly, auditPage]);
+
+  const updateAuditFilter = (key, value) => {
+    setAuditFilters((current) => ({ ...current, [key]: value }));
+    setAuditPage(0);
   };
 
-  useEffect(() => {
-    if (logsOnly) loadLogs();
-  }, [user, auditFilters, logsOnly]);
+  const auditPageCount = Math.max(1, Math.ceil(auditTotal / auditLogPageSize));
+  const auditStart = auditTotal ? auditPage * auditLogPageSize + 1 : 0;
+  const auditEnd = Math.min((auditPage + 1) * auditLogPageSize, auditTotal);
 
   const parseDetails = (log) => {
     try { return log.details ? JSON.parse(log.details) : null; } catch { return null; }
@@ -347,23 +374,50 @@ export default function SettingsPage({ user, logsOnly = false }) {
           </div>
         </div>
         <div className="audit-filters">
-          <input placeholder="Search user or email" value={auditFilters.user} onChange={(event) => setAuditFilters({ ...auditFilters, user: event.target.value })} />
-          <select value={auditFilters.action} onChange={(event) => setAuditFilters({ ...auditFilters, action: event.target.value })}>
+          <input placeholder="Search user or email" value={auditFilters.user} onChange={(event) => updateAuditFilter("user", event.target.value)} />
+          <select value={auditFilters.action} onChange={(event) => updateAuditFilter("action", event.target.value)}>
             <option value="">All actions</option><option value="login">Login</option><option value="issue_accepted">Accepted</option><option value="issue_rejected">Rejected</option><option value="issue_assigned">Assigned</option><option value="issue_resolved">Resolved</option><option value="issue_archived">Archived</option><option value="staff_created">Staff created</option><option value="staff_disabled">Staff disabled</option>
           </select>
-          {user?.role !== "barangay_staff" && <input placeholder="Barangay" value={auditFilters.barangay} onChange={(event) => setAuditFilters({ ...auditFilters, barangay: event.target.value })} />}
+          {user?.role !== "barangay_staff" && <input placeholder="Barangay" value={auditFilters.barangay} onChange={(event) => updateAuditFilter("barangay", event.target.value)} />}
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, fontWeight: 700, color: "#153f52" }}>
             <span>From</span>
-            <input type="date" aria-label="Filter audit logs from date" value={auditFilters.from} onChange={(event) => setAuditFilters({ ...auditFilters, from: event.target.value })} />
+            <input type="date" aria-label="Filter audit logs from date" value={auditFilters.from} onChange={(event) => updateAuditFilter("from", event.target.value)} />
           </label>
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, fontWeight: 700, color: "#153f52" }}>
             <span>To</span>
-            <input type="date" aria-label="Filter audit logs to date" value={auditFilters.to} onChange={(event) => setAuditFilters({ ...auditFilters, to: event.target.value })} />
+            <input type="date" aria-label="Filter audit logs to date" value={auditFilters.to} onChange={(event) => updateAuditFilter("to", event.target.value)} />
           </label>
         </div>
+        {!logsError && auditTotal > 0 && (
+          <div className="queue-footer" style={{ paddingTop: 10, paddingBottom: 4 }}>
+            <span>Showing {auditStart}–{auditEnd} of {auditTotal} logs</span>
+            <div className="pagination">
+              <button
+                type="button"
+                aria-label="Previous page"
+                disabled={auditPage === 0 || auditLoading}
+                onClick={() => setAuditPage((page) => Math.max(0, page - 1))}
+              >
+                ‹
+              </button>
+              <span aria-live="polite" style={{ alignSelf: "center", minWidth: 72, textAlign: "center" }}>
+                Page {auditPage + 1} of {auditPageCount}
+              </span>
+              <button
+                type="button"
+                aria-label="Next page"
+                disabled={auditPage + 1 >= auditPageCount || auditLoading}
+                onClick={() => setAuditPage((page) => Math.min(auditPageCount - 1, page + 1))}
+              >
+                ›
+              </button>
+            </div>
+          </div>
+        )}
         {logsError && <p role="alert" style={{ color: "#9f351e" }}>{logsError}</p>}
-        {!logsError && !logs.length && <p style={{ color: "#71808a" }}>No activity has been recorded yet.</p>}
-        {!!logs.length && (
+        {auditLoading && <p role="status" style={{ color: "#71808a" }}>Loading activity logs…</p>}
+        {!auditLoading && !logsError && !logs.length && <p style={{ color: "#71808a" }}>No activity has been recorded yet.</p>}
+        {!auditLoading && !!logs.length && (
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 720 }}>
               <thead>

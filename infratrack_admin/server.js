@@ -17,6 +17,7 @@ import {
 } from "./advisoryAccess.js";
 import { canManageSystemSettings } from "./permissions.js";
 import { sendEmailNotification } from "./emailNotifications.js";
+import { analyzeReportThemes } from "./thematicAnalysis.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -525,10 +526,16 @@ app.use(async (req, res, next) => {
   ) return next();
   const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
   if (!token) return res.status(401).json({ error: "Authentication required" });
-  const [[user]] = await pool.query(
-    "SELECT u.id, u.name, u.email, u.mobile, u.barangay, u.role, u.standing, u.created_at FROM admin_sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > CURRENT_TIMESTAMP",
-    [hashSessionToken(token)],
-  );
+  let user;
+  try {
+    [[user]] = await pool.query(
+      "SELECT u.id, u.name, u.email, u.mobile, u.barangay, u.role, u.standing, u.created_at FROM admin_sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > CURRENT_TIMESTAMP",
+      [hashSessionToken(token)],
+    );
+  } catch (error) {
+    console.error("Unable to validate API session:", error.message);
+    return res.status(503).json({ error: "Database unavailable" });
+  }
   if (!user || (!isMobileRoute && !isMobileUpload && !["lgu", "admin", "barangay_staff"].includes(user.role))) {
     return res.status(401).json({ error: "Session expired or invalid" });
   }
@@ -840,7 +847,14 @@ app.patch("/api/account/password", async (req, res) => {
 app.get("/api/audit-logs", async (req, res) => {
   const admin = req.auth;
   if (!admin || !["lgu", "admin", "barangay_staff"].includes(admin.role)) return res.status(403).json({ error: "Administrator access required" });
-  const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 500);
+  const requestedLimit = Number(req.query.limit);
+  const limit = Number.isFinite(requestedLimit) && requestedLimit > 0
+    ? Math.min(Math.floor(requestedLimit), 500)
+    : 100;
+  const requestedOffset = Number(req.query.offset);
+  const offset = Number.isFinite(requestedOffset) && requestedOffset > 0
+    ? Math.floor(requestedOffset)
+    : 0;
   const conditions = [];
   const params = [];
   if (admin.role === "barangay_staff") { conditions.push("actor_barangay = ?"); params.push(admin.barangay); }
@@ -850,12 +864,15 @@ app.get("/api/audit-logs", async (req, res) => {
   if (req.query.from) { conditions.push("created_at >= ?"); params.push(`${req.query.from} 00:00:00`); }
   if (req.query.to) { conditions.push("created_at <= ?"); params.push(`${req.query.to} 23:59:59`); }
   const logScope = conditions.length ? ` WHERE ${conditions.join(" AND ")}` : "";
-  params.push(limit);
-  const [logs] = await pool.query(
-    `SELECT id, actor_id, actor_name, actor_email, actor_barangay, actor_role, action, resource_type, resource_id, details, ip_address, created_at FROM audit_logs${logScope} ORDER BY created_at DESC LIMIT ?`,
+  const [[count]] = await pool.query(
+    `SELECT COUNT(*) AS total FROM audit_logs${logScope}`,
     params,
   );
-  res.json({ logs });
+  const [logs] = await pool.query(
+    `SELECT id, actor_id, actor_name, actor_email, actor_barangay, actor_role, action, resource_type, resource_id, details, ip_address, created_at FROM audit_logs${logScope} ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`,
+    [...params, limit, offset],
+  );
+  res.json({ logs, total: Number(count.total), limit, offset });
 });
 app.get("/api/settings", async (req, res) => {
   const viewer = req.auth;
@@ -976,11 +993,13 @@ app.get("/api/analytics", async (req, res) => {
     SUM(status = 'Reported') AS reported, SUM(status = 'In progress') AS in_progress,
     SUM(status = 'Resolved') AS resolved FROM reports WHERE ${where}`, whereParams);
   const [categories] = await pool.query(`SELECT category AS name, COUNT(*) AS count FROM reports WHERE ${where} GROUP BY category ORDER BY count DESC`, whereParams);
+  const [reportsForThemes] = await pool.query(`SELECT title, description, category FROM reports WHERE ${where}`, whereParams);
+  const reportThemes = analyzeReportThemes(reportsForThemes);
   const [hotspots] = await pool.query(`SELECT location AS name, category, COUNT(*) AS count FROM reports WHERE ${where} GROUP BY location, category ORDER BY count DESC LIMIT 5`, whereParams);
   const [trend] = await pool.query(`SELECT DATE_FORMAT(created_at, ?) AS label, COUNT(*) AS count FROM reports WHERE ${where} GROUP BY label ORDER BY label`, [settings.format, ...whereParams]);
   const ratingsWhere = where.replaceAll("created_at", "r.created_at").replaceAll("location", "r.location");
   const [[ratings]] = await pool.query(`SELECT ROUND(AVG(rating), 1) AS average, COUNT(*) AS total FROM report_ratings rr JOIN reports r ON r.id = rr.report_id WHERE ${ratingsWhere}`, whereParams);
-  res.json({ period, periodLabel: settings.label, summary: { total: Number(summary.total || 0), reported: Number(summary.reported || 0), inProgress: Number(summary.in_progress || 0), resolved: Number(summary.resolved || 0) }, categories, hotspots, trend, ratings: { average: Number(ratings.average || 0), total: Number(ratings.total || 0) } });
+  res.json({ period, periodLabel: settings.label, summary: { total: Number(summary.total || 0), reported: Number(summary.reported || 0), inProgress: Number(summary.in_progress || 0), resolved: Number(summary.resolved || 0) }, categories, themes: reportThemes, hotspots, trend, ratings: { average: Number(ratings.average || 0), total: Number(ratings.total || 0) } });
 });
 app.get("/api/users", async (req, res) => {
   const viewer = req.auth;
