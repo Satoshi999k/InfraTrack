@@ -388,32 +388,6 @@ export default function SettingsPage({ user, logsOnly = false }) {
             <input type="date" aria-label="Filter audit logs to date" value={auditFilters.to} onChange={(event) => updateAuditFilter("to", event.target.value)} />
           </label>
         </div>
-        {!logsError && auditTotal > 0 && (
-          <div className="queue-footer" style={{ paddingTop: 10, paddingBottom: 4 }}>
-            <span>Showing {auditStart}–{auditEnd} of {auditTotal} logs</span>
-            <div className="pagination">
-              <button
-                type="button"
-                aria-label="Previous page"
-                disabled={auditPage === 0 || auditLoading}
-                onClick={() => setAuditPage((page) => Math.max(0, page - 1))}
-              >
-                ‹
-              </button>
-              <span aria-live="polite" style={{ alignSelf: "center", minWidth: 72, textAlign: "center" }}>
-                Page {auditPage + 1} of {auditPageCount}
-              </span>
-              <button
-                type="button"
-                aria-label="Next page"
-                disabled={auditPage + 1 >= auditPageCount || auditLoading}
-                onClick={() => setAuditPage((page) => Math.min(auditPageCount - 1, page + 1))}
-              >
-                ›
-              </button>
-            </div>
-          </div>
-        )}
         {logsError && <p role="alert" style={{ color: "#9f351e" }}>{logsError}</p>}
         {auditLoading && <p role="status" style={{ color: "#71808a" }}>Loading activity logs…</p>}
         {!auditLoading && !logsError && !logs.length && <p style={{ color: "#71808a" }}>No activity has been recorded yet.</p>}
@@ -447,6 +421,32 @@ export default function SettingsPage({ user, logsOnly = false }) {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+        {!logsError && auditTotal > 0 && (
+          <div className="queue-footer" style={{ paddingTop: 10, paddingBottom: 4 }}>
+            <span>Showing {auditStart}–{auditEnd} of {auditTotal} logs</span>
+            <div className="pagination">
+              <button
+                type="button"
+                aria-label="Previous page"
+                disabled={auditPage === 0 || auditLoading}
+                onClick={() => setAuditPage((page) => Math.max(0, page - 1))}
+              >
+                ‹
+              </button>
+              <span aria-live="polite" style={{ alignSelf: "center", minWidth: 72, textAlign: "center" }}>
+                Page {auditPage + 1} of {auditPageCount}
+              </span>
+              <button
+                type="button"
+                aria-label="Next page"
+                disabled={auditPage + 1 >= auditPageCount || auditLoading}
+                onClick={() => setAuditPage((page) => Math.min(auditPageCount - 1, page + 1))}
+              >
+                ›
+              </button>
+            </div>
           </div>
         )}
       </article>}
