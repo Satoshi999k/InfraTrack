@@ -66,21 +66,58 @@ export default function SettingsPage({ user, logsOnly = false }) {
     try { return log.details ? JSON.parse(log.details) : null; } catch { return null; }
   };
 
+  const formatAuditValue = (value) => {
+    if (value === null || value === undefined || value === "") return "—";
+    if (typeof value === "string") return value;
+    if (typeof value === "number" || typeof value === "boolean") return String(value);
+    if (Array.isArray(value)) return value.length ? value.map((entry) => formatAuditValue(entry)).join(", ") : "[]";
+    if (typeof value === "object") {
+      return Object.entries(value)
+        .filter(([, nested]) => nested !== null && nested !== undefined && nested !== "")
+        .map(([key, nested]) => `${key}: ${formatAuditValue(nested)}`)
+        .join(", ");
+    }
+    return String(value);
+  };
+
+  const formatAuditChange = (details) => {
+    const before = details?.before;
+    const after = details?.after;
+
+    if (before === undefined && after === undefined) return "—";
+    if (before === undefined || after === undefined) return `${formatAuditValue(before ?? "—")} → ${formatAuditValue(after ?? "—")}`;
+    if (typeof before !== "object" || typeof after !== "object" || before === null || after === null || Array.isArray(before) || Array.isArray(after)) {
+      return `${formatAuditValue(before)} → ${formatAuditValue(after)}`;
+    }
+
+    const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
+    const diffs = [...keys]
+      .map((key) => {
+        const oldValue = before[key];
+        const newValue = after[key];
+        if (oldValue === newValue) return null;
+        return `${key}: ${formatAuditValue(oldValue)} → ${formatAuditValue(newValue)}`;
+      })
+      .filter(Boolean);
+
+    return diffs.length ? diffs.join("; ") : `${formatAuditValue(before)} → ${formatAuditValue(after)}`;
+  };
+
   const exportCsv = () => {
     const escape = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
     const rows = [["When", "User", "Email", "Barangay", "Role", "Action", "Target", "Before", "After", "IP"], ...logs.map((log) => {
       const details = parseDetails(log);
-      return [new Date(log.created_at).toLocaleString(), log.actor_name, log.actor_email, log.actor_barangay, log.actor_role, log.action, `${log.resource_type || ""} ${log.resource_id || ""}`, JSON.stringify(details?.before || ""), JSON.stringify(details?.after || ""), log.ip_address];
+      return [new Date(log.created_at).toLocaleString(), log.actor_name, log.actor_email, log.actor_barangay, log.actor_role, log.action, `${log.resource_type || ""} ${log.resource_id || ""}`, formatAuditValue(details?.before), formatAuditValue(details?.after), log.ip_address];
     })];
     const blob = new Blob([rows.map((row) => row.map(escape).join(",")).join("\n")], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = "infratrack-audit-logs.csv"; link.click(); URL.revokeObjectURL(url);
   };
 
   const printLogs = () => {
-    const rows = logs.map((log) => { const details = parseDetails(log); return `<tr><td>${new Date(log.created_at).toLocaleString()}</td><td>${log.actor_name || ""}</td><td>${log.actor_barangay || ""}</td><td>${log.action.replaceAll("_", " ")}</td><td>${JSON.stringify(details?.before || "")}</td><td>${JSON.stringify(details?.after || "")}</td></tr>`; }).join("");
+    const rows = logs.map((log) => { const details = parseDetails(log); const beforeAfter = formatAuditChange(details); return `<tr><td>${new Date(log.created_at).toLocaleString()}</td><td>${log.actor_name || ""}</td><td>${log.actor_barangay || ""}</td><td>${log.action.replaceAll("_", " ")}</td><td>${beforeAfter}</td></tr>`; }).join("");
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
-    printWindow.document.write(`<title>InfraTrack Audit Logs</title><style>body{font:12px Arial;padding:24px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:8px;text-align:left}</style><h1>InfraTrack Audit Logs</h1><table><thead><tr><th>When</th><th>User</th><th>Barangay</th><th>Action</th><th>Before</th><th>After</th></tr></thead><tbody>${rows}</tbody></table>`);
+    printWindow.document.write(`<title>InfraTrack Audit Logs</title><style>body{font:12px Arial;padding:24px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:8px;text-align:left}</style><h1>InfraTrack Audit Logs</h1><table><thead><tr><th>When</th><th>User</th><th>Barangay</th><th>Action</th><th>Before → After</th></tr></thead><tbody>${rows}</tbody></table>`);
     printWindow.document.close(); printWindow.print();
   };
 
@@ -349,7 +386,7 @@ export default function SettingsPage({ user, logsOnly = false }) {
                     <td style={{ padding: "12px 8px" }}>{log.actor_role || "—"}</td>
                     <td style={{ padding: "12px 8px" }}>{log.action.replaceAll("_", " ")}</td>
                     <td style={{ padding: "12px 8px" }}>{log.resource_type ? `${log.resource_type}${log.resource_id ? ` #${log.resource_id}` : ""}` : "—"}</td>
-                    <td style={{ padding: "12px 8px", fontSize: 11 }}>{details?.before || details?.after ? `${JSON.stringify(details.before || "")} → ${JSON.stringify(details.after || "")}` : "—"}</td>
+                    <td style={{ padding: "12px 8px", fontSize: 11 }}>{formatAuditChange(details)}</td>
                     <td style={{ padding: "12px 8px" }}>{log.ip_address === "::1" ? "Localhost (::1)" : log.ip_address || "—"}</td>
                     </>; })()}
                   </tr>
