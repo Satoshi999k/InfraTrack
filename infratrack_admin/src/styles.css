@@ -2976,6 +2976,8 @@ tbody tr:last-child td {
 .ip-location-modal {
   width: min(720px, calc(100vw - 32px));
   max-width: 720px;
+  max-height: calc(100vh - 48px);
+  overflow: hidden;
   padding: 20px;
 }
 .ip-location-heading {
@@ -2996,8 +2998,20 @@ tbody tr:last-child td {
   white-space: nowrap;
   text-decoration: none;
 }
+.ip-location-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.ip-device-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
 .ip-location-map {
-  height: 300px;
+  position: relative;
+  height: min(260px, 34vh);
   overflow: hidden;
   margin-top: 18px;
   border: 1px solid var(--line);
@@ -3005,6 +3019,48 @@ tbody tr:last-child td {
 }
 .ip-location-map .leaflet-map {
   height: 100%;
+}
+.ip-map-layer-switcher {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 500;
+  display: flex;
+  overflow: hidden;
+  border: 1px solid rgba(9, 39, 50, 0.14);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 3px 10px rgba(9, 39, 50, 0.18);
+}
+.ip-map-layer-switcher button {
+  padding: 7px 10px;
+  border: 0;
+  background: #fff;
+  color: var(--navy);
+  font: 700 11px "DM Sans", sans-serif;
+  cursor: pointer;
+}
+.ip-map-layer-switcher button + button {
+  border-left: 1px solid #e3e8e7;
+}
+.ip-map-layer-switcher button.active {
+  background: var(--navy);
+  color: #fff;
+}
+.ip-location-notice {
+  display: grid;
+  gap: 3px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid #e5d6b9;
+  border-radius: 10px;
+  background: #fff8e9;
+  color: #72551d;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.ip-location-notice strong {
+  color: #5b4213;
 }
 .ip-location-details {
   display: grid;
@@ -3133,8 +3189,11 @@ tbody tr:last-child td {
 .modal-backdrop {
   position: fixed;
   inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  overflow: hidden;
   background: #09273266;
-  z-index: 2000;
+  z-index: 10000;
   display: grid;
   place-items: center;
   padding: 20px;

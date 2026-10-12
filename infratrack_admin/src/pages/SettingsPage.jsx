@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { CircleMarker, MapContainer, TileLayer } from "react-leaflet";
-import { ExternalLink, MapPin, X } from "lucide-react";
+import { ExternalLink, LocateFixed, MapPin, X } from "lucide-react";
+import { createPortal } from "react-dom";
 import { API_BASE, apiFetch } from "../api";
 import { canManageSystemSettings } from "../../permissions";
 
@@ -34,7 +35,7 @@ export default function SettingsPage({ user, logsOnly = false }) {
   const [passwordMessage, setPasswordMessage] = useState("");
   const [dataMessage, setDataMessage] = useState("");
   const [teams, setTeams] = useState([]);
-  const [selectedIp, setSelectedIp] = useState("");
+  const [selectedIpLog, setSelectedIpLog] = useState(null);
   const [teamForm, setTeamForm] = useState({ name: "", department: "", contactPhone: "" });
   const [logs, setLogs] = useState([]);
   const [auditTotal, setAuditTotal] = useState(0);
@@ -429,7 +430,7 @@ export default function SettingsPage({ user, logsOnly = false }) {
                     <td style={{ padding: "12px 8px", fontSize: 11 }}>{formatAuditChange(details)}</td>
                     <td style={{ padding: "12px 8px" }}>
                       {isPublicIpAddress(log.ip_address) ? (
-                        <button type="button" className="audit-ip-link" onClick={() => setSelectedIp(log.ip_address)}>
+                        <button type="button" className="audit-ip-link" onClick={() => setSelectedIpLog(log)}>
                           <MapPin size={13} /> {log.ip_address}
                         </button>
                       ) : (
@@ -470,15 +471,25 @@ export default function SettingsPage({ user, logsOnly = false }) {
           </div>
         )}
       </article>}
-      {selectedIp && <IpLocationModal ip={selectedIp} onClose={() => setSelectedIp("")} />}
+      {selectedIpLog && <IpLocationModal log={selectedIpLog} onClose={() => setSelectedIpLog(null)} />}
     </div>
   );
 }
 
-function IpLocationModal({ ip, onClose }) {
+function IpLocationModal({ log, onClose }) {
+  const ip = log.ip_address;
   const [location, setLocation] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [deviceCoordinates, setDeviceCoordinates] = useState(null);
+  const [deviceLocationState, setDeviceLocationState] = useState("idle");
+  const [mapLayer, setMapLayer] = useState("street");
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -504,34 +515,74 @@ function IpLocationModal({ ip, onClose }) {
   const coordinates = location?.latitude && location?.longitude
     ? [Number(location.latitude), Number(location.longitude)]
     : null;
-  const mapUrl = coordinates ? `https://www.openstreetmap.org/?mlat=${coordinates[0]}&mlon=${coordinates[1]}#map=12/${coordinates[0]}/${coordinates[1]}` : "";
+  const mapCoordinates = deviceCoordinates || coordinates;
+  const mapUrl = mapCoordinates ? `https://www.openstreetmap.org/?mlat=${mapCoordinates[0]}&mlon=${mapCoordinates[1]}#map=15/${mapCoordinates[0]}/${mapCoordinates[1]}` : "";
+  const requestDeviceLocation = () => {
+    if (!navigator.geolocation) {
+      setDeviceLocationState("error");
+      setError("This browser does not provide device location.");
+      return;
+    }
+    setDeviceLocationState("loading");
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setDeviceCoordinates([position.coords.latitude, position.coords.longitude]);
+        setDeviceLocationState("ready");
+      },
+      () => {
+        setDeviceLocationState("error");
+        setError("Device location was not shared. Allow location access in the browser and try again.");
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+    );
+  };
 
-  return (
+  return createPortal(
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal ip-location-modal" role="dialog" aria-modal="true" aria-labelledby="ip-location-title" onClick={(event) => event.stopPropagation()}>
         <button type="button" className="modal-close" aria-label="Close IP location" onClick={onClose}><X size={18} /></button>
         <div className="ip-location-heading">
           <div>
             <span className="eyebrow">Audit log location</span>
-            <h2 id="ip-location-title">IP Location: {ip}</h2>
+            <h2 id="ip-location-title">Network location: {ip}</h2>
           </div>
-          {coordinates && <a className="secondary-button ip-map-link" href={mapUrl} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Open in Maps</a>}
+          <div className="ip-location-actions">
+            <button type="button" className="secondary-button ip-device-link" onClick={requestDeviceLocation} disabled={deviceLocationState === "loading"}>
+              <LocateFixed size={14} /> {deviceLocationState === "loading" ? "Locating…" : deviceLocationState === "ready" ? "Location enabled" : "Use device location"}
+            </button>
+            {mapCoordinates && <a className="secondary-button ip-map-link" href={mapUrl} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Open in Maps</a>}
+          </div>
         </div>
         {loading && <p className="ip-location-state">Loading approximate location…</p>}
         {error && <p className="ip-location-state error" role="alert">{error}</p>}
         {coordinates && location && (
           <>
+            <div className="ip-location-notice">
+              <strong>{deviceCoordinates ? "Device location enabled" : "Approximate only"}</strong>
+              <span>{deviceCoordinates ? "The blue marker is this browser’s GPS location. The red marker is the IP provider estimate." : "IP databases identify the internet provider’s network area, not the user’s exact location. A Davao City result can be normal for someone who is physically in Mati City."}</span>
+            </div>
             <div className="ip-location-map">
-              <MapContainer center={coordinates} zoom={11} scrollWheelZoom className="leaflet-map">
-                <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+              <MapContainer key={mapCoordinates.join(",")} center={mapCoordinates} zoom={deviceCoordinates ? 14 : 11} scrollWheelZoom className="leaflet-map">
+                {mapLayer === "street" ? (
+                  <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                ) : (
+                  <TileLayer attribution="Tiles &copy; Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community" url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" />
+                )}
                 <CircleMarker center={coordinates} radius={10} pathOptions={{ color: "#c1592b", fillColor: "#c1592b", fillOpacity: 0.8 }} />
+                {deviceCoordinates && <CircleMarker center={deviceCoordinates} radius={9} pathOptions={{ color: "#1769aa", fillColor: "#2f8fce", fillOpacity: 0.9 }} />}
               </MapContainer>
+              <div className="ip-map-layer-switcher" role="group" aria-label="Location map layer">
+                <button type="button" className={mapLayer === "street" ? "active" : ""} onClick={() => setMapLayer("street")}>Street</button>
+                <button type="button" className={mapLayer === "satellite" ? "active" : ""} onClick={() => setMapLayer("satellite")}>Satellite</button>
+              </div>
             </div>
             <div className="ip-location-details">
-              <strong>{[location.city, location.region, location.country].filter(Boolean).join(", ") || "Approximate location"}</strong>
+              <strong>Provider estimate: {[location.city, location.region, location.country].filter(Boolean).join(", ") || "Unavailable"}</strong>
               <span>{location.isp || location.org || "Network details unavailable"}</span>
-              <span>Coordinates: {coordinates[0].toFixed(4)}, {coordinates[1].toFixed(4)}</span>
-            </div>
+              <span>{deviceCoordinates ? "Blue marker: device GPS location" : "InfraTrack operating area"}: {log.actor_barangay ? `${log.actor_barangay}, ` : ""}Mati City, Davao Oriental</span>
+            </div>,
+            document.body,
+  );
           </>
         )}
       </div>
