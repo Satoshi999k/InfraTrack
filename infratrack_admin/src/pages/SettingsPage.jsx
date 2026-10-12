@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { CircleMarker, MapContainer, TileLayer } from "react-leaflet";
-import { ExternalLink, LocateFixed, MapPin, X } from "lucide-react";
+import { ExternalLink, MapPin, X } from "lucide-react";
 import { API_BASE, apiFetch } from "../api";
 import { canManageSystemSettings } from "../../permissions";
 
@@ -480,8 +480,6 @@ function IpLocationModal({ log, onClose }) {
   const [location, setLocation] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [deviceCoordinates, setDeviceCoordinates] = useState(null);
-  const [deviceLocationState, setDeviceLocationState] = useState("idle");
   const [mapLayer, setMapLayer] = useState("street");
 
   useEffect(() => {
@@ -495,7 +493,7 @@ function IpLocationModal({ log, onClose }) {
     setLoading(true);
     setError("");
     setLocation(null);
-    fetch(`https://ipwho.is/${encodeURIComponent(ip)}`, { signal: controller.signal })
+    apiFetch(`/ip-location/${encodeURIComponent(ip)}`, { signal: controller.signal })
       .then(async (response) => {
         const data = await response.json();
         if (!response.ok || data.success === false) throw new Error(data.message || "Could not locate this IP address.");
@@ -514,27 +512,8 @@ function IpLocationModal({ log, onClose }) {
   const coordinates = location?.latitude && location?.longitude
     ? [Number(location.latitude), Number(location.longitude)]
     : null;
-  const mapCoordinates = deviceCoordinates || coordinates;
+  const mapCoordinates = coordinates;
   const mapUrl = mapCoordinates ? `https://www.openstreetmap.org/?mlat=${mapCoordinates[0]}&mlon=${mapCoordinates[1]}#map=15/${mapCoordinates[0]}/${mapCoordinates[1]}` : "";
-  const requestDeviceLocation = () => {
-    if (!navigator.geolocation) {
-      setDeviceLocationState("error");
-      setError("This browser does not provide device location.");
-      return;
-    }
-    setDeviceLocationState("loading");
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setDeviceCoordinates([position.coords.latitude, position.coords.longitude]);
-        setDeviceLocationState("ready");
-      },
-      () => {
-        setDeviceLocationState("error");
-        setError("Device location was not shared. Allow location access in the browser and try again.");
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
-    );
-  };
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -545,30 +524,25 @@ function IpLocationModal({ log, onClose }) {
             <span className="eyebrow">Audit log location</span>
             <h2 id="ip-location-title">Network location: {ip}</h2>
           </div>
-          <div className="ip-location-actions">
-            <button type="button" className="secondary-button ip-device-link" onClick={requestDeviceLocation} disabled={deviceLocationState === "loading"}>
-              <LocateFixed size={14} /> {deviceLocationState === "loading" ? "Locating…" : deviceLocationState === "ready" ? "Location enabled" : "Use device location"}
-            </button>
-            {mapCoordinates && <a className="secondary-button ip-map-link" href={mapUrl} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Open in Maps</a>}
-          </div>
+          {mapCoordinates && <a className="secondary-button ip-map-link" href={mapUrl} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Open in Maps</a>}
         </div>
         {loading && <p className="ip-location-state">Loading approximate location…</p>}
         {error && <p className="ip-location-state error" role="alert">{error}</p>}
+        {!loading && !error && !coordinates && <p className="ip-location-state">No public network location is available for this address.</p>}
         {coordinates && location && (
           <>
             <div className="ip-location-notice">
-              <strong>{deviceCoordinates ? "Device location enabled" : "Approximate only"}</strong>
-              <span>{deviceCoordinates ? "The blue marker is this browser’s GPS location. The red marker is the IP provider estimate." : "IP databases identify the internet provider’s network area, not the user’s exact location. A Davao City result can be normal for someone who is physically in Mati City."}</span>
+              <strong>Recorded IP verified</strong>
+              <span>This map is an automatic network estimate for the exact IP saved in this audit record. IP databases cannot identify the visitor’s exact physical location; mobile and shared networks may resolve to another city.</span>
             </div>
             <div className="ip-location-map">
-              <MapContainer key={mapCoordinates.join(",")} center={mapCoordinates} zoom={deviceCoordinates ? 14 : 11} scrollWheelZoom className="leaflet-map">
+              <MapContainer center={mapCoordinates} zoom={11} scrollWheelZoom className="leaflet-map">
                 {mapLayer === "street" ? (
                   <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 ) : (
                   <TileLayer attribution="Tiles &copy; Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community" url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" />
                 )}
                 {coordinates && <CircleMarker center={coordinates} radius={10} pathOptions={{ color: "#c1592b", fillColor: "#c1592b", fillOpacity: 0.8 }} />}
-                {deviceCoordinates && <CircleMarker center={deviceCoordinates} radius={9} pathOptions={{ color: "#1769aa", fillColor: "#2f8fce", fillOpacity: 0.9 }} />}
               </MapContainer>
               <div className="ip-map-layer-switcher" role="group" aria-label="Location map layer">
                 <button type="button" className={mapLayer === "street" ? "active" : ""} onClick={() => setMapLayer("street")}>Street</button>
@@ -576,9 +550,10 @@ function IpLocationModal({ log, onClose }) {
               </div>
             </div>
             <div className="ip-location-details">
-              <strong>Provider estimate: {[location.city, location.region, location.country].filter(Boolean).join(", ") || "Unavailable"}</strong>
+              <strong>Network estimate: {[location.city, location.region, location.country].filter(Boolean).join(", ") || "Unavailable"}</strong>
               <span>{location.isp || location.org || "Network details unavailable"}</span>
-              <span>{deviceCoordinates ? "Blue marker: device GPS location" : "InfraTrack operating area"}: {log.actor_barangay ? `${log.actor_barangay}, ` : ""}Mati City, Davao Oriental</span>
+              <span>Recorded IP: {location.ip || ip}</span>
+              <span>InfraTrack operating area: {log.actor_barangay ? `${log.actor_barangay}, ` : ""}Mati City, Davao Oriental</span>
             </div>
           </>
         )}

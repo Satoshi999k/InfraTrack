@@ -3,6 +3,7 @@ import express from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import crypto from "node:crypto";
+import net from "node:net";
 import mysql from "mysql2/promise";
 import multer from "multer";
 import fs from "node:fs";
@@ -107,8 +108,20 @@ function scheduleDatabaseBackups() {
   const hours = Number(process.env.BACKUP_INTERVAL_HOURS || 24);
   if (hours > 0) setInterval(() => createDatabaseBackup().catch((error) => console.error("Scheduled backup failed:", error.message)), hours * 60 * 60 * 1000);
 }
-const clientIp = (req) => String(process.env.TRUST_PROXY === "true" ? (req.headers["x-forwarded-for"] || req.ip) : (req.ip || req.socket.remoteAddress) || "unknown").split(",")[0].trim();
+const normalizeClientIp = (value) => {
+  const candidate = String(value || "").trim().replace(/^\[|\]$/g, "").replace(/^::ffff:/i, "");
+  return net.isIP(candidate) ? candidate : "unknown";
+};
+const clientIp = (req) => normalizeClientIp(process.env.TRUST_PROXY === "true" ? req.ip : req.socket.remoteAddress);
 const isAutomatedUserAgent = (req) => /bot|crawler|spider|scrapy|curl|wget|python-requests|headless/i.test(String(req.get("user-agent") || ""));
+const isPublicIp = (value) => {
+  const ip = String(value || "").trim();
+  if (!ip || ip === "::1" || ip === "127.0.0.1" || ip.toLowerCase() === "localhost") return false;
+  if (/^(10\.|127\.|192\.168\.|169\.254\.)/.test(ip)) return false;
+  if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(ip)) return false;
+  if (/^(fc|fd|fe8|fe9|fea|feb)/i.test(ip)) return false;
+  return true;
+};
 async function verifyRecaptcha(token, ip) {
   if (!recaptchaSecret) return { ok: true, configured: false };
   if (!token) {
@@ -875,6 +888,35 @@ app.get("/api/audit-logs", async (req, res) => {
     [...params, limit, offset],
   );
   res.json({ logs, total: Number(count.total), limit, offset });
+});
+app.get("/api/ip-location/:ip", async (req, res) => {
+  const ip = normalizeClientIp(req.params.ip);
+  if (ip === "unknown") return res.status(400).json({ error: "Invalid IP address" });
+  if (!isPublicIp(ip)) return res.json({ available: false, reason: "Private or local IP address" });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+  try {
+    const response = await fetch(`https://ipwho.is/${encodeURIComponent(ip)}`, { signal: controller.signal });
+    const data = await response.json();
+    if (!response.ok || data.success === false) return res.status(502).json({ error: data.message || "IP location provider unavailable" });
+    res.json({
+      available: true,
+      ip,
+      source: "ipwho.is",
+      latitude: Number(data.latitude),
+      longitude: Number(data.longitude),
+      city: data.city || null,
+      region: data.region || null,
+      country: data.country || null,
+      isp: data.connection?.isp || data.isp || null,
+      org: data.connection?.org || data.org || null,
+    });
+  } catch (error) {
+    console.error("Unable to retrieve IP location:", error.message);
+    res.status(502).json({ error: "IP location provider unavailable" });
+  } finally {
+    clearTimeout(timeout);
+  }
 });
 app.get("/api/settings", async (req, res) => {
   const viewer = req.auth;
