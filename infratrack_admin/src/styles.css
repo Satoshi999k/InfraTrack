@@ -38,6 +38,11 @@ body {
   font-size: 13px;
   min-height: 100vh;
 }
+@media (prefers-reduced-motion: reduce) {
+  .page-transition > * {
+    animation-delay: 0s !important;
+  }
+}
 button,
 input,
 textarea,
@@ -933,6 +938,24 @@ a:focus-visible,
 .content {
   padding: 28px 30px 72px;
   max-width: 1600px;
+}
+.page-transition {
+  animation: page-content-enter 0.34s cubic-bezier(0.2, 0.75, 0.25, 1) both;
+  will-change: opacity, transform;
+}
+.page-transition > * {
+  animation: content-section-enter 0.38s cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+.page-transition > :nth-child(2) { animation-delay: 0.045s; }
+.page-transition > :nth-child(3) { animation-delay: 0.09s; }
+.page-transition > :nth-child(4) { animation-delay: 0.135s; }
+@keyframes page-content-enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes content-section-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 .card {
   background: #fff;
@@ -3081,6 +3104,159 @@ tbody tr:last-child td {
   display: grid;
   place-items: center;
   cursor: pointer;
+}
+.help-tour-modal {
+  width: min(420px, calc(100vw - 32px));
+  padding: 22px 24px 18px;
+  border: 1px solid rgba(9, 39, 50, 0.08);
+  border-radius: 16px;
+  background: #fff;
+  z-index: 2002;
+  animation: help-tour-modal-enter 0.28s cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+.help-tour-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  pointer-events: none;
+}
+.help-tour-backdrop.welcome::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: rgba(9, 39, 50, 0.62);
+  animation: help-tour-dim-enter 0.24s ease-out both;
+}
+.help-tour-spotlight {
+  position: fixed;
+  z-index: 2001;
+  border: 2px solid var(--teal);
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 4px rgba(27, 138, 131, 0.16),
+    0 0 0 9999px rgba(9, 39, 50, 0.62);
+  pointer-events: none;
+  transition: top 0.28s ease, left 0.28s ease, width 0.28s ease, height 0.28s ease;
+}
+.help-tour-modal {
+  position: fixed;
+  pointer-events: auto;
+  margin: 0;
+  transition: top 0.28s ease, left 0.28s ease, transform 0.28s ease;
+}
+.help-tour-close {
+  z-index: 3;
+  pointer-events: auto;
+}
+@keyframes help-tour-modal-enter {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.help-tour-modal.centered {
+  animation-name: help-tour-centered-enter;
+}
+@keyframes help-tour-centered-enter {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.98); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes help-tour-dim-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.help-tour-content {
+  animation: help-tour-step-enter 0.34s cubic-bezier(0.2, 0.75, 0.25, 1) both;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+.help-tour-content.is-changing {
+  opacity: 0;
+  transform: translateY(6px);
+}
+.help-tour-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-right: 38px;
+}
+.help-tour-eyebrow {
+  color: var(--teal);
+  font: 700 9px "IBM Plex Mono";
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.help-tour-count {
+  color: var(--muted);
+  font: 600 10px "IBM Plex Mono";
+}
+.help-tour-icon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  margin: 24px 0 14px;
+  border-radius: 12px;
+  background: var(--teal-soft);
+  color: var(--teal);
+}
+.help-tour-modal h2 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.2;
+}
+.help-tour-modal p {
+  min-height: 42px;
+  margin: 9px 0 24px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.help-tour-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 15px;
+  border-top: 1px solid var(--line);
+}
+.help-tour-dots {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.help-tour-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #d8e2df;
+  transition: width 0.34s ease, background-color 0.34s ease;
+}
+.help-tour-dots span.active {
+  width: 18px;
+  border-radius: 99px;
+  background: var(--teal);
+}
+.help-tour-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.help-tour-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 8px 13px;
+}
+@keyframes help-tour-step-enter {
+  from { opacity: 0; transform: translateX(8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .help-tour-content,
+  .help-tour-dots span {
+    animation: none;
+    transition: none;
+  }
 }
 .modal-badge {
   display: inline-block;

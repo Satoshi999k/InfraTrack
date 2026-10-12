@@ -259,6 +259,7 @@ function Dashboard({ user, onLogout }) {
             {group.items.map(([id, label]) => (
               <button
                 className={`nav-link ${page === id ? "active" : ""}`}
+                data-tour-target={`nav-${id}`}
                 key={id}
                 onClick={() => navigate(id)}
               >
@@ -308,6 +309,7 @@ function Dashboard({ user, onLogout }) {
           </label>
           <div className="top-actions">
             <button
+              data-tour-target="walkin-report"
               className="primary-button"
               onClick={() =>
                 setModal({
@@ -317,7 +319,7 @@ function Dashboard({ user, onLogout }) {
             >
               <Icon icon={Flag} size={17} /> Log walk-in report
             </button>
-            <div className="notification-menu" ref={notificationRef}>
+            <div className="notification-menu" data-tour-target="notifications" ref={notificationRef}>
               <button
                 className={`icon-button notification ${notificationsOpen ? "active" : ""}`}
                 type="button"
@@ -370,7 +372,7 @@ function Dashboard({ user, onLogout }) {
                 </div>
               )}
             </div>
-            <button type="button" className="icon-button" aria-label="Help" onClick={() => setModal({ type: "help" })}>
+            <button type="button" className="icon-button" data-tour-target="help" aria-label="Help" onClick={() => setModal({ type: "help" })}>
               <Icon icon={HelpCircle} />
             </button>
             <div className="admin-avatar">{adminBadge}</div>
@@ -473,8 +475,9 @@ function Dashboard({ user, onLogout }) {
 function PageContent({ page, issues, users, isLoading, onOpenIssue, onOpenUser, onNavigate, onNotify, overviewData, user }) {
   if (isLoading) return <DashboardLoading />;
 
+  let pageView;
   if (!canAccessAdminPage(user?.role, page)) {
-    return (
+    pageView = (
       <Overview
         issues={issues}
         overviewData={overviewData}
@@ -483,18 +486,27 @@ function PageContent({ page, issues, users, isLoading, onOpenIssue, onOpenUser, 
         user={user}
       />
     );
+  } else if (page === "queue") {
+    pageView = <IssueQueuePage issues={issues} onOpenIssue={onOpenIssue} />;
+  } else if (page === "map") {
+    pageView = <MapPage issues={issues} onOpenIssue={onOpenIssue} user={user} />;
+  } else if (page === "analytics") {
+    pageView = <AnalyticsLive user={user} />;
+  } else if (page === "users") {
+    pageView = <UsersPage users={users} onOpenUser={onOpenUser} user={user} />;
+  } else if (page === "announce") {
+    pageView = <AdvisoryPage user={user} onNotify={onNotify} onViewAll={() => onNavigate("published")} />;
+  } else if (page === "published") {
+    pageView = <AdvisoryPage user={user} onNotify={onNotify} publishedOnly />;
+  } else if (page === "logs") {
+    pageView = <SettingsPage user={user} logsOnly />;
+  } else if (page === "settings") {
+    pageView = <SettingsPage user={user} />;
+  } else {
+    pageView = <Overview issues={issues} overviewData={overviewData} onOpenIssue={onOpenIssue} onNavigate={onNavigate} user={user} />;
   }
 
-  if (page === "queue") return <IssueQueuePage issues={issues} onOpenIssue={onOpenIssue} />;
-  if (page === "map") return <MapPage issues={issues} onOpenIssue={onOpenIssue} user={user} />;
-  if (page === "analytics") return <AnalyticsLive user={user} />;
-  if (page === "users") return <UsersPage users={users} onOpenUser={onOpenUser} user={user} />;
-  if (page === "announce") return <AdvisoryPage user={user} onNotify={onNotify} onViewAll={() => onNavigate("published")} />;
-  if (page === "published") return <AdvisoryPage user={user} onNotify={onNotify} publishedOnly />;
-  if (page === "logs") return <SettingsPage user={user} logsOnly />;
-  if (page === "settings") return <SettingsPage user={user} />;
-
-  return <Overview issues={issues} overviewData={overviewData} onOpenIssue={onOpenIssue} onNavigate={onNavigate} user={user} />;
+  return <div className="page-transition" key={page}>{pageView}</div>;
 }
 
 function DashboardLoading({ message = "Loading your workspace…" }) {

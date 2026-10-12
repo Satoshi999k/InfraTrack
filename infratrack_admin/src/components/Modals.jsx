@@ -1,13 +1,23 @@
-import { useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   Ban,
+  BarChart3,
+  Bell,
+  Flag,
   CalendarDays,
   CheckCircle2,
   Clock3,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
   FileText,
   Eye,
+  LayoutDashboard,
   MapPin,
+  Map,
+  Megaphone,
+  ScrollText,
   ShieldAlert,
   ShieldCheck,
   Users,
@@ -22,29 +32,197 @@ export function Modal({ data, onClose, onSave, onUserSave }) {
 }
 
 function HelpModal({ onClose }) {
+  const [step, setStep] = useState(0);
+  const [targetRect, setTargetRect] = useState(null);
+  const [isChangingStep, setIsChangingStep] = useState(false);
+  const transitionTimer = useRef(null);
+  const guideSteps = [
+    {
+      eyebrow: "InfraTrack guide",
+      title: "Welcome to InfraTrack",
+      description: "Use this dashboard to review infrastructure reports, coordinate response teams, and monitor service improvements across Mati City.",
+      icon: LayoutDashboard,
+      target: null,
+    },
+    {
+      eyebrow: "InfraTrack guide",
+      title: "The rail is your pipeline",
+      description: "Use the sidebar to move from the overview to the issue queue, map, analytics, and administration tools.",
+      icon: LayoutDashboard,
+      target: "nav-overview",
+    },
+    {
+      eyebrow: "Issue queue",
+      title: "Review incoming reports",
+      description: "Open the issue queue to verify new reports, assign response teams, and update progress.",
+      icon: ClipboardList,
+      target: "nav-queue",
+    },
+    {
+      eyebrow: "Infrastructure map",
+      title: "See issues by location",
+      description: "Open the map to understand where infrastructure problems are concentrated across Mati City.",
+      icon: Map,
+      target: "nav-map",
+    },
+    {
+      eyebrow: "Analytics & reports",
+      title: "Track what needs attention",
+      description: "Review trends, response performance, and resident ratings to guide your next action.",
+      icon: BarChart3,
+      target: "nav-analytics",
+    },
+    {
+      eyebrow: "Administration",
+      title: "Manage user accounts",
+      description: "Use User Management to review residents, account status, and access permissions.",
+      icon: Users,
+      target: "nav-users",
+    },
+    {
+      eyebrow: "Administration",
+      title: "Publish a public advisory",
+      description: "Create announcements that keep residents informed about infrastructure work and service updates.",
+      icon: Megaphone,
+      target: "nav-announce",
+    },
+    {
+      eyebrow: "Administration",
+      title: "Review published advisories",
+      description: "Open Published Advisories to review the announcements currently available to the public.",
+      icon: FileText,
+      target: "nav-published",
+    },
+    {
+      eyebrow: "Administration",
+      title: "Review activity logs",
+      description: "Use Activity Logs to trace important account, report, advisory, and system actions.",
+      icon: ScrollText,
+      target: "nav-logs",
+    },
+    {
+      eyebrow: "Quick action",
+      title: "Log a walk-in report",
+      description: "Capture an issue reported directly at the LGU desk using the action button in the top bar.",
+      icon: Flag,
+      target: "walkin-report",
+    },
+    {
+      eyebrow: "Updates",
+      title: "Stay on top of changes",
+      description: "Use notifications to quickly see new infrastructure reports and open the issue queue.",
+      icon: Bell,
+      target: "notifications",
+    },
+  ];
+  const currentStep = guideSteps[step];
+  const StepIcon = currentStep.icon;
+  const isLastStep = step === guideSteps.length - 1;
+
+  useEffect(() => () => {
+    if (transitionTimer.current) window.clearTimeout(transitionTimer.current);
+  }, []);
+
+  const changeStep = (nextStep) => {
+    if (isChangingStep || nextStep < 0 || nextStep >= guideSteps.length) return;
+    setIsChangingStep(true);
+    transitionTimer.current = window.setTimeout(() => {
+      setStep(nextStep);
+      setIsChangingStep(false);
+    }, 220);
+  };
+
+  useLayoutEffect(() => {
+    const updateTarget = () => {
+      if (!currentStep.target) {
+        setTargetRect(null);
+        return;
+      }
+      const target = document.querySelector(`[data-tour-target="${currentStep.target}"]`);
+      if (!target) {
+        setTargetRect(null);
+        return;
+      }
+      const rect = target.getBoundingClientRect();
+      setTargetRect({ top: rect.top, left: rect.left, width: rect.width, height: rect.height });
+    };
+    updateTarget();
+    window.addEventListener("resize", updateTarget);
+    window.addEventListener("scroll", updateTarget, true);
+    return () => {
+      window.removeEventListener("resize", updateTarget);
+      window.removeEventListener("scroll", updateTarget, true);
+    };
+  }, [currentStep.target]);
+
+  const tourWidth = Math.min(420, window.innerWidth - 32);
+  const tourGap = 16;
+  const canFitRight = targetRect && targetRect.left + targetRect.width + tourGap + tourWidth <= window.innerWidth - 16;
+  const tourPosition = targetRect
+    ? {
+        top: Math.min(Math.max(targetRect.top, 16), window.innerHeight - 300),
+        left: canFitRight
+          ? targetRect.left + targetRect.width + tourGap
+          : Math.max(16, targetRect.left - tourWidth - tourGap),
+      }
+    : { top: "50%", left: "50%", transform: "translate(-50%, -50%)" };
+
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal advisory-editor-modal" onClick={(event) => event.stopPropagation()}>
-        <button type="button" className="modal-close" onClick={onClose}><X size={18} /></button>
-        <div className="advisory-edit-header">
-          <h2>Need help?</h2>
-          <p>Use the admin dashboard to review reports, assign field teams, and monitor infrastructure issues in Mati City.</p>
-        </div>
-
-        <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
-          <div className="modal-section">
-            <h3>Quick actions</h3>
-            <ul style={{ margin: 0, paddingLeft: 18, color: "#335f68", lineHeight: 1.7 }}>
-              <li>Review incoming reports in the issue queue.</li>
-              <li>Log walk-in reports from the top-right action button.</li>
-              <li>Open the map to inspect location-based infrastructure issues.</li>
-              <li>Use analytics to monitor trends and resident ratings.</li>
-            </ul>
+    <div className={`help-tour-backdrop ${targetRect ? "has-target" : "welcome"}`}>
+      {targetRect && (
+        <div
+          className="help-tour-spotlight"
+          style={{
+            top: targetRect.top - 6,
+            left: targetRect.left - 6,
+            width: targetRect.width + 12,
+            height: targetRect.height + 12,
+          }}
+        />
+      )}
+      <div
+        className={`modal help-tour-modal ${targetRect ? "" : "centered"}`}
+        style={tourPosition}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="help-tour-title"
+      >
+        <button
+          type="button"
+          className="modal-close help-tour-close"
+          aria-label="Close guide"
+          onClick={(event) => {
+            event.stopPropagation();
+            onClose();
+          }}
+        >
+          <X size={18} />
+        </button>
+        <div className={`help-tour-content ${isChangingStep ? "is-changing" : ""}`} key={step}>
+          <div className="help-tour-topline">
+            <span className="help-tour-eyebrow">{currentStep.eyebrow}</span>
+            <span className="help-tour-count">{step + 1} / {guideSteps.length}</span>
           </div>
+          <div className="help-tour-icon"><StepIcon size={20} /></div>
+          <h2 id="help-tour-title">{currentStep.title}</h2>
+          <p>{currentStep.description}</p>
         </div>
-
-        <div className="advisory-edit-actions" style={{ marginTop: 18 }}>
-          <button type="button" className="primary-button" onClick={onClose}>Close</button>
+        <div className="help-tour-footer">
+          <div className="help-tour-dots" aria-label={`Step ${step + 1} of ${guideSteps.length}`}>
+            {guideSteps.map((item, index) => (
+              <span className={index === step ? "active" : ""} key={item.title} />
+            ))}
+          </div>
+          <div className="help-tour-actions">
+            {step > 0 && (
+              <button type="button" className="secondary-button" onClick={() => changeStep(step - 1)} disabled={isChangingStep}>
+                <ChevronLeft size={15} /> Back
+              </button>
+            )}
+            <button type="button" className="primary-button" onClick={() => (isLastStep ? onClose() : changeStep(step + 1))} disabled={isChangingStep}>
+              {isLastStep ? "Done" : "Next"} {!isLastStep && <ChevronRight size={15} />}
+            </button>
+          </div>
         </div>
       </div>
     </div>
