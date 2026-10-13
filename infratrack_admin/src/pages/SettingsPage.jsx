@@ -515,6 +515,10 @@ function IpLocationModal({ log, onClose }) {
     : null;
   const mapCoordinates = coordinates;
   const mapUrl = mapCoordinates ? `https://www.openstreetmap.org/?mlat=${mapCoordinates[0]}&mlon=${mapCoordinates[1]}#map=15/${mapCoordinates[0]}/${mapCoordinates[1]}` : "";
+  const actorBarangay = String(log.actor_barangay || "").trim();
+  const operatingArea = actorBarangay && !/^mati city$/i.test(actorBarangay)
+    ? `${actorBarangay}, Mati City, Davao Oriental`
+    : "Mati City, Davao Oriental";
 
   return createPortal(
     <div className="modal-backdrop" onClick={onClose}>
@@ -554,7 +558,7 @@ function IpLocationModal({ log, onClose }) {
               <strong>Network estimate: {[location.city, location.region, location.country].filter(Boolean).join(", ") || "Unavailable"}</strong>
               <span>{location.isp || location.org || "Network details unavailable"}</span>
               <span>Recorded IP: {location.ip || ip}</span>
-              <span>InfraTrack operating area: {log.actor_barangay ? `${log.actor_barangay}, ` : ""}Mati City, Davao Oriental</span>
+              <span>InfraTrack operating area: {operatingArea}</span>
             </div>
           </>
         )}
