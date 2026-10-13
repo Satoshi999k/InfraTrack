@@ -1066,7 +1066,12 @@ app.get("/api/issues", async (req, res) => {
   const scope = getReportScope(req.auth, "r");
   const [issues] = await pool.query(`SELECT r.*, u.name AS reporter,
     (SELECT m.file_path FROM media m WHERE m.report_id = r.id ORDER BY m.id DESC LIMIT 1) AS media_url,
-    (SELECT m.media_type FROM media m WHERE m.report_id = r.id ORDER BY m.id DESC LIMIT 1) AS media_kind
+    (SELECT m.media_type FROM media m WHERE m.report_id = r.id ORDER BY m.id DESC LIMIT 1) AS media_kind,
+    (SELECT COUNT(*) FROM media m WHERE m.report_id = r.id) AS media_count,
+    (SELECT COUNT(*) FROM media m WHERE m.report_id = r.id AND m.media_type IN ('photo', 'gif')) AS photo_count,
+    (SELECT COUNT(*) FROM media m WHERE m.report_id = r.id AND m.media_type = 'video') AS video_count,
+    (SELECT e.note FROM report_events e WHERE e.report_id = r.id ORDER BY e.created_at DESC, e.id DESC LIMIT 1) AS latest_event_note,
+    (SELECT e.created_at FROM report_events e WHERE e.report_id = r.id ORDER BY e.created_at DESC, e.id DESC LIMIT 1) AS latest_event_at
     FROM reports r LEFT JOIN users u ON u.id = r.reporter_id
     WHERE r.status <> 'Archived' AND LOWER(CONCAT(r.title, ' ', r.location, ' ', r.public_id)) LIKE ?${scope.sql}
     ORDER BY r.created_at DESC`, [search, ...scope.params]);

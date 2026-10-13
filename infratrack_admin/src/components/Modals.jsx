@@ -272,10 +272,10 @@ function WalkInModal({ onClose, onSave }) {
           <option>Low</option><option>Medium</option><option>High</option><option>Critical</option>
         </select>
         <label>Description</label>
-        <textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Describe the issue and safety concern…" />
+        <textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Describe the issue and safety concernÃ¢â‚¬Â¦" />
         <div className="advisory-edit-actions">
           <button type="button" className="secondary-button" onClick={onClose}>Cancel</button>
-          <button type="submit" className="primary-button" disabled={saving}>{saving ? "Saving…" : "Save report"}</button>
+          <button type="submit" className="primary-button" disabled={saving}>{saving ? "SavingÃ¢â‚¬Â¦" : "Save report"}</button>
         </div>
       </form>
     </div>
@@ -283,6 +283,17 @@ function WalkInModal({ onClose, onSave }) {
 }
 
 export function IssueModal({ data, onClose, onSave }) {
+  const latitude = Number(data.latitude);
+  const longitude = Number(data.longitude);
+  const coordinates = Number.isFinite(latitude) && Number.isFinite(longitude)
+    ? `${latitude.toFixed(5)}Ã‚Â° N, ${longitude.toFixed(5)}Ã‚Â° E`
+    : "Coordinates unavailable";
+  const mediaCount = Number(data.media_count) || 0;
+  const photoCount = Number(data.photo_count) || 0;
+  const videoCount = Number(data.video_count) || 0;
+  const mediaSummary = mediaCount === 0
+    ? "No media attached"
+    : `${photoCount} photo${photoCount === 1 ? "" : "s"}${videoCount ? `, ${videoCount} video${videoCount === 1 ? "" : "s"}` : ""}`;
   const [status, setStatus] = useState(
     data.status === "New report" ? "Reported" : data.status,
   );
@@ -334,7 +345,7 @@ export function IssueModal({ data, onClose, onSave }) {
             />
           )}
           <span className={`issue-modal-status ${data.severity.toLowerCase()}`}>
-            <AlertTriangle size={13} /> {data.severity} · {status}
+            <AlertTriangle size={13} /> {data.severity} Ã‚Â· {status}
           </span>
           <button className="issue-modal-close" onClick={onClose}>
             <X size={18} />
@@ -344,42 +355,34 @@ export function IssueModal({ data, onClose, onSave }) {
           <div className="issue-modal-heading">
             <div>
               <h2>{data.title}</h2>
-              <p className="issue-location"><MapPin size={15} /> {data.location} · 6.9482° N, 126.2311° E</p>
-              <p className="modal-id">Report ID: #{data.id} · Filed {data.created_at ? new Date(data.created_at).toLocaleDateString() : "recently"} by {data.reporter || "walk-in resident"}</p>
+              <p className="issue-location"><MapPin size={15} /> {data.location} Â· {coordinates}</p>
+              <p className="modal-id">Report ID: #{data.id} Ã‚Â· Filed {data.created_at ? new Date(data.created_at).toLocaleDateString() : "recently"} by {data.reporter || "walk-in resident"}</p>
               {data.due_at && <p className="modal-id">SLA due: {new Date(data.due_at).toLocaleString()}</p>}
             </div>
           </div>
           <div className="issue-modal-stats">
-            <span><Users size={15} /> 214 followers</span>
-            <span><Eye size={15} /> 1,045 views</span>
-            <span><FileText size={15} /> 3 photos, 1 video</span>
+            <span><FileText size={15} /> {mediaSummary}</span>
+            <span><Eye size={15} /> Last updated {data.updated_at ? new Date(data.updated_at).toLocaleString() : "Unavailable"}</span>
           </div>
           <div className="modal-grid">
             <div>
               <div className="modal-section issue-description">
                 <h3>Description</h3>
-                <p>
-                  {data.category === "Water"
-                    ? "Entire purok has had no water supply for two days. Residents suspect a broken main line near the barangay hall."
-                    : `This ${data.category.toLowerCase()} issue was reported by a resident and requires LGU operations review, field inspection, and a coordinated response.`}
-                </p>
+                <p>{data.description || "No description provided."}</p>
               </div>
               <div className="modal-section discussion-section">
-                <h3>Official discussion <span className="semi-public-tag">◉ SEMI-PUBLIC</span></h3>
+                <h3>Official discussion <span className="semi-public-tag">Ã¢â€”â€° SEMI-PUBLIC</span></h3>
                 <div className="discussion">
-                  <div className="discussion-head"><b>{data.reporter || "Resident"}</b><small>Aug 2, 9:20 AM</small></div>
-                  <p>
-                    Please prioritize this issue and provide an update when the crew is scheduled.
-                  </p>
+                  <div className="discussion-head"><b>{data.reporter || "Resident"}</b><small>{data.created_at ? new Date(data.created_at).toLocaleString() : "Recently"}</small></div>
+                  <p>{data.description || "No report note was provided."}</p>
                 </div>
-                <div className="discussion official">
-                  <div className="discussion-head"><b>LGU Admin — Engr. Santos</b><small>1h ago</small></div>
-                  <p>
-                    We have received this report and are coordinating the next
-                    field inspection.
-                  </p>
-                </div>
-                <input className="reply-input" placeholder="Reply as LGU Admin…" />
+                {data.latest_event_note && (
+                  <div className="discussion official">
+                    <div className="discussion-head"><b>Latest status update</b><small>{data.latest_event_at ? new Date(data.latest_event_at).toLocaleString() : "Recently"}</small></div>
+                    <p>{data.latest_event_note}</p>
+                  </div>
+                )}
+                <input className="reply-input" placeholder="Reply as LGU AdminÃ¢â‚¬Â¦" />
               </div>
             </div>
             <div className="modal-section case-management">
@@ -398,7 +401,7 @@ export function IssueModal({ data, onClose, onSave }) {
                 Assign to team
                 <select value={assigned} onChange={(event) => setAssigned(event.target.value)}>
                   <option>Unassigned</option>
-                  {(data.teams || []).map((team) => <option key={team.id} value={team.name}>{team.name}{team.department ? ` — ${team.department}` : ""}</option>)}
+                  {(data.teams || []).map((team) => <option key={team.id} value={team.name}>{team.name}{team.department ? ` Ã¢â‚¬â€ ${team.department}` : ""}</option>)}
                 </select>
               </label>
               {status === "In progress" && (
@@ -434,7 +437,7 @@ export function IssueModal({ data, onClose, onSave }) {
                     <textarea
                       value={note}
                       onChange={(event) => setNote(event.target.value)}
-                      placeholder={status === "Rejected" ? "Explain why this report was rejected…" : "Describe what was done…"}
+                      placeholder={status === "Rejected" ? "Explain why this report was rejectedÃ¢â‚¬Â¦" : "Describe what was doneÃ¢â‚¬Â¦"}
                     />
                   </label>
                   <div className="before-after">
@@ -453,7 +456,7 @@ export function IssueModal({ data, onClose, onSave }) {
                 onClick={saveWorkflow}
                 disabled={isSaving}
               >
-                <CheckCircle2 size={16} /> {isSaving ? "Saving…" : "Save changes"}
+                <CheckCircle2 size={16} /> {isSaving ? "SavingÃ¢â‚¬Â¦" : "Save changes"}
               </button>
               <button
                 type="button"
@@ -461,7 +464,7 @@ export function IssueModal({ data, onClose, onSave }) {
                 onClick={() => void saveChanges({ status: "Archived", assignedTeam: assigned, resolutionNote: "Archived by administrator" }, true)}
                 disabled={isSaving}
               >
-                {isArchiving ? "Archiving…" : "Archive issue"}
+                {isArchiving ? "ArchivingÃ¢â‚¬Â¦" : "Archive issue"}
               </button>
             </div>
           </div>
@@ -548,7 +551,7 @@ export function UserModal({ user, onClose, onSave }) {
                 </span>
                 <div>
                   <b>Deep pothole along Rizal St.</b>
-                  <small>#MT-2026-881 · Aug 2, 2026</small>
+                  <small>#MT-2026-881 Ã‚Â· Aug 2, 2026</small>
                 </div>
               </div>
 
@@ -558,7 +561,7 @@ export function UserModal({ user, onClose, onSave }) {
                 </span>
                 <div>
                   <b>Cracked pavement, Chapel St.</b>
-                  <small>#MT-2026-842 · Jul 15, 2026</small>
+                  <small>#MT-2026-842 Ã‚Â· Jul 15, 2026</small>
                 </div>
               </div>
             </div>
@@ -627,7 +630,7 @@ export function UserModal({ user, onClose, onSave }) {
                         onClick={() => apply(selectedAction === "suspend" ? "Suspended" : selectedAction === "ban" ? "Banned" : "Warned")}
                         disabled={saving}
                       >
-                        {saving ? "Saving…" : "Apply action"}
+                        {saving ? "SavingÃ¢â‚¬Â¦" : "Apply action"}
                       </button>
                   </div>
                 )}
