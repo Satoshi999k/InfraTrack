@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
 import { CircleMarker, MapContainer, TileLayer } from "react-leaflet";
 import { ExternalLink, MapPin, X } from "lucide-react";
@@ -515,7 +516,7 @@ function IpLocationModal({ log, onClose }) {
   const mapCoordinates = coordinates;
   const mapUrl = mapCoordinates ? `https://www.openstreetmap.org/?mlat=${mapCoordinates[0]}&mlon=${mapCoordinates[1]}#map=15/${mapCoordinates[0]}/${mapCoordinates[1]}` : "";
 
-  return (
+  return createPortal(
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal ip-location-modal" role="dialog" aria-modal="true" aria-labelledby="ip-location-title" onClick={(event) => event.stopPropagation()}>
         <button type="button" className="modal-close" aria-label="Close IP location" onClick={onClose}><X size={18} /></button>
@@ -558,6 +559,7 @@ function IpLocationModal({ log, onClose }) {
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
