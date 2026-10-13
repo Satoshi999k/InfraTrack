@@ -537,6 +537,7 @@ app.use(async (req, res, next) => {
     !req.path.startsWith("/api/") ||
     req.path === "/api/health" ||
     req.path === "/api/auth/login" ||
+    req.path === "/api/mobile/auth/login" ||
     req.path === "/api/auth/register"
   ) return next();
   const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
@@ -810,7 +811,7 @@ app.patch("/api/mobile/profile/password", async (req, res) => {
   });
   res.json({ ok: true });
 });
-app.post("/api/auth/login", async (req, res) => {
+async function handleLogin(req, res, { requireRecaptcha, auditAction }) {
   const { email, password, recaptchaToken } = req.body ?? {};
   const ip = clientIp(req);
   const now = Date.now();
@@ -820,12 +821,14 @@ app.post("/api/auth/login", async (req, res) => {
     await writeAuditLog(req, { action: "login_blocked", resourceType: "authentication", details: { reason: isAutomatedUserAgent(req) ? "automated_user_agent" : "rate_limit", email: String(email ?? "").trim() } });
     return res.status(429).json({ error: "Too many or automated login attempts. Please try again later." });
   }
-  const captcha = await verifyRecaptcha(recaptchaToken, ip);
-  if (!captcha.ok) {
-    attempt.count += 1;
-    loginAttempts.set(ip, attempt);
-    await writeAuditLog(req, { action: "login_blocked", resourceType: "authentication", details: { reason: "recaptcha_failed", email: String(email ?? "").trim() } });
-    return res.status(403).json({ error: "Security verification failed. Please try again." });
+  if (requireRecaptcha) {
+    const captcha = await verifyRecaptcha(recaptchaToken, ip);
+    if (!captcha.ok) {
+      attempt.count += 1;
+      loginAttempts.set(ip, attempt);
+      await writeAuditLog(req, { action: "login_blocked", resourceType: "authentication", details: { reason: "recaptcha_failed", email: String(email ?? "").trim() } });
+      return res.status(403).json({ error: "Security verification failed. Please try again." });
+    }
   }
   attempt.count += 1;
   loginAttempts.set(ip, attempt);
@@ -841,9 +844,11 @@ app.post("/api/auth/login", async (req, res) => {
   }
   const sessionToken = createSessionToken();
   await pool.query("INSERT INTO admin_sessions (token_hash, user_id, expires_at) VALUES (?, ?, DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 8 HOUR))", [hashSessionToken(sessionToken), user.id]);
-  await writeAuditLog(req, { action: "login", resourceType: "authentication", actor: user });
+  await writeAuditLog(req, { action: auditAction, resourceType: "authentication", actor: user });
   res.json({ token: sessionToken, user: { id: user.id, name: user.name, email: user.email, barangay: user.barangay, role: user.role } });
-});
+}
+app.post("/api/auth/login", (req, res) => handleLogin(req, res, { requireRecaptcha: true, auditAction: "login" }));
+app.post("/api/mobile/auth/login", (req, res) => handleLogin(req, res, { requireRecaptcha: false, auditAction: "mobile_login" }));
 app.post("/api/auth/logout", async (req, res) => {
   const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
   if (token) await pool.query("DELETE FROM admin_sessions WHERE token_hash = ?", [hashSessionToken(token)]);

@@ -114,7 +114,7 @@ class ApiService {
   ) async {
     final body = await _request(
       'POST',
-      '/auth/login',
+      '/mobile/auth/login',
       body: {'email': email, 'password': password},
     );
     _sessionToken = body['token'] as String?;
