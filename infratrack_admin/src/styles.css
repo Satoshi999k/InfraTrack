@@ -3461,6 +3461,13 @@ tbody tr:last-child td {
   background-position: center;
   background-size: cover;
 }
+.issue-modal-media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 .issue-modal-hero.roads,
 .issue-modal-hero.road { background-image: url("https://picsum.photos/seed/infratrack-road/900/360"); }
 .issue-modal-hero.water { background-image: url("https://picsum.photos/seed/infratrack-water/900/360"); }

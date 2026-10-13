@@ -326,6 +326,13 @@ export function IssueModal({ data, onClose, onSave }) {
         onClick={(event) => event.stopPropagation()}
       >
         <div className={`issue-modal-hero ${data.category.toLowerCase()}`}>
+          {data.media_url && (
+            <img
+              className="issue-modal-media"
+              src={data.media_url}
+              alt=""
+            />
+          )}
           <span className={`issue-modal-status ${data.severity.toLowerCase()}`}>
             <AlertTriangle size={13} /> {data.severity} · {status}
           </span>

@@ -29,9 +29,18 @@ export default function IssueTable({ issues, onOpenIssue }) {
                 >
                   <td>
                     <div className="issue-title">
-                      <span
-                        className={`issue-thumb ${issue.category.toLowerCase()}`}
-                      />
+                      {issue.media_url ? (
+                        <img
+                          className="issue-thumb"
+                          src={issue.media_url}
+                          alt=""
+                          loading="lazy"
+                        />
+                      ) : (
+                        <span
+                          className={`issue-thumb ${issue.category.toLowerCase()}`}
+                        />
+                      )}
                       <span>
                         <b>{issue.title}</b>
                         <small>
