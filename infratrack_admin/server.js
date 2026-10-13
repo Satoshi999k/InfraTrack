@@ -45,8 +45,27 @@ const uploadDirectory = path.join(__dirname, "uploads");
 const backupDirectory = path.join(__dirname, "backups");
 fs.mkdirSync(uploadDirectory, { recursive: true });
 fs.mkdirSync(backupDirectory, { recursive: true });
+const uploadStorage = multer.diskStorage({
+  destination: (_req, _file, callback) => callback(null, uploadDirectory),
+  filename: (_req, file, callback) => {
+    const extensionByMimeType = {
+      "image/gif": ".gif",
+      "image/jpeg": ".jpg",
+      "image/png": ".png",
+      "image/webp": ".webp",
+      "video/mp4": ".mp4",
+      "video/webm": ".webm",
+      "video/quicktime": ".mov",
+    };
+    const extension =
+      extensionByMimeType[file.mimetype] ||
+      path.extname(file.originalname).toLowerCase() ||
+      "";
+    callback(null, `${crypto.randomBytes(16).toString("hex")}${extension}`);
+  },
+});
 const upload = multer({
-  dest: uploadDirectory,
+  storage: uploadStorage,
   limits: { fileSize: 100 * 1024 * 1024 },
   fileFilter: (_req, file, callback) => {
     const isImage = /^image\//.test(file.mimetype);
@@ -561,6 +580,48 @@ app.use(async (req, res, next) => {
   req.auth = user;
   req.authToken = token;
   next();
+});
+app.get("/uploads/:filename", async (req, res, next) => {
+  const filename = path.basename(req.params.filename);
+  const filePath = path.join(uploadDirectory, filename);
+  if (!fs.existsSync(filePath)) return next();
+
+  const extension = path.extname(filename).toLowerCase();
+  const contentTypes = {
+    ".gif": "image/gif",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".webp": "image/webp",
+    ".mp4": "video/mp4",
+    ".mov": "video/quicktime",
+    ".webm": "video/webm",
+  };
+  if (contentTypes[extension]) {
+    res.type(contentTypes[extension]);
+    return res.sendFile(filePath);
+  }
+
+  try {
+    const [[media]] = await pool.query(
+      `SELECT media_type FROM media WHERE file_path LIKE ?
+       UNION ALL
+       SELECT media_type FROM advisory_media WHERE file_path LIKE ?
+       LIMIT 1`,
+      [`%/uploads/${filename}`, `%/uploads/${filename}`],
+    );
+    const legacyContentTypes = {
+      gif: "image/gif",
+      photo: "image/jpeg",
+      video: "video/mp4",
+    };
+    if (media?.media_type && legacyContentTypes[media.media_type]) {
+      res.type(legacyContentTypes[media.media_type]);
+    }
+  } catch (error) {
+    console.error("Unable to resolve legacy upload media type:", error.message);
+  }
+  return res.sendFile(filePath);
 });
 app.use("/uploads", express.static(uploadDirectory, { maxAge: "1h", etag: true }));
 app.get("/api/health", async (_req, res) => {
