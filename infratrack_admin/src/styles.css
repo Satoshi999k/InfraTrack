@@ -1959,7 +1959,7 @@ tbody tr:last-child td {
   background: rgba(9, 39, 50, 0.42);
   display: grid;
   place-items: center;
-  z-index: 30;
+  z-index: 10000;
   padding: 24px;
 }
 .staff-password-modal {
