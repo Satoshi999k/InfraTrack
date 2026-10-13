@@ -3023,7 +3023,7 @@ tbody tr:last-child td {
 .ip-map-layer-switcher {
   position: absolute;
   top: 10px;
-  left: 52px;
+  right: 52px;
   z-index: 500;
   display: flex;
   overflow: hidden;
