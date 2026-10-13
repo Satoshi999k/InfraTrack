@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 const _configuredApiBaseUrl = String.fromEnvironment('API_BASE_URL');
 const _productionApiBaseUrl = 'https://infratrack-3a8u.onrender.com/api';
@@ -277,7 +278,7 @@ class ApiService {
     return Map<String, dynamic>.from(body['report'] as Map);
   }
 
-  static Future<String> uploadMedia(File file) async {
+  static Future<String> uploadMedia(File file, {required bool isVideo}) async {
     if (_sessionToken == null) {
       throw Exception('Please sign in before uploading report media.');
     }
@@ -285,7 +286,16 @@ class ApiService {
         http.MultipartRequest('POST', Uri.parse('$apiBaseUrl/uploads'))
           ..headers['Accept'] = 'application/json'
           ..headers['Authorization'] = 'Bearer $_sessionToken'
-          ..files.add(await http.MultipartFile.fromPath('file', file.path));
+          ..files.add(
+            await http.MultipartFile.fromPath(
+              'file',
+              file.path,
+              filename: isVideo ? 'report-video.mp4' : 'report-photo.jpg',
+              contentType: isVideo
+                  ? MediaType('video', 'mp4')
+                  : MediaType('image', 'jpeg'),
+            ),
+          );
     final client = http.Client();
     try {
       final streamedResponse = await client

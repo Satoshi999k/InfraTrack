@@ -55,7 +55,10 @@ class _ReportPageState extends State<ReportPage> {
     try {
       final mediaUrl = _capturedMedia == null
           ? null
-          : await ApiService.uploadMedia(File(_capturedMedia!.path));
+          : await ApiService.uploadMedia(
+              File(_capturedMedia!.path),
+              isVideo: _capturedVideo,
+            );
       await ApiService.createReport(
         title:
             '${category == 'Road' ? 'Road' : category} issue reported by resident',
