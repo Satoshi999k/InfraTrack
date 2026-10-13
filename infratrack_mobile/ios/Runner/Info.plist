@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>InfraTrack uses your location to place reports accurately and show nearby infrastructure issues.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>InfraTrack uses the camera to capture a selfie for identity verification.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

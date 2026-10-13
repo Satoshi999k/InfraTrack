@@ -27,6 +27,7 @@ class _MapPageState extends State<MapPage> {
   double _zoom = 15;
   bool _showLegend = false;
   bool _satelliteView = false;
+  Position? _userPosition;
   List<_MapReport> _reports = [];
   bool _loadingReports = true;
   String? _loadError;
@@ -39,15 +40,35 @@ class _MapPageState extends State<MapPage> {
     return _barangayCenters[normalized] ?? _matiCity;
   }
 
-  String get _centerLabel {
-    final barangay = ApiService.currentUser?['barangay']?.toString().trim();
-    return barangay == null || barangay.isEmpty ? 'Mati City' : barangay;
-  }
-
   @override
   void initState() {
     super.initState();
     _loadReports();
+    _locateMe();
+  }
+
+  Future<void> _locateMe() async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) return;
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return;
+      }
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 15),
+        ),
+      );
+      if (!mounted) return;
+      setState(() => _userPosition = position);
+    } catch (_) {
+      // The map remains usable when location is unavailable.
+    }
   }
 
   Future<void> _loadReports() async {
@@ -82,7 +103,11 @@ class _MapPageState extends State<MapPage> {
         double.tryParse('${issue['longitude']}') ?? _matiCity.longitude;
     return _MapReport(
       title: issue['title'] as String? ?? 'Infrastructure report',
+      description: issue['description'] as String? ?? '',
       category: issue['category'] as String? ?? 'Other',
+      location: issue['location'] as String? ?? 'Mati City',
+      status: issue['status'] as String? ?? 'Reported',
+      mediaUrl: publicMediaUrl(issue['media_url'] as String?),
       color: _issueColor(issue),
       point: LatLng(latitude, longitude),
     );
@@ -153,6 +178,20 @@ class _MapPageState extends State<MapPage> {
             ),
             MarkerLayer(
               markers: [
+                if (_userPosition != null)
+                  Marker(
+                    point: LatLng(
+                      _userPosition!.latitude,
+                      _userPosition!.longitude,
+                    ),
+                    width: 30,
+                    height: 30,
+                    child: const Icon(
+                      Icons.my_location,
+                      color: Colors.blue,
+                      size: 25,
+                    ),
+                  ),
                 for (final report in _visibleReports)
                   Marker(
                     point: report.point,
@@ -297,10 +336,17 @@ class _MapPageState extends State<MapPage> {
               const SizedBox(height: 12),
               _MapControlButton(
                 icon: Icons.my_location,
-                tooltip: 'Center on $_centerLabel',
+                tooltip: 'Locate me',
                 onPressed: () {
-                  _mapController.move(_mapCenter, 15);
-                  setState(() => _zoom = 15);
+                  _locateMe().then((_) {
+                    if (!mounted) return;
+                    final position = _userPosition;
+                    final center = position == null
+                        ? _mapCenter
+                        : LatLng(position.latitude, position.longitude);
+                    _mapController.move(center, 15);
+                    setState(() => _zoom = 15);
+                  });
                 },
               ),
               const SizedBox(height: 12),
@@ -428,13 +474,21 @@ class _MapPageState extends State<MapPage> {
 class _MapReport {
   const _MapReport({
     required this.title,
+    required this.description,
     required this.category,
+    required this.location,
+    required this.status,
+    required this.mediaUrl,
     required this.color,
     required this.point,
   });
 
   final String title;
+  final String description;
   final String category;
+  final String location;
+  final String status;
+  final String? mediaUrl;
   final Color color;
   final LatLng point;
 }
@@ -586,18 +640,59 @@ class _ReportCallout extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Card(
     elevation: 5,
-    child: ListTile(
-      leading: Icon(Icons.warning_amber_rounded, color: report.color),
-      title: Text(
-        report.title,
-        style: const TextStyle(fontWeight: FontWeight.w700),
-      ),
-      subtitle: Text(report.category),
-      trailing: IconButton(
-        tooltip: 'Close report details',
-        onPressed: onClose,
-        icon: const Icon(Icons.close),
-      ),
+    clipBehavior: Clip.antiAlias,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (report.mediaUrl != null && report.mediaUrl!.isNotEmpty)
+          Image.network(
+            report.mediaUrl!,
+            height: 130,
+            width: double.infinity,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) =>
+                const SizedBox.shrink(),
+          ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.warning_amber_rounded, color: report.color),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      report.title,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '${report.category} · ${report.status} · ${report.location}',
+                      style: const TextStyle(color: inkSoft, fontSize: 11),
+                    ),
+                    if (report.description.isNotEmpty) ...[
+                      const SizedBox(height: 7),
+                      Text(
+                        report.description,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: 'Close report details',
+                onPressed: onClose,
+                icon: const Icon(Icons.close),
+              ),
+            ],
+          ),
+        ),
+      ],
     ),
   );
 }

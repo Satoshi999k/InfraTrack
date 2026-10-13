@@ -231,10 +231,24 @@ class _HomePageState extends State<HomePage> {
   List<Map<String, dynamic>> get _nearbyReports => _issues
       .where((report) {
         final category = report['category'] as String? ?? '';
-        return _activeFilter == 'All' || category == _activeFilter;
+        final userBarangay = _normalizedBarangay(
+          ApiService.currentUser?['barangay']?.toString(),
+        );
+        final reportBarangay = _normalizedBarangay(
+          report['location']?.toString(),
+        );
+        return (userBarangay.isEmpty || reportBarangay == userBarangay) &&
+            (_activeFilter == 'All' || category == _activeFilter);
       })
       .take(6)
       .toList();
+
+  String _normalizedBarangay(String? value) {
+    return (value ?? '').trim().toLowerCase().replaceFirst(
+      RegExp(r'^(?:brgy\.?|barangay)\s*'),
+      '',
+    );
+  }
 
   Color _reportColor(Map<String, dynamic> report) {
     switch ((report['category'] as String? ?? '').toLowerCase()) {

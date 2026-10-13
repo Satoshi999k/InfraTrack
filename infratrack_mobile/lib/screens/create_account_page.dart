@@ -552,10 +552,8 @@ class _VerifyIdPageState extends State<VerifyIdPage> {
 
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => SelfieVerificationPage(
-          idImage: _frontImage!,
-          idFace: null,
-        ),
+        builder: (_) =>
+            SelfieVerificationPage(idImage: _frontImage!, idFace: null),
       ),
     );
   }
@@ -778,7 +776,10 @@ class _FaceVerificationService {
     ];
   }
 
-  static Future<Uint8List?> _cropImageRegion(ui.Image image, Rect region) async {
+  static Future<Uint8List?> _cropImageRegion(
+    ui.Image image,
+    Rect region,
+  ) async {
     final left = region.left.clamp(0, image.width.toDouble()).toDouble();
     final top = region.top.clamp(0, image.height.toDouble()).toDouble();
     final width = region.width
@@ -797,7 +798,10 @@ class _FaceVerificationService {
       Paint(),
     );
     final picture = recorder.endRecording();
-    final scaled = await picture.toImage(cropRect.width.ceil(), cropRect.height.ceil());
+    final scaled = await picture.toImage(
+      cropRect.width.ceil(),
+      cropRect.height.ceil(),
+    );
     final bytes = await scaled.toByteData(format: ui.ImageByteFormat.png);
     return bytes?.buffer.asUint8List();
   }
@@ -825,7 +829,10 @@ class _FaceVerificationService {
       if (await file.exists()) {
         final bytes = await file.readAsBytes();
         if (bytes.isNotEmpty) {
-          final codec = await ui.instantiateImageCodec(bytes, targetWidth: 1800);
+          final codec = await ui.instantiateImageCodec(
+            bytes,
+            targetWidth: 1800,
+          );
           final frame = await codec.getNextFrame();
           final decoded = frame.image;
 
@@ -1000,7 +1007,9 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
         if (faces.isEmpty) {
           _noFaceFrames += 1;
           if (_noFaceFrames >= 4) {
-            setState(() => _status = 'Center your face in the frame and keep still.');
+            setState(
+              () => _status = 'Center your face in the frame and keep still.',
+            );
           }
           return;
         }
@@ -1008,7 +1017,8 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
         _noFaceFrames = 0;
 
         final face = faces.first;
-        final centeredFace = face.boundingBox.center.dx > 0.18 &&
+        final centeredFace =
+            face.boundingBox.center.dx > 0.18 &&
             face.boundingBox.center.dx < 0.82 &&
             face.boundingBox.center.dy > 0.15 &&
             face.boundingBox.center.dy < 0.85;
@@ -1277,9 +1287,7 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
               child: FilledButton.icon(
                 onPressed: _processing ? null : _startLivenessCheck,
                 icon: const Icon(Icons.refresh),
-                label: Text(
-                  _processing ? 'Checking face…' : 'Retake selfie',
-                ),
+                label: Text(_processing ? 'Checking face…' : 'Retake selfie'),
                 style: FilledButton.styleFrom(
                   backgroundColor: clay,
                   foregroundColor: Colors.white,

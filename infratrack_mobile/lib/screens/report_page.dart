@@ -14,6 +14,15 @@ class _ReportPageState extends State<ReportPage> {
   String category = 'Road';
   XFile? _capturedMedia;
   bool _capturedVideo = false;
+  Position? _position;
+  bool _locating = false;
+  String? _locationError;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshLocation();
+  }
 
   @override
   void dispose() {
@@ -28,6 +37,21 @@ class _ReportPageState extends State<ReportPage> {
       );
       return;
     }
+    if (_position == null) {
+      await _refreshLocation();
+      if (_position == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                _locationError ?? 'Please enable location before submitting.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
+    }
     try {
       final mediaUrl = _capturedMedia == null
           ? null
@@ -37,9 +61,10 @@ class _ReportPageState extends State<ReportPage> {
             '${category == 'Road' ? 'Road' : category} issue reported by resident',
         description: _descriptionController.text.trim(),
         category: category == 'Road' ? 'Roads' : category,
-        location: 'Mati City',
-        latitude: 6.9530,
-        longitude: 126.2280,
+        location:
+            ApiService.currentUser?['barangay']?.toString() ?? 'Mati City',
+        latitude: _position!.latitude,
+        longitude: _position!.longitude,
         mediaUrl: mediaUrl,
         mediaType: _capturedVideo ? 'video' : 'photo',
       );
@@ -60,6 +85,43 @@ class _ReportPageState extends State<ReportPage> {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _refreshLocation() async {
+    if (_locating) return;
+    setState(() {
+      _locating = true;
+      _locationError = null;
+    });
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        throw Exception('Location services are disabled.');
+      }
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        throw Exception('Location permission is required to place a report.');
+      }
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 15),
+        ),
+      );
+      if (mounted) setState(() => _position = position);
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () =>
+              _locationError = error.toString().replaceFirst('Exception: ', ''),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _locating = false);
     }
   }
 
@@ -181,7 +243,12 @@ class _ReportPageState extends State<ReportPage> {
             ),
           ),
           const SizedBox(height: 8),
-          const _CoordinatesCard(),
+          _CoordinatesCard(
+            position: _position,
+            loading: _locating,
+            error: _locationError,
+            onRefresh: _refreshLocation,
+          ),
           const SizedBox(height: 20),
           const Text(
             'DESCRIPTION',
@@ -332,7 +399,17 @@ class _CapturedMediaPreview extends StatelessWidget {
 }
 
 class _CoordinatesCard extends StatelessWidget {
-  const _CoordinatesCard();
+  const _CoordinatesCard({
+    required this.position,
+    required this.loading,
+    required this.error,
+    required this.onRefresh,
+  });
+
+  final Position? position;
+  final bool loading;
+  final String? error;
+  final VoidCallback onRefresh;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -351,7 +428,11 @@ class _CoordinatesCard extends StatelessWidget {
     ),
     child: LayoutBuilder(
       builder: (context, constraints) {
-        final details = const Column(
+        final coordinateText = position == null
+            ? 'Location unavailable'
+            : '${position!.latitude.toStringAsFixed(5)}° N, '
+                  '${position!.longitude.toStringAsFixed(5)}° E';
+        final details = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
@@ -363,7 +444,7 @@ class _CoordinatesCard extends StatelessWidget {
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
               child: Text(
-                '6.9530° N, 126.2280° E',
+                coordinateText,
                 style: TextStyle(
                   color: Colors.white,
                   fontFamily: 'monospace',
@@ -374,7 +455,7 @@ class _CoordinatesCard extends StatelessWidget {
           ],
         );
         final refresh = FilledButton.tonalIcon(
-          onPressed: () {},
+          onPressed: loading ? null : onRefresh,
           style: FilledButton.styleFrom(
             backgroundColor: Colors.white12,
             foregroundColor: Colors.white,
@@ -382,10 +463,20 @@ class _CoordinatesCard extends StatelessWidget {
             minimumSize: Size.zero,
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
-          icon: const Icon(Icons.refresh, color: Colors.white, size: 20),
-          label: const Text(
-            'Refresh',
-            style: TextStyle(color: Colors.white, fontSize: 13),
+          icon: loading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.refresh, color: Colors.white, size: 20),
+          label: Text(
+            loading
+                ? 'Locating…'
+                : error == null
+                ? 'Refresh'
+                : 'Try again',
+            style: const TextStyle(color: Colors.white, fontSize: 13),
           ),
         );
 
