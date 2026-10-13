@@ -570,7 +570,8 @@ app.get("/api/health", async (_req, res) => {
 app.get("/api/mobile/issues", async (_req, res) => {
   const [issues] = await pool.query(`SELECT r.public_id, r.title, r.description, r.category,
     r.location, r.latitude, r.longitude, r.severity, r.status, r.created_at, r.updated_at,
-    (SELECT m.file_path FROM media m WHERE m.report_id = r.id ORDER BY m.id LIMIT 1) AS media_url
+    (SELECT m.file_path FROM media m WHERE m.report_id = r.id ORDER BY m.id DESC LIMIT 1) AS media_url,
+    (SELECT m.media_type FROM media m WHERE m.report_id = r.id ORDER BY m.id DESC LIMIT 1) AS media_kind
     FROM reports r
     WHERE r.status <> 'Archived' ORDER BY r.created_at DESC`);
   res.json({ issues: issues.map((issue) => ({
@@ -620,7 +621,8 @@ app.get("/api/mobile/advisories", async (req, res) => {
 });
 app.get("/api/mobile/reports", async (req, res) => {
   const [reports] = await pool.query(`SELECT r.*, u.name AS reporter,
-    (SELECT m.file_path FROM media m WHERE m.report_id = r.id ORDER BY m.id LIMIT 1) AS media_url
+    (SELECT m.file_path FROM media m WHERE m.report_id = r.id ORDER BY m.id DESC LIMIT 1) AS media_url,
+    (SELECT m.media_type FROM media m WHERE m.report_id = r.id ORDER BY m.id DESC LIMIT 1) AS media_kind
     FROM reports r LEFT JOIN users u ON u.id = r.reporter_id
     WHERE r.reporter_id = ? ORDER BY r.created_at DESC`, [req.auth.id]);
   res.json({ reports: reports.map((report) => ({
@@ -1001,8 +1003,18 @@ app.post("/api/auth/register", async (req, res) => {
 app.get("/api/issues", async (req, res) => {
   const search = `%${String(req.query.search ?? "").toLowerCase()}%`;
   const scope = getReportScope(req.auth, "r");
-  const [issues] = await pool.query(`SELECT r.*, u.name AS reporter FROM reports r LEFT JOIN users u ON u.id = r.reporter_id WHERE r.status <> 'Archived' AND LOWER(CONCAT(r.title, ' ', r.location, ' ', r.public_id)) LIKE ?${scope.sql} ORDER BY r.created_at DESC`, [search, ...scope.params]);
-  res.json({ issues });
+  const [issues] = await pool.query(`SELECT r.*, u.name AS reporter,
+    (SELECT m.file_path FROM media m WHERE m.report_id = r.id ORDER BY m.id DESC LIMIT 1) AS media_url,
+    (SELECT m.media_type FROM media m WHERE m.report_id = r.id ORDER BY m.id DESC LIMIT 1) AS media_kind
+    FROM reports r LEFT JOIN users u ON u.id = r.reporter_id
+    WHERE r.status <> 'Archived' AND LOWER(CONCAT(r.title, ' ', r.location, ' ', r.public_id)) LIKE ?${scope.sql}
+    ORDER BY r.created_at DESC`, [search, ...scope.params]);
+  res.json({
+    issues: issues.map((issue) => ({
+      ...issue,
+      media_url: publicMediaUrl(req, issue.media_url),
+    })),
+  });
 });
 app.get("/api/overview", async (req, res) => {
   const viewer = req.auth;

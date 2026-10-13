@@ -114,6 +114,7 @@ class _MapPageState extends State<MapPage> {
       severity: issue['severity'] as String? ?? 'Medium',
       createdAt: issue['created_at']?.toString() ?? '',
       mediaUrl: publicMediaUrl(issue['media_url'] as String?),
+      mediaKind: issue['media_kind'] as String? ?? 'photo',
       color: _issueColor(issue),
       point: LatLng(latitude, longitude),
     );
@@ -222,6 +223,7 @@ class _MapPageState extends State<MapPage> {
                         color: report.color,
                         selected: _selectedReport == report.title,
                         mediaUrl: report.mediaUrl,
+                        mediaKind: report.mediaKind,
                       ),
                     ),
                   ),
@@ -488,6 +490,7 @@ class _MapReport {
     required this.severity,
     required this.createdAt,
     required this.mediaUrl,
+    required this.mediaKind,
     required this.color,
     required this.point,
   });
@@ -500,6 +503,7 @@ class _MapReport {
   final String severity;
   final String createdAt;
   final String? mediaUrl;
+  final String mediaKind;
   final Color color;
   final LatLng point;
 }
@@ -633,11 +637,13 @@ class _ReportMarker extends StatelessWidget {
     required this.color,
     required this.selected,
     required this.mediaUrl,
+    required this.mediaKind,
   });
 
   final Color color;
   final bool selected;
   final String? mediaUrl;
+  final String mediaKind;
 
   @override
   Widget build(BuildContext context) => AnimatedScale(
@@ -664,7 +670,7 @@ class _ReportMarker extends StatelessWidget {
                 border: Border.all(color: color, width: 2),
               ),
               clipBehavior: Clip.antiAlias,
-              child: mediaUrl == null || mediaUrl!.isEmpty
+              child: mediaUrl == null || mediaUrl!.isEmpty || mediaKind == 'video'
                   ? Icon(Icons.warning_amber_rounded, color: color, size: 15)
                   : Image.network(
                       mediaUrl!,
@@ -720,15 +726,20 @@ class _ReportDetailsSheet extends StatelessWidget {
               if (report.mediaUrl != null && report.mediaUrl!.isNotEmpty)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(18),
-                  child: Image.network(
-                    report.mediaUrl!,
-                    width: double.infinity,
-                    height: 210,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => _ReportImageFallback(
-                      color: report.color,
-                    ),
-                  ),
+                  child: report.mediaKind == 'video'
+                      ? _ReportVideoFallback(
+                          color: report.color,
+                          mediaUrl: report.mediaUrl!,
+                        )
+                      : Image.network(
+                          report.mediaUrl!,
+                          width: double.infinity,
+                          height: 210,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => _ReportImageFallback(
+                            color: report.color,
+                          ),
+                        ),
                 )
               else
                 _ReportImageFallback(color: report.color),
@@ -817,6 +828,103 @@ class _ReportImageFallback extends StatelessWidget {
       borderRadius: BorderRadius.circular(18),
     ),
     child: Icon(Icons.image_not_supported_outlined, color: color, size: 44),
+  );
+}
+
+class _ReportVideoFallback extends StatelessWidget {
+  const _ReportVideoFallback({
+    required this.color,
+    required this.mediaUrl,
+  });
+
+  final Color color;
+  final String mediaUrl;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    height: 150,
+    color: color.withValues(alpha: .12),
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.play_circle_outline, color: color, size: 48),
+        const SizedBox(height: 6),
+        TextButton.icon(
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => _MapVideoPage(mediaUrl: mediaUrl),
+            ),
+          ),
+          icon: Icon(Icons.open_in_new, color: color, size: 16),
+          label: Text('Open uploaded video', style: TextStyle(color: color)),
+        ),
+      ],
+    ),
+  );
+}
+
+class _MapVideoPage extends StatefulWidget {
+  const _MapVideoPage({required this.mediaUrl});
+
+  final String mediaUrl;
+
+  @override
+  State<_MapVideoPage> createState() => _MapVideoPageState();
+}
+
+class _MapVideoPageState extends State<_MapVideoPage> {
+  late final VideoPlayerController _controller = VideoPlayerController.networkUrl(
+    Uri.parse(widget.mediaUrl),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.initialize().then((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: deepNavy,
+    appBar: AppBar(
+      title: const Text('Uploaded report video'),
+      backgroundColor: deepNavy,
+      foregroundColor: Colors.white,
+    ),
+    body: Center(
+      child: _controller.value.isInitialized
+          ? AspectRatio(
+              aspectRatio: _controller.value.aspectRatio,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  VideoPlayer(_controller),
+                  IconButton.filled(
+                    onPressed: () => setState(() {
+                      _controller.value.isPlaying
+                          ? _controller.pause()
+                          : _controller.play();
+                    }),
+                    icon: Icon(
+                      _controller.value.isPlaying
+                          ? Icons.pause
+                          : Icons.play_arrow,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : const CircularProgressIndicator(color: teal),
+    ),
   );
 }
 
