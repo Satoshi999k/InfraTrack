@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
 import { Ban, CheckCircle2, Eye, Hourglass, ShieldCheck, UserPlus } from "lucide-react";
 import { apiFetch } from "../api";
@@ -93,7 +94,7 @@ export default function UsersPage({ users, onOpenUser, user }) {
           <div><h2>Staff accounts</h2><p>Create and manage LGU and barangay staff access.</p></div>
           <button type="button" className="primary-button staff-add-button" onClick={() => setShowStaffForm((current) => !current)}><UserPlus size={16} /> {showStaffForm ? "Close" : "Add staff"}</button>
         </div>
-        {passwordModal.open && (
+        {passwordModal.open && createPortal(
           <div className="staff-password-backdrop" onClick={() => setPasswordModal({ open: false, account: null, value: "", confirm: "", error: "" })}>
             <div className="staff-password-modal" onClick={(event) => event.stopPropagation()}>
               <div className="staff-password-header">
@@ -114,7 +115,8 @@ export default function UsersPage({ users, onOpenUser, user }) {
                 <button type="button" className="primary-button" onClick={submitPasswordReset}>Save password</button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body,
         )}
         {showStaffForm && <form className="staff-form" onSubmit={createStaff}>
           <div className="staff-form-heading">

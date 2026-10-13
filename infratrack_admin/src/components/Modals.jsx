@@ -474,7 +474,13 @@ export function UserModal({ user, onClose, onSave }) {
   const [error, setError] = useState("");
 
   const chooseAction = (action) => {
+    if (selectedAction === action) {
+      setSelectedAction(null);
+      setError("");
+      return;
+    }
     setSelectedAction(action);
+    setError("");
     setNote("");
   };
 
