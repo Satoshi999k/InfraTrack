@@ -272,10 +272,10 @@ function WalkInModal({ onClose, onSave }) {
           <option>Low</option><option>Medium</option><option>High</option><option>Critical</option>
         </select>
         <label>Description</label>
-        <textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Describe the issue and safety concernÃ¢â‚¬Â¦" />
+        <textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Describe the issue and safety concern..." />
         <div className="advisory-edit-actions">
           <button type="button" className="secondary-button" onClick={onClose}>Cancel</button>
-          <button type="submit" className="primary-button" disabled={saving}>{saving ? "SavingÃ¢â‚¬Â¦" : "Save report"}</button>
+          <button type="submit" className="primary-button" disabled={saving}>{saving ? "Saving..." : "Save report"}</button>
         </div>
       </form>
     </div>
@@ -286,7 +286,7 @@ export function IssueModal({ data, onClose, onSave }) {
   const latitude = Number(data.latitude);
   const longitude = Number(data.longitude);
   const coordinates = Number.isFinite(latitude) && Number.isFinite(longitude)
-    ? `${latitude.toFixed(5)}Ã‚Â° N, ${longitude.toFixed(5)}Ã‚Â° E`
+    ? `${latitude.toFixed(5)}° N, ${longitude.toFixed(5)}° E`
     : "Coordinates unavailable";
   const mediaCount = Number(data.media_count) || 0;
   const photoCount = Number(data.photo_count) || 0;
@@ -345,7 +345,7 @@ export function IssueModal({ data, onClose, onSave }) {
             />
           )}
           <span className={`issue-modal-status ${data.severity.toLowerCase()}`}>
-            <AlertTriangle size={13} /> {data.severity} Ã‚Â· {status}
+            <AlertTriangle size={13} /> {data.severity} · {status}
           </span>
           <button className="issue-modal-close" onClick={onClose}>
             <X size={18} />
@@ -355,8 +355,8 @@ export function IssueModal({ data, onClose, onSave }) {
           <div className="issue-modal-heading">
             <div>
               <h2>{data.title}</h2>
-              <p className="issue-location"><MapPin size={15} /> {data.location} Â· {coordinates}</p>
-              <p className="modal-id">Report ID: #{data.id} Ã‚Â· Filed {data.created_at ? new Date(data.created_at).toLocaleDateString() : "recently"} by {data.reporter || "walk-in resident"}</p>
+              <p className="issue-location"><MapPin size={15} /> {data.location} · {coordinates}</p>
+              <p className="modal-id">Report ID: #{data.id} · Filed {data.created_at ? new Date(data.created_at).toLocaleDateString() : "recently"} by {data.reporter || "walk-in resident"}</p>
               {data.due_at && <p className="modal-id">SLA due: {new Date(data.due_at).toLocaleString()}</p>}
             </div>
           </div>
@@ -371,7 +371,7 @@ export function IssueModal({ data, onClose, onSave }) {
                 <p>{data.description || "No description provided."}</p>
               </div>
               <div className="modal-section discussion-section">
-                <h3>Official discussion <span className="semi-public-tag">Ã¢â€”â€° SEMI-PUBLIC</span></h3>
+                <h3>Official discussion <span className="semi-public-tag">SEMIPUBLIC</span></h3>
                 <div className="discussion">
                   <div className="discussion-head"><b>{data.reporter || "Resident"}</b><small>{data.created_at ? new Date(data.created_at).toLocaleString() : "Recently"}</small></div>
                   <p>{data.description || "No report note was provided."}</p>
@@ -382,7 +382,7 @@ export function IssueModal({ data, onClose, onSave }) {
                     <p>{data.latest_event_note}</p>
                   </div>
                 )}
-                <input className="reply-input" placeholder="Reply as LGU AdminÃ¢â‚¬Â¦" />
+                <input className="reply-input" placeholder="Reply as LGU Admin..." />
               </div>
             </div>
             <div className="modal-section case-management">
@@ -401,7 +401,7 @@ export function IssueModal({ data, onClose, onSave }) {
                 Assign to team
                 <select value={assigned} onChange={(event) => setAssigned(event.target.value)}>
                   <option>Unassigned</option>
-                  {(data.teams || []).map((team) => <option key={team.id} value={team.name}>{team.name}{team.department ? ` Ã¢â‚¬â€ ${team.department}` : ""}</option>)}
+                  {(data.teams || []).map((team) => <option key={team.id} value={team.name}>{team.name}{team.department ? ` - ${team.department}` : ""}</option>)}
                 </select>
               </label>
               {status === "In progress" && (
@@ -437,7 +437,7 @@ export function IssueModal({ data, onClose, onSave }) {
                     <textarea
                       value={note}
                       onChange={(event) => setNote(event.target.value)}
-                      placeholder={status === "Rejected" ? "Explain why this report was rejectedÃ¢â‚¬Â¦" : "Describe what was doneÃ¢â‚¬Â¦"}
+                      placeholder={status === "Rejected" ? "Explain why this report was rejected..." : "Describe what was done..."}
                     />
                   </label>
                   <div className="before-after">
@@ -456,7 +456,7 @@ export function IssueModal({ data, onClose, onSave }) {
                 onClick={saveWorkflow}
                 disabled={isSaving}
               >
-                <CheckCircle2 size={16} /> {isSaving ? "SavingÃ¢â‚¬Â¦" : "Save changes"}
+                <CheckCircle2 size={16} /> {isSaving ? "Saving..." : "Save changes"}
               </button>
               <button
                 type="button"
@@ -464,7 +464,7 @@ export function IssueModal({ data, onClose, onSave }) {
                 onClick={() => void saveChanges({ status: "Archived", assignedTeam: assigned, resolutionNote: "Archived by administrator" }, true)}
                 disabled={isSaving}
               >
-                {isArchiving ? "ArchivingÃ¢â‚¬Â¦" : "Archive issue"}
+                {isArchiving ? "Archiving..." : "Archive issue"}
               </button>
             </div>
           </div>
@@ -551,7 +551,7 @@ export function UserModal({ user, onClose, onSave }) {
                 </span>
                 <div>
                   <b>Deep pothole along Rizal St.</b>
-                  <small>#MT-2026-881 Ã‚Â· Aug 2, 2026</small>
+                  <small>#MT-2026-881 · Aug 2, 2026</small>
                 </div>
               </div>
 
@@ -561,7 +561,7 @@ export function UserModal({ user, onClose, onSave }) {
                 </span>
                 <div>
                   <b>Cracked pavement, Chapel St.</b>
-                  <small>#MT-2026-842 Ã‚Â· Jul 15, 2026</small>
+                  <small>#MT-2026-842 · Jul 15, 2026</small>
                 </div>
               </div>
             </div>
@@ -630,7 +630,7 @@ export function UserModal({ user, onClose, onSave }) {
                         onClick={() => apply(selectedAction === "suspend" ? "Suspended" : selectedAction === "ban" ? "Banned" : "Warned")}
                         disabled={saving}
                       >
-                        {saving ? "SavingÃ¢â‚¬Â¦" : "Apply action"}
+                        {saving ? "Saving..." : "Apply action"}
                       </button>
                   </div>
                 )}

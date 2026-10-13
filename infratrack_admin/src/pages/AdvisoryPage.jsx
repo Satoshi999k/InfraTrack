@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   AlertTriangle,
   Camera,
@@ -385,7 +386,7 @@ export default function AdvisoryPage({ publishedOnly = false, onNotify, onViewAl
         </div>
       </article>
 
-      {editingAdvisory && (
+      {editingAdvisory && createPortal(
         <div className="modal-backdrop" onClick={() => setEditingAdvisory(null)}>
           <div className="modal advisory-editor-modal" onClick={(event) => event.stopPropagation()}>
             <button className="modal-close" onClick={() => setEditingAdvisory(null)}>
@@ -457,7 +458,8 @@ export default function AdvisoryPage({ publishedOnly = false, onNotify, onViewAl
                       ? "Video attached"
                       : "Photo attached"}
                 </span>
-              </div>
+              </div>,
+              document.body
             )}
             {editingAdvisory.draftMedia?.kind === "video" && (
               <button type="button" className="secondary-button advisory-convert-button" onClick={convertExistingVideo} disabled={convertingExisting}>
