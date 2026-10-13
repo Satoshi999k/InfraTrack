@@ -64,8 +64,7 @@ class _ReportPageState extends State<ReportPage> {
             '${category == 'Road' ? 'Road' : category} issue reported by resident',
         description: _descriptionController.text.trim(),
         category: category == 'Road' ? 'Roads' : category,
-        location:
-            ApiService.currentUser?['barangay']?.toString() ?? 'Mati City',
+        location: 'Mati City',
         latitude: _position!.latitude,
         longitude: _position!.longitude,
         mediaUrl: mediaUrl,

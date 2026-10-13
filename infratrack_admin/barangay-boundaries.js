@@ -47,6 +47,22 @@ export const barangayPolygons = {
   ],
 };
 
+// The available barangay polygons are intentionally conservative and do not
+// yet cover every residential area in Mati City. Keep a city-level fallback
+// so valid GPS reports are not rejected simply because a polygon is missing.
+export function isWithinMatiCity(latitude, longitude) {
+  const lat = Number(latitude);
+  const lng = Number(longitude);
+  return (
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    lat >= 6.86 &&
+    lat <= 7.05 &&
+    lng >= 126.14 &&
+    lng <= 126.35
+  );
+}
+
 export function isPointInPolygon(lat, lng, polygon) {
   if (!Array.isArray(polygon) || !polygon.length) return false;
   const x = Number(lng);
@@ -91,6 +107,9 @@ export function validateBarangayCoordinates({ latitude, longitude, location, bar
 
   const detectedBarangay = getBarangayForCoordinates(lat, lng);
   if (!detectedBarangay) {
+    if (isWithinMatiCity(lat, lng)) {
+      return { valid: true, matchedBarangay: null, reason: "Valid Mati City location" };
+    }
     return { valid: false, matchedBarangay: null, reason: "Coordinates are outside the approved Mati City barangay boundaries." };
   }
 

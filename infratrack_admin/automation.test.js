@@ -38,3 +38,14 @@ test('barangay validation recognizes a report inside a valid subdivision', () =>
   assert.equal(validateBarangayCoordinates({ latitude: 6.9632, longitude: 126.2103, location: 'Brgy. Central' }).valid, true);
   assert.equal(validateBarangayCoordinates({ latitude: 6.9632, longitude: 126.2103, location: 'Brgy. Dawan' }).valid, false);
 });
+
+test('city fallback accepts Mati locations not covered by a barangay polygon', () => {
+  assert.equal(
+    validateBarangayCoordinates({
+      latitude: 6.95321,
+      longitude: 126.21202,
+      location: 'Mati City',
+    }).valid,
+    true,
+  );
+});
