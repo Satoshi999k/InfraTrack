@@ -4,6 +4,7 @@ import {
   Ban,
   BarChart3,
   Bell,
+  Building2,
   Flag,
   CalendarDays,
   CheckCircle2,
@@ -203,7 +204,9 @@ function HelpModal({ onClose }) {
             <span className="help-tour-eyebrow">{currentStep.eyebrow}</span>
             <span className="help-tour-count">{step + 1} / {guideSteps.length}</span>
           </div>
-          <div className="help-tour-icon"><StepIcon size={20} /></div>
+          <div className={`help-tour-icon ${step === 0 ? "help-tour-logo" : ""}`}>
+            {step === 0 ? <Building2 size={21} /> : <StepIcon size={20} />}
+          </div>
           <h2 id="help-tour-title">{currentStep.title}</h2>
           <p>{currentStep.description}</p>
         </div>

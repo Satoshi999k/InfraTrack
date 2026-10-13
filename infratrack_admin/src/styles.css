@@ -3240,6 +3240,11 @@ tbody tr:last-child td {
   z-index: 2002;
   animation: help-tour-modal-enter 0.28s cubic-bezier(0.2, 0.75, 0.25, 1) both;
 }
+.help-tour-icon.help-tour-logo {
+  background: var(--clay);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(193, 89, 43, 0.24);
+}
 .help-tour-backdrop {
   position: fixed;
   inset: 0;
