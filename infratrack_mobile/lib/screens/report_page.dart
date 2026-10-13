@@ -18,6 +18,8 @@ class _ReportPageState extends State<ReportPage> {
   bool _locating = false;
   String? _locationError;
 
+  Future<void> refresh() => _refreshLocation();
+
   @override
   void initState() {
     super.initState();

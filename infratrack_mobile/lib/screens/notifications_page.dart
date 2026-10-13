@@ -111,6 +111,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
       body: SafeArea(
         child: PageEntrance(
           child: AppScroll(
+            onRefresh: _loadNotifications,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

@@ -32,6 +32,10 @@ class _MapPageState extends State<MapPage> {
   bool _loadingReports = true;
   String? _loadError;
 
+  Future<void> refresh() async {
+    await Future.wait([_loadReports(), _locateMe()]);
+  }
+
   static LatLng _centerForBarangay(String? barangay) {
     final normalized = barangay?.trim().toLowerCase().replaceFirst(
       RegExp(r'^(?:brgy\.?|barangay)\s*'),
@@ -107,10 +111,25 @@ class _MapPageState extends State<MapPage> {
       category: issue['category'] as String? ?? 'Other',
       location: issue['location'] as String? ?? 'Mati City',
       status: issue['status'] as String? ?? 'Reported',
+      severity: issue['severity'] as String? ?? 'Medium',
+      createdAt: issue['created_at']?.toString() ?? '',
       mediaUrl: publicMediaUrl(issue['media_url'] as String?),
       color: _issueColor(issue),
       point: LatLng(latitude, longitude),
     );
+  }
+
+  Future<void> _showReportDetails(_MapReport report) async {
+    setState(() => _selectedReport = report.title);
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _ReportDetailsSheet(report: report),
+    );
+    if (mounted) {
+      setState(() => _selectedReport = null);
+    }
   }
 
   Color _issueColor(Map<String, dynamic> issue) {
@@ -198,11 +217,11 @@ class _MapPageState extends State<MapPage> {
                     width: 54,
                     height: 64,
                     child: GestureDetector(
-                      onTap: () =>
-                          setState(() => _selectedReport = report.title),
+                      onTap: () => _showReportDetails(report),
                       child: _ReportMarker(
                         color: report.color,
                         selected: _selectedReport == report.title,
+                        mediaUrl: report.mediaUrl,
                       ),
                     ),
                   ),
@@ -305,18 +324,6 @@ class _MapPageState extends State<MapPage> {
             ),
           ),
         ),
-        if (_selectedReport != null)
-          Positioned(
-            top: 128,
-            left: 16,
-            right: 16,
-            child: _ReportCallout(
-              report: _reports.firstWhere(
-                (item) => item.title == _selectedReport,
-              ),
-              onClose: () => setState(() => _selectedReport = null),
-            ),
-          ),
         Positioned(
           right: 16,
           top: 132,
@@ -478,6 +485,8 @@ class _MapReport {
     required this.category,
     required this.location,
     required this.status,
+    required this.severity,
+    required this.createdAt,
     required this.mediaUrl,
     required this.color,
     required this.point,
@@ -488,6 +497,8 @@ class _MapReport {
   final String category;
   final String location;
   final String status;
+  final String severity;
+  final String createdAt;
   final String? mediaUrl;
   final Color color;
   final LatLng point;
@@ -618,16 +629,234 @@ class _MapLegendRow extends StatelessWidget {
 }
 
 class _ReportMarker extends StatelessWidget {
-  const _ReportMarker({required this.color, required this.selected});
+  const _ReportMarker({
+    required this.color,
+    required this.selected,
+    required this.mediaUrl,
+  });
 
   final Color color;
   final bool selected;
+  final String? mediaUrl;
 
   @override
   Widget build(BuildContext context) => AnimatedScale(
     scale: selected ? 1.18 : 1,
     duration: const Duration(milliseconds: 150),
-    child: Icon(Icons.location_on, color: color, size: 42),
+    child: SizedBox(
+      width: 48,
+      height: 58,
+      child: Stack(
+        alignment: Alignment.topCenter,
+        children: [
+          Positioned(
+            bottom: 0,
+            child: Icon(Icons.location_on, color: color, size: 48),
+          ),
+          Positioned(
+            top: 3,
+            child: Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(color: color, width: 2),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: mediaUrl == null || mediaUrl!.isEmpty
+                  ? Icon(Icons.warning_amber_rounded, color: color, size: 15)
+                  : Image.network(
+                      mediaUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => Icon(
+                        Icons.warning_amber_rounded,
+                        color: color,
+                        size: 15,
+                      ),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _ReportDetailsSheet extends StatelessWidget {
+  const _ReportDetailsSheet({required this.report});
+
+  final _MapReport report;
+
+  @override
+  Widget build(BuildContext context) {
+    final createdAt = DateTime.tryParse(report.createdAt);
+    final dateLabel = createdAt == null
+        ? 'Date unavailable'
+        : '${createdAt.day}/${createdAt.month}/${createdAt.year}';
+    return SafeArea(
+      child: Container(
+        constraints: const BoxConstraints(maxHeight: 680),
+        decoration: const BoxDecoration(
+          color: sand,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: inkSoft.withValues(alpha: .35),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              if (report.mediaUrl != null && report.mediaUrl!.isNotEmpty)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: Image.network(
+                    report.mediaUrl!,
+                    width: double.infinity,
+                    height: 210,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => _ReportImageFallback(
+                      color: report.color,
+                    ),
+                  ),
+                )
+              else
+                _ReportImageFallback(color: report.color),
+              const SizedBox(height: 16),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      report.title,
+                      style: infraHeading(
+                        color: navy,
+                        fontSize: 21,
+                        weight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  StatusPill(label: report.status, color: report.color),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _MapDetailChip(
+                    icon: Icons.category_outlined,
+                    label: report.category,
+                  ),
+                  _MapDetailChip(
+                    icon: Icons.warning_amber_outlined,
+                    label: report.severity,
+                  ),
+                  _MapDetailChip(
+                    icon: Icons.calendar_today_outlined,
+                    label: dateLabel,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _MapDetailLine(
+                icon: Icons.location_on_outlined,
+                text: report.location,
+              ),
+              _MapDetailLine(
+                icon: Icons.pin_drop_outlined,
+                text:
+                    'Lat ${report.point.latitude.toStringAsFixed(6)}, '
+                    'Lon ${report.point.longitude.toStringAsFixed(6)}',
+              ),
+              if (report.description.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                Text(
+                  'Description',
+                  style: infraHeading(
+                    color: navy,
+                    fontSize: 14,
+                    weight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  report.description,
+                  style: const TextStyle(color: inkSoft, height: 1.4),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReportImageFallback extends StatelessWidget {
+  const _ReportImageFallback({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    height: 150,
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: .12),
+      borderRadius: BorderRadius.circular(18),
+    ),
+    child: Icon(Icons.image_not_supported_outlined, color: color, size: 44),
+  );
+}
+
+class _MapDetailChip extends StatelessWidget {
+  const _MapDetailChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Chip(
+    avatar: Icon(icon, size: 15, color: teal),
+    label: Text(label),
+    backgroundColor: Colors.white,
+    side: const BorderSide(color: line),
+    labelStyle: const TextStyle(
+      color: ink,
+      fontSize: 11,
+      fontWeight: FontWeight.w700,
+    ),
+  );
+}
+
+class _MapDetailLine extends StatelessWidget {
+  const _MapDetailLine({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 7),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: teal, size: 18),
+        const SizedBox(width: 8),
+        Expanded(child: Text(text, style: const TextStyle(color: inkSoft))),
+      ],
+    ),
   );
 }
 

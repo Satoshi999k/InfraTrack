@@ -17,6 +17,8 @@ class _NewsPageState extends State<NewsPage> {
   bool _loading = true;
   String? _loadError;
 
+  Future<void> refresh() => _loadNews();
+
   @override
   void initState() {
     super.initState();
@@ -90,7 +92,8 @@ class _NewsPageState extends State<NewsPage> {
   @override
   Widget build(BuildContext context) => PageEntrance(
     child: AppScroll(
-      child: Column(
+        onRefresh: _loadNews,
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const AppHeader(

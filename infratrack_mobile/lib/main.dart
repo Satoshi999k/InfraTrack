@@ -110,6 +110,7 @@ class AppLoadingPage extends StatefulWidget {
 
 class _AppLoadingPageState extends State<AppLoadingPage>
     with SingleTickerProviderStateMixin {
+  bool _sessionReady = false;
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1800),
@@ -118,13 +119,28 @@ class _AppLoadingPageState extends State<AppLoadingPage>
   @override
   void initState() {
     super.initState();
-    _controller.addStatusListener((status) {
-      if (status == AnimationStatus.completed && mounted) {
-        Navigator.of(
-          context,
-        ).pushReplacement(MaterialPageRoute(builder: (_) => const LoginPage()));
+    ApiService.restoreSession().whenComplete(() {
+      if (mounted) {
+        setState(() => _sessionReady = true);
+        _navigateWhenReady();
       }
     });
+    _controller.addStatusListener((status) {
+      if (status == AnimationStatus.completed && mounted) {
+        _navigateWhenReady();
+      }
+    });
+  }
+
+  void _navigateWhenReady() {
+    if (!_sessionReady || !_controller.isCompleted || !mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => ApiService.isSignedIn
+            ? const MainShell()
+            : const LoginPage(),
+      ),
+    );
   }
 
   @override
@@ -1218,13 +1234,34 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int index = 0;
-  final pages = const [
-    HomePage(),
-    MapPage(),
-    ReportPage(),
-    NewsPage(),
-    ProfilePage(),
+  final _homeKey = GlobalKey<_HomePageState>();
+  final _mapKey = GlobalKey<_MapPageState>();
+  final _reportKey = GlobalKey<_ReportPageState>();
+  final _newsKey = GlobalKey<_NewsPageState>();
+  final _profileKey = GlobalKey<_ProfilePageState>();
+
+  late final pages = [
+    HomePage(key: _homeKey),
+    MapPage(key: _mapKey),
+    ReportPage(key: _reportKey),
+    NewsPage(key: _newsKey),
+    ProfilePage(key: _profileKey),
   ];
+
+  Future<void> _refreshPage(int pageIndex) async {
+    switch (pageIndex) {
+      case 0:
+        await _homeKey.currentState?.refresh();
+      case 1:
+        await _mapKey.currentState?.refresh();
+      case 2:
+        await _reportKey.currentState?.refresh();
+      case 3:
+        await _newsKey.currentState?.refresh();
+      case 4:
+        await _profileKey.currentState?.refresh();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1288,8 +1325,13 @@ class _MainShellState extends State<MainShell> {
                     labelBehavior:
                         NavigationDestinationLabelBehavior.alwaysShow,
                     selectedIndex: index,
-                    onDestinationSelected: (value) =>
-                        setState(() => index = value),
+                    onDestinationSelected: (value) {
+                      if (value == index) {
+                        unawaited(_refreshPage(value));
+                        return;
+                      }
+                      setState(() => index = value);
+                    },
                     destinations: const [
                       NavigationDestination(
                         icon: Icon(Icons.home_outlined),
@@ -1328,7 +1370,13 @@ class _MainShellState extends State<MainShell> {
               child: Center(
                 child: _FloatingReportButton(
                   selected: index == 2,
-                  onPressed: () => setState(() => index = 2),
+                  onPressed: () {
+                    if (index == 2) {
+                      unawaited(_refreshPage(2));
+                    } else {
+                      setState(() => index = 2);
+                    }
+                  },
                 ),
               ),
             ),
@@ -1397,20 +1445,36 @@ class _FastBouncingScrollPhysics extends BouncingScrollPhysics {
 }
 
 class AppScroll extends StatelessWidget {
-  const AppScroll({super.key, required this.child, this.paddingTop = 12});
+  const AppScroll({
+    super.key,
+    required this.child,
+    this.paddingTop = 12,
+    this.onRefresh,
+  });
   final Widget child;
   final double paddingTop;
+  final Future<void> Function()? onRefresh;
   @override
-  Widget build(BuildContext context) => ListView.builder(
-    padding: EdgeInsets.fromLTRB(20, paddingTop, 20, 30),
-    physics: const _FastBouncingScrollPhysics(
-      parent: AlwaysScrollableScrollPhysics(),
-    ),
-    keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-    clipBehavior: Clip.none,
-    itemCount: 1,
-    itemBuilder: (context, index) => child,
-  );
+  Widget build(BuildContext context) {
+    final scrollView = ListView.builder(
+      padding: EdgeInsets.fromLTRB(20, paddingTop, 20, 30),
+      physics: const _FastBouncingScrollPhysics(
+        parent: AlwaysScrollableScrollPhysics(),
+      ),
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      clipBehavior: Clip.none,
+      itemCount: 1,
+      itemBuilder: (context, index) => child,
+    );
+    if (onRefresh == null) return scrollView;
+    return RefreshIndicator(
+      color: teal,
+      backgroundColor: Colors.white,
+      triggerMode: RefreshIndicatorTriggerMode.onEdge,
+      onRefresh: onRefresh!,
+      child: scrollView,
+    );
+  }
 }
 
 class PageEntrance extends StatefulWidget {

@@ -19,6 +19,8 @@ class _HomePageState extends State<HomePage> {
   bool _loadingIssues = true;
   String? _loadError;
 
+  Future<void> refresh() => _loadDashboardData();
+
   List<({String image, String title, String subtitle})>
   get _featuredStories => _issues.take(5).map((issue) {
     final mediaUrl = publicMediaUrl(issue['media_url'] as String?);
@@ -85,6 +87,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return PageEntrance(
       child: AppScroll(
+        onRefresh: _loadDashboardData,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

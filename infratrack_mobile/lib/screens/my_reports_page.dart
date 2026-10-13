@@ -1,5 +1,32 @@
 part of '../main.dart';
 
+String _formatReportDate(String value) {
+  final date = DateTime.tryParse(value);
+  if (date == null) return value;
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  final hour = date.hour == 0
+      ? 12
+      : date.hour > 12
+      ? date.hour - 12
+      : date.hour;
+  final minute = date.minute.toString().padLeft(2, '0');
+  final period = date.hour >= 12 ? 'PM' : 'AM';
+  return '${months[date.month - 1]} ${date.day}, ${date.year} · $hour:$minute $period';
+}
+
 class MyReportsPage extends StatefulWidget {
   const MyReportsPage({super.key});
   @override
@@ -88,6 +115,7 @@ class _MyReportsPageState extends State<MyReportsPage> {
       body: SafeArea(
         child: PageEntrance(
           child: AppScroll(
+            onRefresh: _loadReports,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -410,9 +438,13 @@ class _MyReportCard extends StatelessWidget {
                         style: const TextStyle(color: inkSoft, fontSize: 10),
                       ),
                       const SizedBox(width: 14),
-                      Text(
-                        report.age,
-                        style: infraMono(fontSize: 9.5, color: inkSoft),
+                      Expanded(
+                        child: Text(
+                          _formatReportDate(report.age),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: infraMono(fontSize: 9.5, color: inkSoft),
+                        ),
                       ),
                     ],
                   ),
@@ -503,7 +535,7 @@ class MyReportDetailsPage extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                'Report ID: ${report.reportId} ? Filed ${report.age}',
+                'Report ID: ${report.reportId} ? Filed ${_formatReportDate(report.age)}',
                 style: infraMono(fontSize: 9, color: inkSoft),
               ),
               const SizedBox(height: 12),

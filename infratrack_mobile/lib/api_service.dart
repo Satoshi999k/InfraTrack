@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 const _configuredApiBaseUrl = String.fromEnvironment('API_BASE_URL');
 const _productionApiBaseUrl = 'https://infratrack-3a8u.onrender.com/api';
@@ -32,10 +33,72 @@ String? publicMediaUrl(String? value) {
 }
 
 class ApiService {
+  static const _sessionTokenKey = 'session_token';
+  static const _sessionUserKey = 'session_user';
+  static const _lastOpenedKey = 'session_last_opened';
+  static const _sessionLifetime = Duration(days: 7);
+
   static Map<String, dynamic>? currentUser;
   static String? _sessionToken;
 
   static bool get isSignedIn => _sessionToken != null;
+
+  static Future<void> restoreSession() async {
+    final preferences = await SharedPreferences.getInstance();
+    final token = preferences.getString(_sessionTokenKey);
+    final lastOpenedMilliseconds = preferences.getInt(_lastOpenedKey);
+    if (token == null || lastOpenedMilliseconds == null) return;
+
+    final lastOpened = DateTime.fromMillisecondsSinceEpoch(
+      lastOpenedMilliseconds,
+    );
+    if (DateTime.now().difference(lastOpened) >= _sessionLifetime) {
+      await _clearStoredSession(preferences);
+      return;
+    }
+
+    final storedUser = preferences.getString(_sessionUserKey);
+    if (storedUser == null) {
+      await _clearStoredSession(preferences);
+      return;
+    }
+    final decodedUser = jsonDecode(storedUser);
+    if (decodedUser is! Map) {
+      await _clearStoredSession(preferences);
+      return;
+    }
+    _sessionToken = token;
+    currentUser = Map<String, dynamic>.from(decodedUser);
+    await preferences.setInt(
+      _lastOpenedKey,
+      DateTime.now().millisecondsSinceEpoch,
+    );
+  }
+
+  static Future<void> _persistSession() async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(_sessionTokenKey, _sessionToken!);
+    await preferences.setString(_sessionUserKey, jsonEncode(currentUser));
+    await preferences.setInt(
+      _lastOpenedKey,
+      DateTime.now().millisecondsSinceEpoch,
+    );
+  }
+
+  static Future<void> _clearStoredSession(
+    SharedPreferences preferences,
+  ) async {
+    await preferences.remove(_sessionTokenKey);
+    await preferences.remove(_sessionUserKey);
+    await preferences.remove(_lastOpenedKey);
+  }
+
+  static Future<void> _clearSession() async {
+    _sessionToken = null;
+    currentUser = null;
+    final preferences = await SharedPreferences.getInstance();
+    await _clearStoredSession(preferences);
+  }
 
   static Future<Map<String, dynamic>> _request(
     String method,
@@ -81,8 +144,7 @@ class ApiService {
 
   static Map<String, dynamic> _decodeResponse(http.Response response) {
     if (response.statusCode == 401) {
-      _sessionToken = null;
-      currentUser = null;
+      unawaited(_clearSession());
     }
     if (response.body.isEmpty) return <String, dynamic>{};
     final decoded = jsonDecode(response.body);
@@ -123,6 +185,7 @@ class ApiService {
       throw Exception('The server did not provide a sign-in session.');
     }
     currentUser = Map<String, dynamic>.from(body['user'] as Map);
+    await _persistSession();
     return currentUser!;
   }
 
@@ -132,8 +195,7 @@ class ApiService {
         await _request('POST', '/mobile/auth/logout', authenticated: true);
       }
     } finally {
-      _sessionToken = null;
-      currentUser = null;
+      await _clearSession();
     }
   }
 
@@ -160,6 +222,7 @@ class ApiService {
       throw Exception('The server did not provide an account session.');
     }
     currentUser = Map<String, dynamic>.from(body['user'] as Map);
+    await _persistSession();
     return currentUser!;
   }
 
@@ -195,6 +258,7 @@ class ApiService {
   static Future<Map<String, dynamic>> profile() async {
     final body = await _request('GET', '/mobile/profile', authenticated: true);
     currentUser = Map<String, dynamic>.from(body['user'] as Map);
+    await _persistSession();
     return currentUser!;
   }
 
@@ -210,6 +274,7 @@ class ApiService {
       body: {'name': name, 'mobile': mobile, 'barangay': barangay},
     );
     currentUser = Map<String, dynamic>.from(body['user'] as Map);
+    await _persistSession();
     return currentUser!;
   }
 

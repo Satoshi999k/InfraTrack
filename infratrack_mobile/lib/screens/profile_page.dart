@@ -14,6 +14,8 @@ class _ProfilePageState extends State<ProfilePage> {
   List<Map<String, dynamic>> _notifications = [];
   String? _loadError;
 
+  Future<void> refresh() => _loadProfile();
+
   @override
   void initState() {
     super.initState();
@@ -313,6 +315,7 @@ class _ProfilePageState extends State<ProfilePage> {
         elevation: 0,
       ),
       body: AppScroll(
+        onRefresh: _loadProfile,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
