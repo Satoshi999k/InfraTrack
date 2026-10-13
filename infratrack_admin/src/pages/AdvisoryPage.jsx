@@ -458,8 +458,7 @@ export default function AdvisoryPage({ publishedOnly = false, onNotify, onViewAl
                       ? "Video attached"
                       : "Photo attached"}
                 </span>
-              </div>,
-              document.body
+              </div>
             )}
             {editingAdvisory.draftMedia?.kind === "video" && (
               <button type="button" className="secondary-button advisory-convert-button" onClick={convertExistingVideo} disabled={convertingExisting}>
@@ -482,7 +481,8 @@ export default function AdvisoryPage({ publishedOnly = false, onNotify, onViewAl
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
