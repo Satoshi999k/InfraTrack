@@ -78,6 +78,9 @@ const upload = multer({
 const cloudinaryCloudName = String(process.env.CLOUDINARY_CLOUD_NAME || "").trim();
 const cloudinaryUploadPreset = String(process.env.CLOUDINARY_UPLOAD_PRESET || "").trim();
 const hasCloudinaryStorage = Boolean(cloudinaryCloudName && cloudinaryUploadPreset);
+const cloudinaryMediaHost = cloudinaryCloudName
+  ? `res.cloudinary.com`
+  : "";
 
 async function uploadToCloudinary(file) {
   if (!hasCloudinaryStorage) return null;
@@ -136,6 +139,17 @@ const publicMediaUrl = (req, filePath) => {
     return `${req.protocol}://${req.get("host")}${parsed.pathname}`;
   } catch {
     return filePath;
+  }
+};
+const isDurableMediaUrl = (value) => {
+  try {
+    const parsed = new URL(String(value));
+    return parsed.protocol === "https:" && (
+      parsed.hostname === cloudinaryMediaHost ||
+      parsed.hostname.endsWith(".cloudinary.com")
+    );
+  } catch {
+    return false;
   }
 };
 const csvValue = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
@@ -751,15 +765,19 @@ app.post("/api/mobile/reports", async (req, res) => {
       if (typeof mediaUrl !== "string") throw new Error("Invalid report media URL");
       const origin = `${req.protocol}://${req.get("host")}`;
       const parsedMediaUrl = new URL(mediaUrl, `${origin}/`);
-      const filename = path.basename(parsedMediaUrl.pathname);
-      if (
-        parsedMediaUrl.origin !== origin ||
-        parsedMediaUrl.pathname !== `/uploads/${filename}` ||
-        !fs.existsSync(path.join(uploadDirectory, filename))
-      ) {
-        throw new Error("Invalid report media URL");
+      if (isDurableMediaUrl(mediaUrl)) {
+        storedMediaUrl = parsedMediaUrl.toString();
+      } else {
+        const filename = path.basename(parsedMediaUrl.pathname);
+        if (
+          parsedMediaUrl.origin !== origin ||
+          parsedMediaUrl.pathname !== `/uploads/${filename}` ||
+          !fs.existsSync(path.join(uploadDirectory, filename))
+        ) {
+          throw new Error("Invalid report media URL");
+        }
+        storedMediaUrl = `${origin}${parsedMediaUrl.pathname}`;
       }
-      storedMediaUrl = `${origin}${parsedMediaUrl.pathname}`;
     } catch {
       return res.status(400).json({ error: "Invalid report media URL" });
     }
@@ -1198,10 +1216,21 @@ app.post("/api/mobile/verification-documents", (req, res, next) => {
       if (!idFile || !selfieFile) {
         return res.status(400).json({ error: "Both the ID image and selfie are required." });
       }
+      if (process.env.VERCEL && !hasCloudinaryStorage) {
+        return res.status(503).json({
+          error: "Media storage is not configured. Set CLOUDINARY_CLOUD_NAME and CLOUDINARY_UPLOAD_PRESET before submitting verification documents.",
+        });
+      }
+      const idUrl = await uploadToCloudinary(idFile);
+      const selfieUrl = await uploadToCloudinary(selfieFile);
+      if (idUrl) await removeTemporaryUpload(idFile);
+      if (selfieUrl) await removeTemporaryUpload(selfieFile);
+      const storedIdUrl = idUrl || `/uploads/${idFile.filename}`;
+      const storedSelfieUrl = selfieUrl || `/uploads/${selfieFile.filename}`;
       const documentType = String(req.body?.documentType || "identity_document").trim().slice(0, 60);
       await pool.query(
         "INSERT INTO verification_documents (user_id, document_type, file_path) VALUES (?, ?, ?), (?, 'selfie', ?)",
-        [req.auth.id, documentType, `/uploads/${idFile.filename}`, req.auth.id, `/uploads/${selfieFile.filename}`],
+        [req.auth.id, documentType, storedIdUrl, req.auth.id, storedSelfieUrl],
       );
       await pool.query("UPDATE users SET verification = 'Pending ID match' WHERE id = ?", [req.auth.id]);
       res.status(201).json({ ok: true });
