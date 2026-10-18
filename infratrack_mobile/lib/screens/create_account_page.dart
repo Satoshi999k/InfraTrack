@@ -946,7 +946,7 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
       enableContours: false,
       enableLandmarks: false,
       enableClassification: true,
-      minFaceSize: 0.08,
+      minFaceSize: 0.04,
     ),
   );
 
@@ -961,7 +961,9 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
   int _centeredFrames = 0;
   int _turnFrames = 0;
   int _blinkClosedFrames = 0;
+  int _blinkOpenFrames = 0;
   bool _blinkWasOpen = false;
+  bool _blinkWasClosed = false;
   List<LivenessChallenge> _challenges = const [];
 
   @override
@@ -1051,7 +1053,9 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
       _centeredFrames = 0;
       _turnFrames = 0;
       _blinkClosedFrames = 0;
+      _blinkOpenFrames = 0;
       _blinkWasOpen = false;
+      _blinkWasClosed = false;
       _status = 'Center your face in the oval.';
     });
 
@@ -1093,7 +1097,7 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
       // ML Kit reports the bounding box in the rotated image coordinate
       // space. Avoid rejecting a valid face because the preview orientation
       // differs from the sensor orientation.
-      if (faceArea < .015) {
+      if (faceArea < .006) {
         _centeredFrames = 0;
         _turnFrames = 0;
         _setStatus('Move a little closer so your face is clearly visible.');
@@ -1102,9 +1106,8 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
 
       if (_challengeIndex == -1) {
         _centeredFrames++;
-        if (_centeredFrames >= 2) {
+        if (_centeredFrames >= 1) {
           _challengeIndex = 0;
-          _blinkWasOpen = true;
           _setStatus(LivenessChallengeState.instructionFor(_challenges.first));
         } else {
           _setStatus('Face detected. Hold still…');
@@ -1134,7 +1137,9 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
         _challengeIndex++;
         _turnFrames = 0;
         _blinkClosedFrames = 0;
+        _blinkOpenFrames = 0;
         _blinkWasOpen = false;
+        _blinkWasClosed = false;
         _setStatus(
           LivenessChallengeState.instructionFor(_challenges[_challengeIndex]),
         );
@@ -1176,15 +1181,26 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
     final right = face.rightEyeOpenProbability;
     if (left == null || right == null) return false;
 
-    final eyesOpen = left > .40 && right > .40;
-    final eyesClosed = left < .45 && right < .45;
-    if (eyesOpen) {
-      _blinkWasOpen = true;
-      _blinkClosedFrames = 0;
-    } else if (_blinkWasOpen && eyesClosed) {
+    // ML Kit probabilities can fluctuate considerably with a front camera,
+    // low light, glasses, and motion blur. Require an observed open state,
+    // then accept closure of either eye rather than requiring both values to
+    // cross the same threshold in one frame.
+    final eyesOpen = left > .22 || right > .22;
+    final eyesClosed =
+        (left < .55 && right < .70) || (right < .55 && left < .70);
+    if (_blinkWasOpen && eyesClosed) {
       _blinkClosedFrames++;
+      _blinkWasClosed = true;
+    } else if (eyesOpen) {
+      _blinkOpenFrames++;
+      if (_blinkOpenFrames >= 1) {
+        _blinkWasOpen = true;
+      }
+      if (!_blinkWasClosed) {
+        _blinkClosedFrames = 0;
+      }
     }
-    return _blinkWasOpen && _blinkClosedFrames >= 1;
+    return _blinkWasOpen && _blinkWasClosed && _blinkClosedFrames >= 1;
   }
 
   InputImage _inputImageFromCameraImage(CameraImage cameraImage) {
