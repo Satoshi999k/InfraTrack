@@ -1018,7 +1018,7 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
         ResolutionPreset.medium,
         enableAudio: false,
         imageFormatGroup: Platform.isAndroid
-            ? ImageFormatGroup.nv21
+            ? ImageFormatGroup.yuv420
             : ImageFormatGroup.bgra8888,
       );
 
@@ -1236,13 +1236,15 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
       }
     }
 
-    // The camera is explicitly configured as NV21 on Android. Some devices
-    // report a generic raw format value even though the byte layout is NV21;
-    // passing that generic value makes ML Kit reject every live frame.
-    final format = Platform.isAndroid
-        ? InputImageFormat.nv21
-        : InputImageFormatValue.fromRawValue(cameraImage.format.raw) ??
-              InputImageFormat.bgra8888;
+    // Android devices commonly return three YUV_420_888 planes. The previous
+    // code labeled those bytes as NV21, which makes ML Kit's native converter
+    // fail before face detection starts.
+    final format = InputImageFormatValue.fromRawValue(cameraImage.format.raw);
+    if (format == null) {
+      throw StateError(
+        'Unsupported camera image format: ${cameraImage.format.raw}',
+      );
+    }
     final rotation =
         InputImageRotationValue.fromRawValue(
           _cameraController!.description.sensorOrientation,
