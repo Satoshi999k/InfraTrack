@@ -75,6 +75,37 @@ const upload = multer({
     callback(new Error("Unsupported file type. Please upload an image or video."));
   },
 });
+const cloudinaryCloudName = String(process.env.CLOUDINARY_CLOUD_NAME || "").trim();
+const cloudinaryUploadPreset = String(process.env.CLOUDINARY_UPLOAD_PRESET || "").trim();
+const hasCloudinaryStorage = Boolean(cloudinaryCloudName && cloudinaryUploadPreset);
+
+async function uploadToCloudinary(file) {
+  if (!hasCloudinaryStorage) return null;
+
+  const form = new FormData();
+  form.append("file", new Blob([await fs.promises.readFile(file.path)], { type: file.mimetype }), file.originalname);
+  form.append("upload_preset", cloudinaryUploadPreset);
+  form.append("folder", "infratrack/advisories");
+  form.append("resource_type", "auto");
+
+  const response = await fetch(
+    `https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudinaryCloudName)}/auto/upload`,
+    { method: "POST", body: form },
+  );
+  const result = await response.json();
+  if (!response.ok || !result.secure_url) {
+    throw new Error(result.error?.message || "The media storage service rejected the upload.");
+  }
+  return result.secure_url;
+}
+
+async function removeTemporaryUpload(file) {
+  if (file?.path) {
+    await fs.promises.rm(file.path, { force: true }).catch((error) => {
+      console.error("Unable to remove temporary upload:", error.message);
+    });
+  }
+}
 
 const legacyHashPassword = (password) => crypto.createHash("sha256").update(password).digest("hex");
 const hashPassword = (password) => {
@@ -99,6 +130,9 @@ const publicMediaUrl = (req, filePath) => {
   if (!filePath) return filePath;
   try {
     const parsed = new URL(String(filePath), `${req.protocol}://${req.get("host")}`);
+    if (!["http:", "https:"].includes(parsed.protocol) || parsed.host !== req.get("host")) {
+      return parsed.toString();
+    }
     return `${req.protocol}://${req.get("host")}${parsed.pathname}`;
   } catch {
     return filePath;
@@ -1247,10 +1281,26 @@ app.post("/api/uploads", (req, res, next) => {
     }
     next();
   });
-}, (req, res) => {
+}, async (req, res) => {
   if (!req.file) return res.status(400).json({ error: "Please select a photo or video" });
   const mediaKind = req.file.mimetype === "image/gif" ? "gif" : req.file.mimetype.startsWith("video/") ? "video" : "photo";
-  res.status(201).json({ url: `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`, mediaKind, originalName: req.file.originalname });
+  try {
+    if (process.env.VERCEL && !hasCloudinaryStorage) {
+      return res.status(503).json({
+        error: "Media storage is not configured. Set CLOUDINARY_CLOUD_NAME and CLOUDINARY_UPLOAD_PRESET before uploading media.",
+      });
+    }
+    const cloudinaryUrl = await uploadToCloudinary(req.file);
+    if (cloudinaryUrl) {
+      await removeTemporaryUpload(req.file);
+      return res.status(201).json({ url: cloudinaryUrl, mediaKind, originalName: req.file.originalname, storage: "cloudinary" });
+    }
+    res.status(201).json({ url: `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`, mediaKind, originalName: req.file.originalname, storage: "local" });
+  } catch (uploadError) {
+    await removeTemporaryUpload(req.file);
+    console.error("Unable to store advisory media:", uploadError.message);
+    res.status(502).json({ error: `Could not store media: ${uploadError.message}` });
+  }
 });
 app.post("/api/uploads/gif", upload.single("file"), (req, res) => {
   if (!req.file) return res.status(400).json({ error: "Please select a video" });
