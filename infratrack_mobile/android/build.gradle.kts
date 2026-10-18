@@ -20,8 +20,8 @@ subprojects {
 }
 
 subprojects {
-    afterEvaluate {
-        if (name == "camera_android_camerax") {
+    if (name == "camera_android_camerax") {
+        pluginManager.withPlugin("com.android.library") {
             dependencies {
                 add("implementation", "androidx.concurrent:concurrent-futures:1.2.0")
             }
