@@ -940,15 +940,6 @@ class SelfieVerificationPage extends StatefulWidget {
 }
 
 class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
-  final FaceDetector _presenceDetector = FaceDetector(
-    options: FaceDetectorOptions(
-      performanceMode: FaceDetectorMode.accurate,
-      enableContours: false,
-      enableLandmarks: false,
-      enableClassification: false,
-      minFaceSize: 0.01,
-    ),
-  );
   final FaceDetector _faceDetector = FaceDetector(
     options: FaceDetectorOptions(
       performanceMode: FaceDetectorMode.accurate,
@@ -994,7 +985,6 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
       _cameraController!.stopImageStream();
     }
     _cameraController?.dispose();
-    _presenceDetector.close();
     _faceDetector.close();
     super.dispose();
   }
@@ -1068,6 +1058,7 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
       _processing = false;
       _frameBusy = false;
       _livenessComplete = false;
+      _captureInProgress = false;
       _challenges = const [LivenessChallenge.blink];
       _challengeIndex = -1;
       _centeredFrames = 0;
@@ -1093,18 +1084,36 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
     }
 
     _frameBusy = true;
+    _processedFrameCount++;
     try {
+      // Do not claim that a YUV420 frame is NV21. Older CameraX versions
+      // sometimes returned a different format even when NV21 was requested.
       final inputImage = _inputImageFromCameraImage(cameraImage);
-      _processedFrameCount++;
-      final faces = await _presenceDetector.processImage(inputImage);
+      if (inputImage == null) {
+        _setStatus(
+          'Unsupported camera format. Update the Android camera plugin.',
+        );
+        final diagnostic =
+            'Camera: raw=${cameraImage.format.raw}, '
+            'planes=${cameraImage.planes.length}, '
+            'size=${cameraImage.width}x${cameraImage.height}. '
+            'Expected one NV21 plane (raw=17) on Android.';
+        if (mounted && _frameDiagnostic != diagnostic) {
+          setState(() => _frameDiagnostic = diagnostic);
+        }
+        return;
+      }
+
+      // Run ONE detector with classification enabled: detecting the same
+      // frame twice slows processing and can miss a fast blink.
+      final faces = await _faceDetector.processImage(inputImage);
       if (!mounted || _livenessComplete) return;
 
       _frameDiagnostic =
-          'Frame $_processedFrameCount | ML Kit: ${faces.length} face(s) | '
-          '${cameraImage.width}x${cameraImage.height} | '
-          '${cameraImage.planes.length} plane(s) | '
+          'Frame $_processedFrameCount | ${faces.length} face(s) | '
           'raw ${cameraImage.format.raw} | '
-          'rotation ${inputImage.metadata?.rotation.name}';
+          '${cameraImage.planes.length} plane(s)';
+
       if (faces.length != 1) {
         _centeredFrames = 0;
         _turnFrames = 0;
@@ -1117,13 +1126,9 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
       }
 
       final face = faces.single;
-      final classifiedFaces = await _faceDetector.processImage(inputImage);
-      final classifiedFace = classifiedFaces.length == 1
-          ? classifiedFaces.single
-          : face;
       if (_challengeIndex == -1) {
         _centeredFrames++;
-        if (_centeredFrames >= 1) {
+        if (_centeredFrames >= 2) {
           _challengeIndex = 0;
           _setStatus('Face detected. Blink once when you are ready.');
         } else {
@@ -1135,14 +1140,14 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
       final challenge = _challenges[_challengeIndex];
       final completed = switch (challenge) {
         LivenessChallenge.turnLeft => _turnSatisfied(
-          classifiedFace.headEulerAngleY,
+          face.headEulerAngleY,
           turnLeft: true,
         ),
         LivenessChallenge.turnRight => _turnSatisfied(
-          classifiedFace.headEulerAngleY,
+          face.headEulerAngleY,
           turnLeft: false,
         ),
-        LivenessChallenge.blink => _blinkSatisfied(classifiedFace),
+        LivenessChallenge.blink => _blinkSatisfied(face),
       };
 
       if (!completed) {
@@ -1171,9 +1176,15 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
       debugPrint('Live face detection failed: $error');
       debugPrintStack(stackTrace: stackTrace);
       if (mounted) {
-        _setStatus('ML Kit could not read the camera frame.');
+        _setStatus('Unable to analyze camera image. Check debug details.');
+        // Do not print long native Java stack traces in the app UI.
+        final errorLabel = error is PlatformException
+            ? error.code
+            : error.runtimeType.toString();
         setState(() {
-          _frameDiagnostic = 'Error: ${error.runtimeType}: $error';
+          _frameDiagnostic =
+              '$errorLabel | raw ${cameraImage.format.raw} | '
+              '${cameraImage.planes.length} plane(s)';
         });
       }
     } finally {
@@ -1219,31 +1230,59 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
         _blinkClosedFrames >= 1;
   }
 
-  InputImage _inputImageFromCameraImage(CameraImage cameraImage) {
-    if (Platform.isAndroid && cameraImage.planes.length != 1) {
-      throw StateError(
-        'Android camera returned ${cameraImage.planes.length} planes; '
-        'a single NV21 plane is required.',
-      );
+  // Adapted from the official google_mlkit_commons camera example.
+  // The native converter only accepts supported formats and valid metadata.
+  static const Map<DeviceOrientation, int> _deviceOrientations = {
+    DeviceOrientation.portraitUp: 0,
+    DeviceOrientation.landscapeLeft: 90,
+    DeviceOrientation.portraitDown: 180,
+    DeviceOrientation.landscapeRight: 270,
+  };
+
+  InputImage? _inputImageFromCameraImage(CameraImage image) {
+    final controller = _cameraController;
+    if (controller == null || image.planes.length != 1) return null;
+
+    final format = InputImageFormatValue.fromRawValue(image.format.raw);
+    if (format == null ||
+        (Platform.isAndroid && format != InputImageFormat.nv21) ||
+        (Platform.isIOS && format != InputImageFormat.bgra8888)) {
+      return null;
     }
-    final bytes = cameraImage.planes.first.bytes;
-    final format = Platform.isAndroid
-        ? InputImageFormat.nv21
-        : InputImageFormatValue.fromRawValue(cameraImage.format.raw) ??
-              InputImageFormat.bgra8888;
-    final rotation =
-        InputImageRotationValue.fromRawValue(
-          _cameraController!.description.sensorOrientation,
-        ) ??
-        InputImageRotation.rotation0deg;
+
+    final plane = image.planes.single;
+    if (plane.bytes.isEmpty) return null;
+
+    // NV21 has one full-resolution Y plane and a half-resolution VU plane.
+    // Reject obviously incomplete buffers instead of passing bad bytes to
+    // the native ML Kit converter.
+    if (Platform.isAndroid &&
+        plane.bytes.length < image.width * image.height * 3 ~/ 2) {
+      return null;
+    }
+
+    final camera = controller.description;
+    final sensorOrientation = camera.sensorOrientation;
+    InputImageRotation? rotation;
+    if (Platform.isIOS) {
+      rotation = InputImageRotationValue.fromRawValue(sensorOrientation);
+    } else {
+      final compensation = _deviceOrientations[controller.value.deviceOrientation];
+      if (compensation == null) return null;
+      final degrees = camera.lensDirection == CameraLensDirection.front
+          ? (sensorOrientation + compensation) % 360
+          : (sensorOrientation - compensation + 360) % 360;
+      rotation = InputImageRotationValue.fromRawValue(degrees);
+    }
+    if (rotation == null) return null;
 
     return InputImage.fromBytes(
-      bytes: bytes,
+      bytes: plane.bytes,
       metadata: InputImageMetadata(
-        size: Size(cameraImage.width.toDouble(), cameraImage.height.toDouble()),
+        size: Size(image.width.toDouble(), image.height.toDouble()),
         rotation: rotation,
         format: format,
-        bytesPerRow: cameraImage.planes.first.bytesPerRow,
+        bytesPerRow: plane.bytesPerRow,
       ),
     );
   }
@@ -1334,10 +1373,10 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
       _showMessage(
         'Face detection was unavailable for this selfie. Please try again in good lighting or continue with manual review.',
       );
-    } catch (error) {
-      _showMessage(
-        'Face detection was unavailable for this selfie. Please try again.',
-      );
+    } catch (error, stackTrace) {
+      debugPrint('Selfie capture or verification upload failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      _showMessage('Selfie capture or verification failed. Please retry.');
     } finally {
       _captureInProgress = false;
       if (mounted) {
