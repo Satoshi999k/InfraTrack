@@ -37,10 +37,13 @@ class ApiService {
   static const _sessionTokenKey = 'session_token';
   static const _sessionUserKey = 'session_user';
   static const _lastOpenedKey = 'session_last_opened';
-  static const _sessionLifetime = Duration(days: 7);
+  // Keep the local restore window aligned with the server session lifetime.
+  static const _sessionLifetime = Duration(hours: 8);
 
   static Map<String, dynamic>? currentUser;
   static String? _sessionToken;
+  static final ValueNotifier<int> sessionExpired = ValueNotifier<int>(0);
+  static String? _sessionNotice;
 
   static bool get isSignedIn => _sessionToken != null;
 
@@ -54,6 +57,7 @@ class ApiService {
       lastOpenedMilliseconds,
     );
     if (DateTime.now().difference(lastOpened) >= _sessionLifetime) {
+      _sessionNotice = 'Your InfraTrack session expired after 7 days for your security. Please sign in again.';
       await _clearStoredSession(preferences);
       return;
     }
@@ -97,6 +101,16 @@ class ApiService {
     currentUser = null;
     final preferences = await SharedPreferences.getInstance();
     await _clearStoredSession(preferences);
+  }
+
+  static String? consumeSessionNotice() {
+    final notice = _sessionNotice;
+    _sessionNotice = null;
+    return notice;
+  }
+
+  static Future<void> signOutForExpiredSession() async {
+    await _clearSession();
   }
 
   static Future<Map<String, dynamic>> _request(
@@ -143,7 +157,9 @@ class ApiService {
 
   static Map<String, dynamic> _decodeResponse(http.Response response) {
     if (response.statusCode == 401) {
+      _sessionNotice = 'Your session has expired. For your security, please sign in again to continue.';
       unawaited(_clearSession());
+      sessionExpired.value++;
     }
     if (response.body.isEmpty) return <String, dynamic>{};
     final decoded = jsonDecode(response.body);
@@ -184,6 +200,7 @@ class ApiService {
       throw Exception('The server did not provide a sign-in session.');
     }
     currentUser = Map<String, dynamic>.from(body['user'] as Map);
+    _sessionNotice = null;
     await _persistSession();
     return currentUser!;
   }
@@ -263,6 +280,11 @@ class ApiService {
 
     final response = await request.send().timeout(const Duration(seconds: 60));
     final body = await response.stream.bytesToString();
+    if (response.statusCode == 401) {
+      _sessionNotice = 'Your session has expired. For your security, please sign in again to continue.';
+      await _clearSession();
+      sessionExpired.value++;
+    }
     if (response.statusCode >= 400) {
       final decoded = body.isEmpty ? <String, dynamic>{} : jsonDecode(body);
       throw Exception(

@@ -136,9 +136,12 @@ class _AppLoadingPageState extends State<AppLoadingPage>
     if (!_sessionReady || !_controller.isCompleted || !mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) => ApiService.isSignedIn
-            ? const MainShell()
-            : const LoginPage(),
+        builder: (_) {
+          final notice = ApiService.consumeSessionNotice();
+          return ApiService.isSignedIn
+              ? const MainShell()
+              : LoginPage(sessionNotice: notice);
+        },
       ),
     );
   }
@@ -361,7 +364,9 @@ class SplashPage extends StatelessWidget {
 }
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  const LoginPage({super.key, this.sessionNotice});
+
+  final String? sessionNotice;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -374,6 +379,25 @@ class _LoginPageState extends State<LoginPage> {
   bool _obscurePassword = true;
   bool _isLoggingIn = false;
   String? _loginError;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.sessionNotice != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(widget.sessionNotice!),
+              backgroundColor: navy,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 6),
+            ),
+          );
+        }
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -1234,6 +1258,7 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int index = 0;
+  bool _handlingExpiredSession = false;
   final _homeKey = GlobalKey<_HomePageState>();
   final _mapKey = GlobalKey<_MapPageState>();
   final _reportKey = GlobalKey<_ReportPageState>();
@@ -1247,6 +1272,74 @@ class _MainShellState extends State<MainShell> {
     NewsPage(key: _newsKey),
     ProfilePage(key: _profileKey),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    ApiService.sessionExpired.addListener(_handleExpiredSession);
+  }
+
+  void _handleExpiredSession() {
+    if (_handlingExpiredSession || !mounted) return;
+    _handlingExpiredSession = true;
+    final notice =
+        ApiService.consumeSessionNotice() ??
+        'Your session has expired. Please sign in again to continue.';
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          icon: const CircleAvatar(
+            radius: 30,
+            backgroundColor: Color(0xFFE8F3F0),
+            child: Icon(Icons.lock_clock_rounded, color: teal, size: 30),
+          ),
+          title: Text(
+            'Session expired',
+            style: infraHeading(color: navy, fontSize: 21),
+          ),
+          content: Text(
+            '$notice\n\nYour account data is safe. Sign in again to resume using InfraTrack.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: inkSoft, height: 1.45),
+          ),
+          actions: [
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                style: FilledButton.styleFrom(
+                  backgroundColor: teal,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: const Text('Sign in again'),
+              ),
+            ),
+          ],
+        ),
+      );
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginPage()),
+        (_) => false,
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    ApiService.sessionExpired.removeListener(_handleExpiredSession);
+    super.dispose();
+  }
 
   Future<void> _refreshPage(int pageIndex) async {
     switch (pageIndex) {
