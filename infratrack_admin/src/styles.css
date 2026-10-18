@@ -3902,6 +3902,51 @@ tbody tr:last-child td {
   .before-after {
     display: flex;
     gap: 8px;
+    align-items: stretch;
+  }
+  .before-after-card {
+    flex: 1;
+    min-width: 0;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: #fff;
+    padding: 8px;
+  }
+  .before-after-card img {
+    display: block;
+    width: 100%;
+    height: 110px;
+    object-fit: cover;
+    border-radius: 7px;
+    margin: 7px 0;
+  }
+  .before-after-label {
+    display: block;
+    color: var(--navy);
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .before-after-empty {
+    min-height: 110px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    text-align: center;
+    font-size: 10px;
+  }
+  .before-after-card button {
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--sand);
+    padding: 8px;
+    color: var(--navy);
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    font-size: 10px;
   }
   .before-after button {
     flex: 1;

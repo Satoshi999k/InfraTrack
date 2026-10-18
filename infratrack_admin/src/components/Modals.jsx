@@ -14,6 +14,7 @@ import {
   ClipboardList,
   FileText,
   Eye,
+  Image as ImageIcon,
   LayoutDashboard,
   MapPin,
   Map,
@@ -24,6 +25,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { apiFetch } from "../api";
 
 export function Modal({ data, onClose, onSave, onUserSave, onUserVerification }) {
   if (data.type === "user") return <UserModal user={data.user} onClose={onClose} onSave={onUserSave} onVerification={onUserVerification} />;
@@ -303,6 +305,9 @@ export function IssueModal({ data, onClose, onSave }) {
   const [validationError, setValidationError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
+  const [beforePhoto, setBeforePhoto] = useState(data.media_url || "");
+  const [isUploadingBeforePhoto, setIsUploadingBeforePhoto] = useState(false);
+  const beforePhotoInput = useRef(null);
 
   const saveChanges = async (changes, archiving = false) => {
     setIsSaving(true);
@@ -327,7 +332,27 @@ export function IssueModal({ data, onClose, onSave }) {
       setValidationError("A resolution note is required.");
       return;
     }
-    void saveChanges({ status, assignedTeam: assigned, resolutionNote: note, progressPercentage });
+    void saveChanges({ status, assignedTeam: assigned, resolutionNote: note, progressPercentage, beforeMediaUrl: beforePhoto || null });
+  };
+
+  const replaceBeforePhoto = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setIsUploadingBeforePhoto(true);
+    setValidationError("");
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await apiFetch("/uploads", { method: "POST", body: formData });
+      const result = await response.json();
+      if (!response.ok || !result.url) throw new Error(result.error || "Could not upload replacement photo.");
+      setBeforePhoto(result.url);
+    } catch (error) {
+      setValidationError(error instanceof Error ? error.message : "Could not upload replacement photo.");
+    } finally {
+      setIsUploadingBeforePhoto(false);
+    }
   };
 
   return (
@@ -441,9 +466,18 @@ export function IssueModal({ data, onClose, onSave }) {
                     />
                   </label>
                   <div className="before-after">
-                    <button>
-                      <FileText size={16} /> Before photo
-                    </button>
+                    <div className="before-after-card">
+                      <span className="before-after-label">Before photo · resident submission</span>
+                      {beforePhoto ? (
+                        <img src={beforePhoto} alt="Resident submitted before photo" />
+                      ) : (
+                        <span className="before-after-empty"><FileText size={16} /> No resident photo submitted</span>
+                      )}
+                      <input ref={beforePhotoInput} hidden type="file" accept="image/*" onChange={replaceBeforePhoto} />
+                      <button type="button" onClick={() => beforePhotoInput.current?.click()} disabled={isUploadingBeforePhoto}>
+                        <ImageIcon size={15} /> {isUploadingBeforePhoto ? "Uploading..." : "Replace photo"}
+                      </button>
+                    </div>
                     <button>
                       <FileText size={16} /> After photo
                     </button>

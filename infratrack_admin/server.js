@@ -1669,7 +1669,7 @@ app.post("/api/reports", async (req, res) => {
   res.status(201).json({ report });
 });
 app.patch("/api/issues/:id", async (req, res) => {
-  const { status, assignedTeam, resolutionNote, severity, progressPercentage } = req.body ?? {};
+  const { status, assignedTeam, resolutionNote, severity, progressPercentage, beforeMediaUrl } = req.body ?? {};
   const parsedProgress = Number(progressPercentage);
   const progress = Number.isFinite(parsedProgress)
     ? Math.min(100, Math.max(0, Math.round(parsedProgress)))
@@ -1679,7 +1679,18 @@ app.patch("/api/issues/:id", async (req, res) => {
   if (!report) return res.status(404).json({ error: "Report not found" });
   const editor = req.auth;
   if (editor?.role === "barangay_staff" && editor.barangay !== report.location) return res.status(403).json({ error: "You can only manage issues in your barangay" });
+  if (beforeMediaUrl && (typeof beforeMediaUrl !== "string" || (!isDurableMediaUrl(beforeMediaUrl) && !beforeMediaUrl.startsWith("/uploads/")))) {
+    return res.status(400).json({ error: "Invalid replacement report photo URL" });
+  }
   await pool.query("UPDATE reports SET status = COALESCE(?, status), assigned_team = COALESCE(?, assigned_team), resolution_note = COALESCE(?, resolution_note), severity = COALESCE(?, severity), progress_percentage = COALESCE(?, progress_percentage) WHERE id = ?", [status ?? null, assignedTeam ?? null, resolutionNote ?? null, severity ?? null, progress, report.id]);
+  if (beforeMediaUrl) {
+    const [mediaRows] = await pool.query("SELECT id FROM media WHERE report_id = ? ORDER BY id ASC LIMIT 1", [report.id]);
+    if (mediaRows.length) {
+      await pool.query("UPDATE media SET file_path = ?, media_type = 'photo' WHERE id = ?", [beforeMediaUrl, mediaRows[0].id]);
+    } else {
+      await pool.query("INSERT INTO media (report_id, file_path, media_type) VALUES (?, ?, 'photo')", [report.id, beforeMediaUrl]);
+    }
+  }
   if (status && status !== report.status) await pool.query("INSERT INTO report_events (report_id, status, note) VALUES (?, ?, ?)", [report.id, status, resolutionNote ?? null]);
   const statusChanged = Boolean(status && status !== report.status);
   const assignmentChanged = Boolean(assignedTeam && assignedTeam !== report.assigned_team);
