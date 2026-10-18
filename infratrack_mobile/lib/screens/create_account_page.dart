@@ -965,6 +965,7 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
   double? _score;
   bool _processing = false;
   bool _frameBusy = false;
+  bool _captureInProgress = false;
   bool _livenessComplete = false;
   int _challengeIndex = -1;
   int _centeredFrames = 0;
@@ -1188,26 +1189,22 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
     final right = face.rightEyeOpenProbability;
     if (left == null || right == null) return false;
 
-    // ML Kit probabilities can fluctuate considerably with a front camera,
-    // low light, glasses, and motion blur. Require an observed open state,
-    // then accept closure of either eye rather than requiring both values to
-    // cross the same threshold in one frame.
-    final eyesOpen = left > .22 || right > .22;
-    final eyesClosed =
-        (left < .55 && right < .70) || (right < .55 && left < .70);
-    if (_blinkWasOpen && eyesClosed) {
+    // Require the complete open -> closed -> open transition. The thresholds
+    // are intentionally tolerant because ML Kit probabilities fluctuate with
+    // lighting, glasses, and motion blur on front cameras.
+    final eyesOpen = left > .55 && right > .55;
+    final eyesClosed = left < .45 && right < .45;
+    if (eyesOpen && !_blinkWasClosed) {
+      _blinkWasOpen = true;
+      _blinkOpenFrames++;
+    } else if (_blinkWasOpen && eyesClosed) {
       _blinkClosedFrames++;
       _blinkWasClosed = true;
-    } else if (eyesOpen) {
-      _blinkOpenFrames++;
-      if (_blinkOpenFrames >= 1) {
-        _blinkWasOpen = true;
-      }
-      if (!_blinkWasClosed) {
-        _blinkClosedFrames = 0;
-      }
     }
-    return _blinkWasOpen && _blinkWasClosed && _blinkClosedFrames >= 1;
+    return _blinkWasOpen &&
+        _blinkWasClosed &&
+        eyesOpen &&
+        _blinkClosedFrames >= 1;
   }
 
   InputImage _inputImageFromCameraImage(CameraImage cameraImage) {
@@ -1258,11 +1255,13 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
   }
 
   Future<void> _captureSelfie() async {
+    if (_captureInProgress) return;
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
       _showMessage('Camera is not ready yet. Please wait a moment.');
       return;
     }
 
+    _captureInProgress = true;
     try {
       setState(() {
         _processing = true;
@@ -1340,6 +1339,7 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
         'Face detection was unavailable for this selfie. Please try again.',
       );
     } finally {
+      _captureInProgress = false;
       if (mounted) {
         setState(() => _processing = false);
       }
