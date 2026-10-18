@@ -940,13 +940,22 @@ class SelfieVerificationPage extends StatefulWidget {
 }
 
 class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
+  final FaceDetector _presenceDetector = FaceDetector(
+    options: FaceDetectorOptions(
+      performanceMode: FaceDetectorMode.accurate,
+      enableContours: false,
+      enableLandmarks: false,
+      enableClassification: false,
+      minFaceSize: 0.01,
+    ),
+  );
   final FaceDetector _faceDetector = FaceDetector(
     options: FaceDetectorOptions(
-      performanceMode: FaceDetectorMode.fast,
+      performanceMode: FaceDetectorMode.accurate,
       enableContours: false,
       enableLandmarks: false,
       enableClassification: true,
-      minFaceSize: 0.04,
+      minFaceSize: 0.02,
     ),
   );
 
@@ -983,6 +992,7 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
       _cameraController!.stopImageStream();
     }
     _cameraController?.dispose();
+    _presenceDetector.close();
     _faceDetector.close();
     super.dispose();
   }
@@ -1011,6 +1021,14 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
       );
 
       await _cameraController!.initialize();
+      try {
+        await _cameraController!.setExposureMode(ExposureMode.auto);
+        await _cameraController!.setFocusMode(FocusMode.auto);
+        await _cameraController!.setExposurePoint(const Offset(.5, .42));
+        await _cameraController!.setFocusPoint(const Offset(.5, .42));
+      } on CameraException {
+        // Some front cameras do not expose manual focus or exposure points.
+      }
       if (!mounted) return;
 
       setState(() {
@@ -1073,9 +1091,8 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
 
     _frameBusy = true;
     try {
-      final faces = await _faceDetector.processImage(
-        _inputImageFromCameraImage(cameraImage),
-      );
+      final inputImage = _inputImageFromCameraImage(cameraImage);
+      final faces = await _presenceDetector.processImage(inputImage);
       if (!mounted || _livenessComplete) return;
 
       if (faces.length != 1) {
@@ -1090,25 +1107,15 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
       }
 
       final face = faces.single;
-      final box = face.boundingBox;
-      final faceArea =
-          (box.width * box.height) / (cameraImage.width * cameraImage.height);
-
-      // ML Kit reports the bounding box in the rotated image coordinate
-      // space. Avoid rejecting a valid face because the preview orientation
-      // differs from the sensor orientation.
-      if (faceArea < .006) {
-        _centeredFrames = 0;
-        _turnFrames = 0;
-        _setStatus('Move a little closer so your face is clearly visible.');
-        return;
-      }
-
+      final classifiedFaces = await _faceDetector.processImage(inputImage);
+      final classifiedFace = classifiedFaces.length == 1
+          ? classifiedFaces.single
+          : face;
       if (_challengeIndex == -1) {
         _centeredFrames++;
         if (_centeredFrames >= 1) {
           _challengeIndex = 0;
-          _setStatus(LivenessChallengeState.instructionFor(_challenges.first));
+          _setStatus('Face detected. Blink once when you are ready.');
         } else {
           _setStatus('Face detected. Hold still…');
         }
@@ -1118,14 +1125,14 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
       final challenge = _challenges[_challengeIndex];
       final completed = switch (challenge) {
         LivenessChallenge.turnLeft => _turnSatisfied(
-          face.headEulerAngleY,
+          classifiedFace.headEulerAngleY,
           turnLeft: true,
         ),
         LivenessChallenge.turnRight => _turnSatisfied(
-          face.headEulerAngleY,
+          classifiedFace.headEulerAngleY,
           turnLeft: false,
         ),
-        LivenessChallenge.blink => _blinkSatisfied(face),
+        LivenessChallenge.blink => _blinkSatisfied(classifiedFace),
       };
 
       if (!completed) {
@@ -1204,16 +1211,20 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
   }
 
   InputImage _inputImageFromCameraImage(CameraImage cameraImage) {
-    final bytes = Uint8List(
-      cameraImage.planes.fold<int>(
-        0,
-        (total, plane) => total + plane.bytes.length,
-      ),
-    );
-    var offset = 0;
-    for (final plane in cameraImage.planes) {
-      bytes.setRange(offset, offset + plane.bytes.length, plane.bytes);
-      offset += plane.bytes.length;
+    final bytes = cameraImage.planes.length == 1
+        ? cameraImage.planes.first.bytes
+        : Uint8List(
+            cameraImage.planes.fold<int>(
+              0,
+              (total, plane) => total + plane.bytes.length,
+            ),
+          );
+    if (cameraImage.planes.length > 1) {
+      var offset = 0;
+      for (final plane in cameraImage.planes) {
+        bytes.setRange(offset, offset + plane.bytes.length, plane.bytes);
+        offset += plane.bytes.length;
+      }
     }
 
     final format =
