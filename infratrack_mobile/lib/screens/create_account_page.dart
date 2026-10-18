@@ -901,25 +901,11 @@ class SelfieVerificationPage extends StatefulWidget {
 }
 
 class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
-  final FaceDetector _faceDetector = FaceDetector(
-    options: FaceDetectorOptions(
-      performanceMode: FaceDetectorMode.fast,
-      enableContours: false,
-      enableLandmarks: false,
-      enableClassification: false,
-    ),
-  );
-
   CameraController? _cameraController;
   XFile? _selfie;
   String _status = 'Center your face in the frame.';
   double? _score;
   bool _processing = false;
-  int _livenessStep = 0;
-  bool _livenessComplete = false;
-  int _noFaceFrames = 0;
-  int _centeredFrames = 0;
-  bool _faceStable = false;
 
   @override
   void initState() {
@@ -938,13 +924,18 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
       _cameraController!.stopImageStream();
     }
     _cameraController?.dispose();
-    _faceDetector.close();
     super.dispose();
   }
 
   Future<void> _initCamera() async {
     try {
       final cameras = await availableCameras();
+      if (cameras.isEmpty) {
+        throw CameraException(
+          'NoCameraAvailable',
+          'No camera was found on this device.',
+        );
+      }
       final frontCamera = cameras.firstWhere(
         (camera) => camera.lensDirection == CameraLensDirection.front,
         orElse: () => cameras.first,
@@ -952,7 +943,7 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
 
       _cameraController = CameraController(
         frontCamera,
-        ResolutionPreset.high,
+        ResolutionPreset.medium,
         enableAudio: false,
       );
 
@@ -960,9 +951,8 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
       if (!mounted) return;
 
       setState(() {
-        _status = LivenessChallengeState.instructionForStep(0);
+        _status = 'Center your face in the oval, then tap the shutter.';
       });
-      await _startLivenessCheck();
     } on CameraException catch (error) {
       if (!mounted) return;
       _showMessage(
@@ -986,113 +976,13 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
       await _cameraController!.stopImageStream();
     }
 
-    _livenessStep = 0;
-    _livenessComplete = false;
     if (!mounted) return;
 
     setState(() {
       _score = null;
-      _status = LivenessChallengeState.instructionForStep(0);
+      _selfie = null;
+      _status = 'Center your face in the oval, then tap the shutter.';
     });
-
-    await _cameraController!.startImageStream((cameraImage) async {
-      if (_processing || _livenessComplete || !mounted) return;
-
-      try {
-        final faces = await _faceDetector.processImage(
-          _inputImageFromCameraImage(cameraImage),
-        );
-
-        if (!mounted) return;
-        if (faces.isEmpty) {
-          _noFaceFrames += 1;
-          if (_noFaceFrames >= 4) {
-            setState(
-              () => _status = 'Center your face in the frame and keep still.',
-            );
-          }
-          return;
-        }
-
-        _noFaceFrames = 0;
-
-        final face = faces.first;
-        final centeredFace =
-            face.boundingBox.center.dx > 0.18 &&
-            face.boundingBox.center.dx < 0.82 &&
-            face.boundingBox.center.dy > 0.15 &&
-            face.boundingBox.center.dy < 0.85;
-        final faceAreaRatio =
-            (face.boundingBox.width * face.boundingBox.height) /
-            (cameraImage.width * cameraImage.height);
-
-        if (!centeredFace || faceAreaRatio < 0.04) {
-          _faceStable = false;
-          _centeredFrames = 0;
-          _noFaceFrames += 1;
-          if (_noFaceFrames >= 4) {
-            setState(
-              () => _status = 'Center your face in the frame and keep still.',
-            );
-          }
-          return;
-        }
-
-        _noFaceFrames = 0;
-        _centeredFrames += 1;
-
-        if (_centeredFrames < 6) {
-          setState(
-            () => _status = 'Face detected. Keep still while we verify…',
-          );
-          return;
-        }
-
-        _faceStable = true;
-        _livenessStep = 1;
-        if (_cameraController != null &&
-            _cameraController!.value.isStreamingImages) {
-          await _cameraController!.stopImageStream();
-        }
-        if (!mounted) return;
-        await _captureSelfie();
-        return;
-      } catch (_) {
-        if (!mounted) return;
-        setState(() {
-          _status = 'Center your face in the frame and keep still.';
-        });
-      }
-    });
-  }
-
-  InputImage _inputImageFromCameraImage(CameraImage cameraImage) {
-    final bytes = Uint8List(
-      cameraImage.planes.fold<int>(
-        0,
-        (total, plane) => total + plane.bytes.length,
-      ),
-    );
-
-    var offset = 0;
-    for (final plane in cameraImage.planes) {
-      bytes.setRange(offset, offset + plane.bytes.length, plane.bytes);
-      offset += plane.bytes.length;
-    }
-
-    final format =
-        InputImageFormatValue.fromRawValue(cameraImage.format.raw) ??
-        InputImageFormat.nv21;
-
-    return InputImage.fromBytes(
-      bytes: bytes,
-      metadata: InputImageMetadata(
-        size: Size(cameraImage.width.toDouble(), cameraImage.height.toDouble()),
-        rotation: InputImageRotation.rotation0deg,
-        format: format,
-        bytesPerRow: cameraImage.planes.first.bytesPerRow,
-      ),
-    );
   }
 
   Future<void> _captureSelfie() async {
@@ -1105,7 +995,7 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
       setState(() {
         _processing = true;
         _score = null;
-        _status = 'Taking final selfie…';
+        _status = 'Taking your selfie…';
       });
 
       final image = await _cameraController!.takePicture();
@@ -1137,8 +1027,8 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
         _processing = false;
         _score = score;
         _status = score == null
-            ? 'Face detected. Manual review can continue while secure matching is prepared.'
-            : 'One face detected. Ready for secure identity matching.';
+            ? 'Face detected. Your selfie is ready for verification.'
+            : 'Face detected. Your selfie is ready for secure matching.';
       });
     } on MissingPluginException {
       _showMessage(
@@ -1196,7 +1086,7 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Turn your head left and then right so the app can confirm the face is live and not a printed image.',
+            'Place your face inside the oval, look straight at the camera, and take a clear selfie for verification.',
             style: TextStyle(color: inkSoft, fontSize: 12.5, height: 1.5),
           ),
           const SizedBox(height: 12),
@@ -1211,11 +1101,39 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
             ),
             clipBehavior: Clip.antiAlias,
             child:
-                _cameraController != null &&
+                _selfie == null &&
+                    _cameraController != null &&
                     _cameraController!.value.isInitialized
                 ? Stack(
                     children: [
                       Positioned.fill(child: CameraPreview(_cameraController!)),
+                      Positioned(
+                        top: 18,
+                        left: 18,
+                        right: 18,
+                        child: Center(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: .42),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 8,
+                              ),
+                              child: Text(
+                                'Look straight at the camera',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                       Center(
                         child: Container(
                           width: 360,
@@ -1280,6 +1198,25 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
             ),
           ],
           const SizedBox(height: 20),
+          if (_selfie == null)
+            SizedBox(
+              width: double.infinity,
+              height: 58,
+              child: FilledButton.icon(
+                onPressed: _processing ? null : _captureSelfie,
+                icon: const Icon(Icons.camera_alt_rounded, size: 25),
+                label: Text(
+                  _processing ? 'Checking selfie…' : 'Capture selfie',
+                ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: teal,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+            ),
           if (_selfie != null)
             SizedBox(
               width: double.infinity,
