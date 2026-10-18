@@ -1227,9 +1227,13 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
       }
     }
 
-    final format =
-        InputImageFormatValue.fromRawValue(cameraImage.format.raw) ??
-        InputImageFormat.nv21;
+    // The camera is explicitly configured as NV21 on Android. Some devices
+    // report a generic raw format value even though the byte layout is NV21;
+    // passing that generic value makes ML Kit reject every live frame.
+    final format = Platform.isAndroid
+        ? InputImageFormat.nv21
+        : InputImageFormatValue.fromRawValue(cameraImage.format.raw) ??
+              InputImageFormat.bgra8888;
     final rotation =
         InputImageRotationValue.fromRawValue(
           _cameraController!.description.sensorOrientation,
