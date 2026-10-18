@@ -1131,8 +1131,50 @@ app.get("/api/analytics", async (req, res) => {
 app.get("/api/users", async (req, res) => {
   const viewer = req.auth;
   const barangayFilter = viewer?.role === "barangay_staff" ? " AND u.barangay = ?" : "";
-  const [users] = await pool.query(`SELECT u.id, u.name, u.email, u.barangay, u.standing, u.verification, DATE_FORMAT(u.created_at, '%b %Y') AS joined, COUNT(r.id) AS reports FROM users u LEFT JOIN reports r ON r.reporter_id = u.id WHERE u.role = 'resident'${barangayFilter} GROUP BY u.id ORDER BY u.created_at DESC`, barangayFilter ? [viewer.barangay] : []);
+  const [users] = await pool.query(`SELECT u.id, u.name, u.email, u.barangay, u.standing, u.verification,
+    DATE_FORMAT(u.created_at, '%b %Y') AS joined, COUNT(DISTINCT r.id) AS reports,
+    MAX(CASE WHEN vd.document_type = 'selfie' THEN vd.file_path END) AS selfie_path,
+    MAX(CASE WHEN vd.document_type <> 'selfie' THEN vd.file_path END) AS id_path,
+    MAX(CASE WHEN vd.document_type <> 'selfie' THEN vd.document_type END) AS id_type
+    FROM users u
+    LEFT JOIN reports r ON r.reporter_id = u.id
+    LEFT JOIN verification_documents vd ON vd.user_id = u.id
+    WHERE u.role = 'resident'${barangayFilter}
+    GROUP BY u.id ORDER BY u.created_at DESC`, barangayFilter ? [viewer.barangay] : []);
+  for (const user of users) {
+    user.selfie_url = publicMediaUrl(req, user.selfie_path);
+    user.id_url = publicMediaUrl(req, user.id_path);
+    delete user.selfie_path;
+    delete user.id_path;
+  }
   res.json({ users });
+});
+
+app.post("/api/mobile/verification-documents", (req, res, next) => {
+  upload.fields([
+    { name: "idImage", maxCount: 1 },
+    { name: "selfieImage", maxCount: 1 },
+  ])(req, res, async (error) => {
+    if (error) {
+      return res.status(400).json({ error: error.message || "Could not upload verification images." });
+    }
+    try {
+      const idFile = req.files?.idImage?.[0];
+      const selfieFile = req.files?.selfieImage?.[0];
+      if (!idFile || !selfieFile) {
+        return res.status(400).json({ error: "Both the ID image and selfie are required." });
+      }
+      const documentType = String(req.body?.documentType || "identity_document").trim().slice(0, 60);
+      await pool.query(
+        "INSERT INTO verification_documents (user_id, document_type, file_path) VALUES (?, ?, ?), (?, 'selfie', ?)",
+        [req.auth.id, documentType, `/uploads/${idFile.filename}`, req.auth.id, `/uploads/${selfieFile.filename}`],
+      );
+      await pool.query("UPDATE users SET verification = 'Pending ID match' WHERE id = ?", [req.auth.id]);
+      res.status(201).json({ ok: true });
+    } catch (routeError) {
+      next(routeError);
+    }
+  });
 });
 app.get("/api/teams", async (req, res) => {
   const [teams] = await pool.query("SELECT id, name, department, contact_phone, active FROM teams WHERE active = TRUE ORDER BY name");

@@ -185,8 +185,10 @@ export default function UsersPage({ users, onOpenUser, user }) {
             </tr>
           </thead>
           <tbody>
-            {users.map(({ id, name, email, barangay, reports, standing, verification, joined }) => (
-              <tr key={email} onClick={() => onOpenUser({ id, name, email, barangay, reports, standing, joined })}>
+            {users.map((resident) => {
+              const { id, name, email, barangay, reports, standing, verification, joined } = resident;
+              return (
+              <tr key={email} onClick={() => onOpenUser(resident)}>
                 <td>
                   <div className="issue-title">
                     <span className="user-avatar" title={name}>
@@ -234,14 +236,15 @@ export default function UsersPage({ users, onOpenUser, user }) {
                     className="view-user-button"
                     onClick={(event) => {
                       event.stopPropagation();
-                      onOpenUser({ id, name, email, barangay, reports, standing, joined });
+                      onOpenUser(resident);
                     }}
                   >
                     <Eye size={16} strokeWidth={2.2} /> View
                   </button>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

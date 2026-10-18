@@ -540,6 +540,30 @@ export function UserModal({ user, onClose, onSave }) {
           </span>
         </div>
 
+        <div className="verification-review-panel">
+          <div className="verification-review-heading">
+            <div>
+              <h3>Identity verification</h3>
+              <p>Compare the submitted government ID with the live selfie before approving this account.</p>
+            </div>
+            <span className={`status ${user.verification === "Verified" ? "verified" : "pending"}`}>
+              {user.verification || "Pending ID match"}
+            </span>
+          </div>
+          <div className="verification-image-grid">
+            <VerificationImage
+              label={user.id_type || "Government ID"}
+              src={user.id_url}
+              empty="No ID image submitted"
+            />
+            <VerificationImage
+              label="Live selfie"
+              src={user.selfie_url}
+              empty="No selfie submitted"
+            />
+          </div>
+        </div>
+
         <div className="user-modal-content">
           <div className="user-left-panel">
             <h3 className="report-section-title">Recent reports by this resident</h3>
@@ -643,6 +667,24 @@ export function UserModal({ user, onClose, onSave }) {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function VerificationImage({ label, src, empty }) {
+  return (
+    <div className="verification-image-card">
+      <strong>{label}</strong>
+      <div className="verification-image-frame">
+        {src ? (
+          <a href={src} target="_blank" rel="noreferrer">
+            <img src={src} alt={`${label} submitted for verification`} />
+          </a>
+        ) : (
+          <span>{empty}</span>
+        )}
+      </div>
+      {src && <small>Open full image</small>}
     </div>
   );
 }

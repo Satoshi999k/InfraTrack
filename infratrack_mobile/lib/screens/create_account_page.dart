@@ -552,8 +552,11 @@ class _VerifyIdPageState extends State<VerifyIdPage> {
 
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) =>
-            SelfieVerificationPage(idImage: _frontImage!, idFace: null),
+        builder: (_) => SelfieVerificationPage(
+          idImage: _frontImage!,
+          documentType: _idTypes[_selectedId].$1,
+          idFace: null,
+        ),
       ),
     );
   }
@@ -717,18 +720,20 @@ class _VerifyIdPageState extends State<VerifyIdPage> {
   );
 }
 
+enum LivenessChallenge { turnLeft, turnRight, blink }
+
 class LivenessChallengeState {
   static const double minTurnAngle = 20.0;
   static const double maxTurnAngle = 55.0;
 
-  static String instructionForStep(int step) {
-    switch (step) {
-      case 0:
-        return 'Turn your head left to continue.';
-      case 1:
-        return 'Now turn your head right to continue.';
-      default:
-        return 'Face verified. Final selfie capture is almost ready.';
+  static String instructionFor(LivenessChallenge challenge) {
+    switch (challenge) {
+      case LivenessChallenge.turnLeft:
+        return 'Slowly turn your head left.';
+      case LivenessChallenge.turnRight:
+        return 'Slowly turn your head right.';
+      case LivenessChallenge.blink:
+        return 'Blink once when you are ready.';
     }
   }
 
@@ -745,6 +750,15 @@ class LivenessChallengeState {
     return headYaw >= minTurnAngle &&
         headYaw <= maxTurnAngle &&
         magnitude >= minTurnAngle;
+  }
+
+  static List<LivenessChallenge> randomizedSequence() {
+    final sequence = <LivenessChallenge>[
+      LivenessChallenge.turnLeft,
+      LivenessChallenge.turnRight,
+      LivenessChallenge.blink,
+    ]..shuffle(math.Random());
+    return sequence;
   }
 }
 
@@ -889,11 +903,17 @@ class _FaceVerificationService {
 }
 
 class SelfieVerificationPage extends StatefulWidget {
-  const SelfieVerificationPage({super.key, required this.idImage, this.idFace});
+  const SelfieVerificationPage({
+    super.key,
+    required this.idImage,
+    this.documentType = 'identity_document',
+    this.idFace,
+  });
 
   static const double previewHeight = 620.0;
 
   final XFile idImage;
+  final String documentType;
   final Face? idFace;
 
   @override
@@ -901,11 +921,29 @@ class SelfieVerificationPage extends StatefulWidget {
 }
 
 class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
+  final FaceDetector _faceDetector = FaceDetector(
+    options: FaceDetectorOptions(
+      performanceMode: FaceDetectorMode.fast,
+      enableContours: false,
+      enableLandmarks: false,
+      enableClassification: true,
+      minFaceSize: 0.08,
+    ),
+  );
+
   CameraController? _cameraController;
   XFile? _selfie;
   String _status = 'Center your face in the frame.';
   double? _score;
   bool _processing = false;
+  bool _frameBusy = false;
+  bool _livenessComplete = false;
+  int _challengeIndex = -1;
+  int _centeredFrames = 0;
+  int _turnFrames = 0;
+  int _blinkClosedFrames = 0;
+  bool _blinkWasOpen = false;
+  List<LivenessChallenge> _challenges = const [];
 
   @override
   void initState() {
@@ -924,6 +962,7 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
       _cameraController!.stopImageStream();
     }
     _cameraController?.dispose();
+    _faceDetector.close();
     super.dispose();
   }
 
@@ -945,14 +984,18 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
         frontCamera,
         ResolutionPreset.medium,
         enableAudio: false,
+        imageFormatGroup: Platform.isAndroid
+            ? ImageFormatGroup.nv21
+            : ImageFormatGroup.bgra8888,
       );
 
       await _cameraController!.initialize();
       if (!mounted) return;
 
       setState(() {
-        _status = 'Center your face in the oval, then tap the shutter.';
+        _status = 'Center your face in the oval.';
       });
+      await _startLivenessCheck();
     } on CameraException catch (error) {
       if (!mounted) return;
       _showMessage(
@@ -981,8 +1024,189 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
     setState(() {
       _score = null;
       _selfie = null;
-      _status = 'Center your face in the oval, then tap the shutter.';
+      _processing = false;
+      _frameBusy = false;
+      _livenessComplete = false;
+      _challenges = LivenessChallengeState.randomizedSequence();
+      _challengeIndex = -1;
+      _centeredFrames = 0;
+      _turnFrames = 0;
+      _blinkClosedFrames = 0;
+      _blinkWasOpen = false;
+      _status = 'Center your face in the oval.';
     });
+
+    await _cameraController!.startImageStream(_processCameraFrame);
+  }
+
+  Future<void> _processCameraFrame(CameraImage cameraImage) async {
+    if (_frameBusy ||
+        _livenessComplete ||
+        _processing ||
+        !mounted ||
+        _cameraController == null) {
+      return;
+    }
+
+    _frameBusy = true;
+    try {
+      final faces = await _faceDetector.processImage(
+        _inputImageFromCameraImage(cameraImage),
+      );
+      if (!mounted || _livenessComplete) return;
+
+      if (faces.length != 1) {
+        _centeredFrames = 0;
+        _turnFrames = 0;
+        _setStatus(
+          faces.isEmpty
+              ? 'Place your face inside the oval.'
+              : 'Only one person should be visible.',
+        );
+        return;
+      }
+
+      final face = faces.single;
+      final width = cameraImage.width.toDouble();
+      final height = cameraImage.height.toDouble();
+      final box = face.boundingBox;
+      final centered =
+          box.center.dx > width * .22 &&
+          box.center.dx < width * .78 &&
+          box.center.dy > height * .12 &&
+          box.center.dy < height * .88;
+      final faceArea = (box.width * box.height) / (width * height);
+
+      if (!centered || faceArea < .04) {
+        _centeredFrames = 0;
+        _turnFrames = 0;
+        _setStatus('Move closer and center your face in the oval.');
+        return;
+      }
+
+      if (_challengeIndex == -1) {
+        _centeredFrames++;
+        if (_centeredFrames >= 4) {
+          _challengeIndex = 0;
+          _setStatus(LivenessChallengeState.instructionFor(_challenges.first));
+        } else {
+          _setStatus('Face detected. Hold still.');
+        }
+        return;
+      }
+
+      final challenge = _challenges[_challengeIndex];
+      final completed = switch (challenge) {
+        LivenessChallenge.turnLeft => _turnSatisfied(
+          face.headEulerAngleY,
+          turnLeft: true,
+        ),
+        LivenessChallenge.turnRight => _turnSatisfied(
+          face.headEulerAngleY,
+          turnLeft: false,
+        ),
+        LivenessChallenge.blink => _blinkSatisfied(face),
+      };
+
+      if (!completed) {
+        _setStatus(LivenessChallengeState.instructionFor(challenge));
+        return;
+      }
+
+      if (_challengeIndex + 1 < _challenges.length) {
+        _challengeIndex++;
+        _turnFrames = 0;
+        _blinkClosedFrames = 0;
+        _blinkWasOpen = false;
+        _setStatus(
+          LivenessChallengeState.instructionFor(_challenges[_challengeIndex]),
+        );
+      } else {
+        _livenessComplete = true;
+        _setStatus('Great. Capturing your selfie…');
+        if (_cameraController!.value.isStreamingImages) {
+          await _cameraController!.stopImageStream();
+        }
+        await _captureSelfie();
+      }
+    } catch (_) {
+      if (mounted) {
+        _setStatus('Keep your face visible and follow the instruction.');
+      }
+    } finally {
+      _frameBusy = false;
+    }
+  }
+
+  bool _turnSatisfied(double? yaw, {required bool turnLeft}) {
+    if (yaw == null) {
+      _turnFrames = 0;
+      return false;
+    }
+    if (LivenessChallengeState.isTurnSatisfied(
+      headYaw: yaw,
+      turnLeft: turnLeft,
+    )) {
+      _turnFrames++;
+    } else {
+      _turnFrames = 0;
+    }
+    return _turnFrames >= 2;
+  }
+
+  bool _blinkSatisfied(Face face) {
+    final left = face.leftEyeOpenProbability;
+    final right = face.rightEyeOpenProbability;
+    if (left == null || right == null) return false;
+
+    final eyesOpen = left > .55 && right > .55;
+    final eyesClosed = left < .25 && right < .25;
+    if (eyesOpen) {
+      _blinkWasOpen = true;
+      _blinkClosedFrames = 0;
+    } else if (_blinkWasOpen && eyesClosed) {
+      _blinkClosedFrames++;
+    }
+    return _blinkWasOpen && _blinkClosedFrames >= 2;
+  }
+
+  InputImage _inputImageFromCameraImage(CameraImage cameraImage) {
+    final bytes = Uint8List(
+      cameraImage.planes.fold<int>(
+        0,
+        (total, plane) => total + plane.bytes.length,
+      ),
+    );
+    var offset = 0;
+    for (final plane in cameraImage.planes) {
+      bytes.setRange(offset, offset + plane.bytes.length, plane.bytes);
+      offset += plane.bytes.length;
+    }
+
+    final format =
+        InputImageFormatValue.fromRawValue(cameraImage.format.raw) ??
+        InputImageFormat.nv21;
+    final rotation =
+        InputImageRotationValue.fromRawValue(
+          _cameraController!.description.sensorOrientation,
+        ) ??
+        InputImageRotation.rotation0deg;
+
+    return InputImage.fromBytes(
+      bytes: bytes,
+      metadata: InputImageMetadata(
+        size: Size(cameraImage.width.toDouble(), cameraImage.height.toDouble()),
+        rotation: rotation,
+        format: format,
+        bytesPerRow: cameraImage.planes.first.bytesPerRow,
+      ),
+    );
+  }
+
+  void _setStatus(String status) {
+    if (mounted && _status != status) {
+      setState(() => _status = status);
+    }
   }
 
   Future<void> _captureSelfie() async {
@@ -1026,9 +1250,18 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
       setState(() {
         _processing = false;
         _score = score;
+        _status = 'Face detected. Uploading your ID and selfie securely…';
+      });
+      await ApiService.submitVerificationDocuments(
+        idImage: widget.idImage,
+        selfieImage: image,
+        documentType: widget.documentType,
+      );
+      if (!mounted) return;
+      setState(() {
         _status = score == null
-            ? 'Face detected. Your selfie is ready for verification.'
-            : 'Face detected. Your selfie is ready for secure matching.';
+            ? 'Verification submitted. An admin will review your ID and selfie.'
+            : 'Verification submitted. Your ID and selfie are ready for admin review.';
       });
     } on MissingPluginException {
       _showMessage(
@@ -1086,8 +1319,15 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Place your face inside the oval, look straight at the camera, and take a clear selfie for verification.',
+            'Follow the on-screen prompts. We will automatically capture your selfie after you look straight, turn left, and turn right.',
             style: TextStyle(color: inkSoft, fontSize: 12.5, height: 1.5),
+          ),
+          const SizedBox(height: 12),
+          _LivenessSteps(
+            activeStep: _selfie != null
+                ? _challenges.length + 1
+                : _challengeIndex + 1,
+            challenges: _challenges,
           ),
           const SizedBox(height: 12),
           Container(
@@ -1123,7 +1363,7 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
                                 vertical: 8,
                               ),
                               child: Text(
-                                'Look straight at the camera',
+                                'Follow the instructions below',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 12,
@@ -1198,25 +1438,6 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
             ),
           ],
           const SizedBox(height: 20),
-          if (_selfie == null)
-            SizedBox(
-              width: double.infinity,
-              height: 58,
-              child: FilledButton.icon(
-                onPressed: _processing ? null : _captureSelfie,
-                icon: const Icon(Icons.camera_alt_rounded, size: 25),
-                label: Text(
-                  _processing ? 'Checking selfie…' : 'Capture selfie',
-                ),
-                style: FilledButton.styleFrom(
-                  backgroundColor: teal,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-              ),
-            ),
           if (_selfie != null)
             SizedBox(
               width: double.infinity,
@@ -1238,6 +1459,81 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
       ),
     ),
   );
+}
+
+class _LivenessSteps extends StatelessWidget {
+  const _LivenessSteps({required this.activeStep, required this.challenges});
+
+  final int activeStep;
+  final List<LivenessChallenge> challenges;
+
+  @override
+  Widget build(BuildContext context) {
+    final labels = [
+      'Look straight',
+      ...challenges.map((challenge) {
+        switch (challenge) {
+          case LivenessChallenge.turnLeft:
+            return 'Turn left';
+          case LivenessChallenge.turnRight:
+            return 'Turn right';
+          case LivenessChallenge.blink:
+            return 'Blink';
+        }
+      }),
+      'Captured',
+    ];
+    return Row(
+      children: [
+        for (var index = 0; index < labels.length; index++) ...[
+          Expanded(
+            child: Column(
+              children: [
+                CircleAvatar(
+                  radius: 14,
+                  backgroundColor: index < activeStep
+                      ? teal
+                      : index == activeStep
+                      ? navy
+                      : Colors.white,
+                  child: index < activeStep
+                      ? const Icon(Icons.check, color: Colors.white, size: 16)
+                      : Text(
+                          '${index + 1}',
+                          style: TextStyle(
+                            color: index == activeStep ? Colors.white : inkSoft,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  labels[index],
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: index == activeStep ? navy : inkSoft,
+                    fontSize: 10,
+                    fontWeight: index == activeStep
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (index < labels.length - 1)
+            Expanded(
+              child: Container(
+                height: 2,
+                margin: const EdgeInsets.only(bottom: 20),
+                color: index < activeStep ? teal : line,
+              ),
+            ),
+        ],
+      ],
+    );
+  }
 }
 
 class _FaceFrame extends StatelessWidget {

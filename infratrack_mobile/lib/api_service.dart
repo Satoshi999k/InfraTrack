@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _configuredApiBaseUrl = String.fromEnvironment('API_BASE_URL');
@@ -85,9 +86,7 @@ class ApiService {
     );
   }
 
-  static Future<void> _clearStoredSession(
-    SharedPreferences preferences,
-  ) async {
+  static Future<void> _clearStoredSession(SharedPreferences preferences) async {
     await preferences.remove(_sessionTokenKey);
     await preferences.remove(_sessionUserKey);
     await preferences.remove(_lastOpenedKey);
@@ -224,6 +223,59 @@ class ApiService {
     currentUser = Map<String, dynamic>.from(body['user'] as Map);
     await _persistSession();
     return currentUser!;
+  }
+
+  static Future<void> submitVerificationDocuments({
+    required XFile idImage,
+    required XFile selfieImage,
+    required String documentType,
+  }) async {
+    if (_sessionToken == null) {
+      throw Exception(
+        'Please sign in before submitting verification documents.',
+      );
+    }
+
+    final request =
+        http.MultipartRequest(
+            'POST',
+            Uri.parse('$apiBaseUrl/mobile/verification-documents'),
+          )
+          ..headers['Authorization'] = 'Bearer $_sessionToken'
+          ..fields['documentType'] = documentType
+          ..files.add(
+            await http.MultipartFile.fromPath(
+              'idImage',
+              idImage.path,
+              contentType: MediaType('image', _imageExtension(idImage.path)),
+            ),
+          )
+          ..files.add(
+            await http.MultipartFile.fromPath(
+              'selfieImage',
+              selfieImage.path,
+              contentType: MediaType(
+                'image',
+                _imageExtension(selfieImage.path),
+              ),
+            ),
+          );
+
+    final response = await request.send().timeout(const Duration(seconds: 60));
+    final body = await response.stream.bytesToString();
+    if (response.statusCode >= 400) {
+      final decoded = body.isEmpty ? <String, dynamic>{} : jsonDecode(body);
+      throw Exception(
+        decoded['error'] ?? 'Could not submit verification documents.',
+      );
+    }
+  }
+
+  static String _imageExtension(String path) {
+    final extension = path.split('.').last.toLowerCase();
+    return {'jpg', 'jpeg', 'png', 'webp'}.contains(extension)
+        ? extension
+        : 'jpeg';
   }
 
   static Future<List<Map<String, dynamic>>> reports() async {
