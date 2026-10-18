@@ -1018,7 +1018,7 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
         ResolutionPreset.medium,
         enableAudio: false,
         imageFormatGroup: Platform.isAndroid
-            ? ImageFormatGroup.yuv420
+            ? ImageFormatGroup.nv21
             : ImageFormatGroup.bgra8888,
       );
 
@@ -1220,9 +1220,13 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
   }
 
   InputImage _inputImageFromCameraImage(CameraImage cameraImage) {
-    final bytes = Platform.isAndroid
-        ? _yuv420ToNv21(cameraImage)
-        : cameraImage.planes.first.bytes;
+    if (Platform.isAndroid && cameraImage.planes.length != 1) {
+      throw StateError(
+        'Android camera returned ${cameraImage.planes.length} planes; '
+        'a single NV21 plane is required.',
+      );
+    }
+    final bytes = cameraImage.planes.first.bytes;
     final format = Platform.isAndroid
         ? InputImageFormat.nv21
         : InputImageFormatValue.fromRawValue(cameraImage.format.raw) ??
@@ -1239,49 +1243,9 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
         size: Size(cameraImage.width.toDouble(), cameraImage.height.toDouble()),
         rotation: rotation,
         format: format,
-        bytesPerRow: cameraImage.width,
+        bytesPerRow: cameraImage.planes.first.bytesPerRow,
       ),
     );
-  }
-
-  Uint8List _yuv420ToNv21(CameraImage cameraImage) {
-    if (cameraImage.planes.length == 1) {
-      return cameraImage.planes.first.bytes;
-    }
-    if (cameraImage.planes.length < 3) {
-      throw StateError(
-        'Expected three YUV planes, got ${cameraImage.planes.length}.',
-      );
-    }
-
-    final width = cameraImage.width;
-    final height = cameraImage.height;
-    final yPlane = cameraImage.planes[0];
-    final uPlane = cameraImage.planes[1];
-    final vPlane = cameraImage.planes[2];
-    final output = Uint8List(width * height + (width * height ~/ 2));
-    var outputIndex = 0;
-
-    for (var row = 0; row < height; row++) {
-      final rowStart = row * yPlane.bytesPerRow;
-      for (var column = 0; column < width; column++) {
-        output[outputIndex++] = yPlane.bytes[rowStart + column];
-      }
-    }
-
-    final chromaHeight = height ~/ 2;
-    final chromaWidth = width ~/ 2;
-    for (var row = 0; row < chromaHeight; row++) {
-      final uRowStart = row * uPlane.bytesPerRow;
-      final vRowStart = row * vPlane.bytesPerRow;
-      for (var column = 0; column < chromaWidth; column++) {
-        final uIndex = uRowStart + column * uPlane.bytesPerPixel!;
-        final vIndex = vRowStart + column * vPlane.bytesPerPixel!;
-        output[outputIndex++] = vPlane.bytes[vIndex];
-        output[outputIndex++] = uPlane.bytes[uIndex];
-      }
-    }
-    return output;
   }
 
   void _setStatus(String status) {
