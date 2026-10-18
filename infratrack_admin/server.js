@@ -77,19 +77,41 @@ const upload = multer({
 });
 const cloudinaryCloudName = String(process.env.CLOUDINARY_CLOUD_NAME || "").trim();
 const cloudinaryUploadPreset = String(process.env.CLOUDINARY_UPLOAD_PRESET || "").trim();
+const cloudinaryApiKey = String(process.env.CLOUDINARY_API_KEY || "").trim();
+const cloudinaryApiSecret = String(process.env.CLOUDINARY_API_SECRET || "").trim();
 const hasCloudinaryStorage = Boolean(cloudinaryCloudName && cloudinaryUploadPreset);
+const hasSignedCloudinaryStorage = Boolean(cloudinaryCloudName && cloudinaryApiKey && cloudinaryApiSecret);
 const cloudinaryMediaHost = cloudinaryCloudName
   ? `res.cloudinary.com`
   : "";
 
 async function uploadToCloudinary(file) {
-  if (!hasCloudinaryStorage) return null;
-
   const form = new FormData();
   form.append("file", new Blob([await fs.promises.readFile(file.path)], { type: file.mimetype }), file.originalname);
-  form.append("upload_preset", cloudinaryUploadPreset);
-  form.append("folder", "infratrack/advisories");
   form.append("resource_type", "auto");
+  const uploadParameters = {
+    folder: "infratrack/advisories",
+    timestamp: Math.floor(Date.now() / 1000).toString(),
+  };
+
+  if (hasSignedCloudinaryStorage) {
+    const signatureBase = Object.entries(uploadParameters)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, value]) => `${key}=${value}`)
+      .join("&");
+    const signature = crypto
+      .createHash("sha1")
+      .update(`${signatureBase}${cloudinaryApiSecret}`)
+      .digest("hex");
+    form.append("api_key", cloudinaryApiKey);
+    form.append("signature", signature);
+    for (const [key, value] of Object.entries(uploadParameters)) form.append(key, value);
+  } else if (hasCloudinaryStorage) {
+    form.append("upload_preset", cloudinaryUploadPreset);
+    form.append("folder", uploadParameters.folder);
+  } else {
+    return null;
+  }
 
   const response = await fetch(
     `https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudinaryCloudName)}/auto/upload`,
@@ -1216,9 +1238,9 @@ app.post("/api/mobile/verification-documents", (req, res, next) => {
       if (!idFile || !selfieFile) {
         return res.status(400).json({ error: "Both the ID image and selfie are required." });
       }
-      if (process.env.VERCEL && !hasCloudinaryStorage) {
+      if (process.env.VERCEL && !hasCloudinaryStorage && !hasSignedCloudinaryStorage) {
         return res.status(503).json({
-          error: "Media storage is not configured. Set CLOUDINARY_CLOUD_NAME and CLOUDINARY_UPLOAD_PRESET before submitting verification documents.",
+          error: "Media storage is not configured. Set Cloudinary storage variables before submitting verification documents.",
         });
       }
       const idUrl = await uploadToCloudinary(idFile);
@@ -1314,9 +1336,9 @@ app.post("/api/uploads", (req, res, next) => {
   if (!req.file) return res.status(400).json({ error: "Please select a photo or video" });
   const mediaKind = req.file.mimetype === "image/gif" ? "gif" : req.file.mimetype.startsWith("video/") ? "video" : "photo";
   try {
-    if (process.env.VERCEL && !hasCloudinaryStorage) {
+    if (process.env.VERCEL && !hasCloudinaryStorage && !hasSignedCloudinaryStorage) {
       return res.status(503).json({
-        error: "Media storage is not configured. Set CLOUDINARY_CLOUD_NAME and CLOUDINARY_UPLOAD_PRESET before uploading media.",
+        error: "Media storage is not configured. Set Cloudinary storage variables before uploading media.",
       });
     }
     const cloudinaryUrl = await uploadToCloudinary(req.file);
