@@ -967,11 +967,12 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
   bool _frameBusy = false;
   bool _captureInProgress = false;
   bool _livenessComplete = false;
+  int _processedFrameCount = 0;
+  String? _frameDiagnostic;
   int _challengeIndex = -1;
   int _centeredFrames = 0;
   int _turnFrames = 0;
   int _blinkClosedFrames = 0;
-  int _blinkOpenFrames = 0;
   bool _blinkWasOpen = false;
   bool _blinkWasClosed = false;
   List<LivenessChallenge> _challenges = const [];
@@ -1072,9 +1073,10 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
       _centeredFrames = 0;
       _turnFrames = 0;
       _blinkClosedFrames = 0;
-      _blinkOpenFrames = 0;
       _blinkWasOpen = false;
       _blinkWasClosed = false;
+      _processedFrameCount = 0;
+      _frameDiagnostic = null;
       _status = 'Center your face in the oval.';
     });
 
@@ -1093,9 +1095,16 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
     _frameBusy = true;
     try {
       final inputImage = _inputImageFromCameraImage(cameraImage);
+      _processedFrameCount++;
       final faces = await _presenceDetector.processImage(inputImage);
       if (!mounted || _livenessComplete) return;
 
+      _frameDiagnostic =
+          'Frame $_processedFrameCount | ML Kit: ${faces.length} face(s) | '
+          '${cameraImage.width}x${cameraImage.height} | '
+          '${cameraImage.planes.length} plane(s) | '
+          'raw ${cameraImage.format.raw} | '
+          'rotation ${inputImage.metadata?.rotation.name}';
       if (faces.length != 1) {
         _centeredFrames = 0;
         _turnFrames = 0;
@@ -1145,7 +1154,6 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
         _challengeIndex++;
         _turnFrames = 0;
         _blinkClosedFrames = 0;
-        _blinkOpenFrames = 0;
         _blinkWasOpen = false;
         _blinkWasClosed = false;
         _setStatus(
@@ -1159,9 +1167,14 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
         }
         await _captureSelfie();
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      debugPrint('Live face detection failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
       if (mounted) {
-        _setStatus('Keep your face visible and follow the instruction.');
+        _setStatus('ML Kit could not read the camera frame.');
+        setState(() {
+          _frameDiagnostic = 'Error: ${error.runtimeType}: $error';
+        });
       }
     } finally {
       _frameBusy = false;
@@ -1196,7 +1209,6 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
     final eyesClosed = left < .45 && right < .45;
     if (eyesOpen && !_blinkWasClosed) {
       _blinkWasOpen = true;
-      _blinkOpenFrames++;
     } else if (_blinkWasOpen && eyesClosed) {
       _blinkClosedFrames++;
       _blinkWasClosed = true;
@@ -1386,6 +1398,13 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
             'Look straight at the camera, then blink once. Your selfie will be captured automatically.',
             style: TextStyle(color: inkSoft, fontSize: 12.5, height: 1.5),
           ),
+          if (_frameDiagnostic != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Debug: $_frameDiagnostic',
+              style: const TextStyle(color: inkSoft, fontSize: 10, height: 1.3),
+            ),
+          ],
           const SizedBox(height: 12),
           _LivenessSteps(
             activeStep: _selfie != null
