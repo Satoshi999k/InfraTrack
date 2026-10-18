@@ -47,27 +47,18 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
 
   Future<void> _continue() async {
     if (!_formKey.currentState!.validate()) return;
-    try {
-      await ApiService.register(
-        name: _nameController.text.trim(),
-        email: _emailController.text.trim(),
-        mobile: _mobileController.text.trim(),
-        barangay: _barangay,
-        password: _passwordController.text,
-      );
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(error.toString().replaceFirst('Exception: ', '')),
-          ),
-        );
-      }
-      return;
-    }
     if (!mounted) return;
-    Navigator.of(context)
-        .push(MaterialPageRoute(builder: (_) => const VerifyIdPage()));
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => VerifyIdPage(
+          name: _nameController.text.trim(),
+          email: _emailController.text.trim(),
+          mobile: _mobileController.text.trim(),
+          barangay: _barangay,
+          password: _passwordController.text,
+        ),
+      ),
+    );
   }
 
   @override
@@ -411,7 +402,20 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
 }
 
 class VerifyIdPage extends StatefulWidget {
-  const VerifyIdPage({super.key});
+  const VerifyIdPage({
+    super.key,
+    this.name,
+    this.email,
+    this.mobile,
+    this.barangay,
+    this.password,
+  });
+
+  final String? name;
+  final String? email;
+  final String? mobile;
+  final String? barangay;
+  final String? password;
 
   @override
   State<VerifyIdPage> createState() => _VerifyIdPageState();
@@ -556,6 +560,11 @@ class _VerifyIdPageState extends State<VerifyIdPage> {
           idImage: _frontImage!,
           documentType: _idTypes[_selectedId].$1,
           idFace: null,
+          name: widget.name,
+          email: widget.email,
+          mobile: widget.mobile,
+          barangay: widget.barangay,
+          password: widget.password,
         ),
       ),
     );
@@ -908,6 +917,11 @@ class SelfieVerificationPage extends StatefulWidget {
     required this.idImage,
     this.documentType = 'identity_document',
     this.idFace,
+    this.name,
+    this.email,
+    this.mobile,
+    this.barangay,
+    this.password,
   });
 
   static const double previewHeight = 620.0;
@@ -915,6 +929,11 @@ class SelfieVerificationPage extends StatefulWidget {
   final XFile idImage;
   final String documentType;
   final Face? idFace;
+  final String? name;
+  final String? email;
+  final String? mobile;
+  final String? barangay;
+  final String? password;
 
   @override
   State<SelfieVerificationPage> createState() => _SelfieVerificationPageState();
@@ -1027,7 +1046,7 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
       _processing = false;
       _frameBusy = false;
       _livenessComplete = false;
-      _challenges = LivenessChallengeState.randomizedSequence();
+      _challenges = const [LivenessChallenge.blink];
       _challengeIndex = -1;
       _centeredFrames = 0;
       _turnFrames = 0;
@@ -1159,15 +1178,15 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
     final right = face.rightEyeOpenProbability;
     if (left == null || right == null) return false;
 
-    final eyesOpen = left > .55 && right > .55;
-    final eyesClosed = left < .25 && right < .25;
+    final eyesOpen = left > .45 && right > .45;
+    final eyesClosed = left < .35 && right < .35;
     if (eyesOpen) {
       _blinkWasOpen = true;
       _blinkClosedFrames = 0;
     } else if (_blinkWasOpen && eyesClosed) {
       _blinkClosedFrames++;
     }
-    return _blinkWasOpen && _blinkClosedFrames >= 2;
+    return _blinkWasOpen && _blinkClosedFrames >= 1;
   }
 
   InputImage _inputImageFromCameraImage(CameraImage cameraImage) {
@@ -1248,15 +1267,31 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
             );
 
       setState(() {
-        _processing = false;
         _score = score;
-        _status = 'Face detected. Uploading your ID and selfie securely…';
+        _status = 'Face detected. Creating your account securely…';
       });
-      await ApiService.submitVerificationDocuments(
-        idImage: widget.idImage,
-        selfieImage: image,
-        documentType: widget.documentType,
-      );
+      if (widget.name != null &&
+          widget.email != null &&
+          widget.mobile != null &&
+          widget.barangay != null &&
+          widget.password != null) {
+        await ApiService.register(
+          name: widget.name!,
+          email: widget.email!,
+          mobile: widget.mobile!,
+          barangay: widget.barangay!,
+          password: widget.password!,
+        );
+        if (!mounted) return;
+        setState(
+          () => _status = 'Account created. Uploading verification securely…',
+        );
+        await ApiService.submitVerificationDocuments(
+          idImage: widget.idImage,
+          selfieImage: image,
+          documentType: widget.documentType,
+        );
+      }
       if (!mounted) return;
       setState(() {
         _status = score == null
@@ -1319,7 +1354,7 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Follow the on-screen prompts. We will automatically capture your selfie after you look straight, turn left, and turn right.',
+            'Look straight at the camera, then blink once. Your selfie will be captured automatically.',
             style: TextStyle(color: inkSoft, fontSize: 12.5, height: 1.5),
           ),
           const SizedBox(height: 12),
