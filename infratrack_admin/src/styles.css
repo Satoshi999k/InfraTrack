@@ -4094,6 +4094,68 @@ tbody tr:last-child td {
   color: #64736f;
   font-size: 11px;
 }
+
+.verification-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.verification-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 13px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.verification-actions button:disabled {
+  cursor: wait;
+  opacity: .6;
+}
+
+.verification-approve-button {
+  color: #fff;
+  background: #1b8a83;
+}
+
+.verification-reject-button {
+  color: #a52f2f;
+  background: #fff1ef;
+  border-color: #efc3bd !important;
+}
+
+.verification-decision {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.verification-decision.approved {
+  color: #236b48;
+  background: #e9f6ee;
+}
+
+.verification-error {
+  flex: 1 0 100%;
+  margin: 0;
+  color: #a52f2f;
+  font-size: 12px;
+}
 .user-detail-modal::-webkit-scrollbar {
   width: 10px;
 }

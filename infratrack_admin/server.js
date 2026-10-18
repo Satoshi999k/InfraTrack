@@ -1459,6 +1459,52 @@ app.patch("/api/users/:id/moderation", async (req, res) => {
   await writeAuditLog(req, { actorId: adminId, action: `user_${action}`, resourceType: "user", resourceId: req.params.id, details: { reason, duration, note } });
   res.json({ user: updated[0] });
 });
+app.patch("/api/users/:id/verification", async (req, res) => {
+  const decision = String(req.body?.decision || "").toLowerCase();
+  if (!["approve", "reject"].includes(decision)) {
+    return res.status(400).json({ error: "Choose approve or reject for this verification." });
+  }
+
+  const [[targetUser]] = await pool.query(
+    "SELECT id, name, barangay FROM users WHERE id = ? AND role = 'resident'",
+    [Number(req.params.id)],
+  );
+  if (!targetUser) return res.status(404).json({ error: "Resident account not found" });
+  if (req.auth?.role === "barangay_staff" && req.auth.barangay !== targetUser.barangay) {
+    return res.status(403).json({ error: "You can only review residents in your barangay." });
+  }
+
+  const [documents] = await pool.query(
+    "SELECT id, document_type FROM verification_documents WHERE user_id = ?",
+    [targetUser.id],
+  );
+  const hasId = documents.some((document) => document.document_type !== "selfie");
+  const hasSelfie = documents.some((document) => document.document_type === "selfie");
+  if (!hasId || !hasSelfie) {
+    return res.status(400).json({
+      error: "Both the government ID and live selfie must be submitted before review.",
+    });
+  }
+
+  const status = decision === "approve" ? "approved" : "rejected";
+  const verification = decision === "approve" ? "Verified" : "ID mismatch";
+  await pool.query(
+    "UPDATE verification_documents SET status = ?, reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP WHERE user_id = ?",
+    [status, req.auth.id, targetUser.id],
+  );
+  await pool.query("UPDATE users SET verification = ? WHERE id = ?", [
+    verification,
+    targetUser.id,
+  ]);
+  await writeAuditLog(req, {
+    actorId: req.auth.id,
+    action: `user_verification_${decision}d`,
+    resourceType: "user",
+    resourceId: targetUser.id,
+    details: { verification },
+  });
+  res.json({ ok: true, verification });
+});
 app.get("/api/reports", async (req, res) => {
   const userId = Number(req.query.userId);
   const [reports] = await pool.query(`SELECT r.*, u.name AS reporter FROM reports r LEFT JOIN users u ON u.id = r.reporter_id ${userId ? "WHERE r.reporter_id = ?" : ""} ORDER BY r.created_at DESC`, userId ? [userId] : []);

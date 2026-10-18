@@ -410,6 +410,21 @@ function Dashboard({ user, onLogout }) {
         <Modal
           data={modal}
           onClose={() => setModal(null)}
+          onUserVerification={async (decision) => {
+            const response = await apiFetch(`/users/${modal.user.id}/verification`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ decision }),
+            });
+            const data = await response.json();
+            if (!response.ok) {
+              throw new Error(data.error || "Could not update identity verification.");
+            }
+            const usersResponse = await apiFetch(`/users?userId=${encodeURIComponent(user.id)}`);
+            if (!usersResponse.ok) throw new Error("Verification was saved, but users could not be refreshed.");
+            setUsers((await usersResponse.json()).users ?? []);
+            setModal(null);
+          }}
           onUserSave={async (changes) => {
             const response = await apiFetch(`/users/${modal.user.id}/moderation`, {
               method: "PATCH",

@@ -1086,30 +1086,28 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
       }
 
       final face = faces.single;
-      final width = cameraImage.width.toDouble();
-      final height = cameraImage.height.toDouble();
       final box = face.boundingBox;
-      final centered =
-          box.center.dx > width * .22 &&
-          box.center.dx < width * .78 &&
-          box.center.dy > height * .12 &&
-          box.center.dy < height * .88;
-      final faceArea = (box.width * box.height) / (width * height);
+      final faceArea =
+          (box.width * box.height) / (cameraImage.width * cameraImage.height);
 
-      if (!centered || faceArea < .04) {
+      // ML Kit reports the bounding box in the rotated image coordinate
+      // space. Avoid rejecting a valid face because the preview orientation
+      // differs from the sensor orientation.
+      if (faceArea < .015) {
         _centeredFrames = 0;
         _turnFrames = 0;
-        _setStatus('Move closer and center your face in the oval.');
+        _setStatus('Move a little closer so your face is clearly visible.');
         return;
       }
 
       if (_challengeIndex == -1) {
         _centeredFrames++;
-        if (_centeredFrames >= 4) {
+        if (_centeredFrames >= 2) {
           _challengeIndex = 0;
+          _blinkWasOpen = true;
           _setStatus(LivenessChallengeState.instructionFor(_challenges.first));
         } else {
-          _setStatus('Face detected. Hold still.');
+          _setStatus('Face detected. Hold still…');
         }
         return;
       }
@@ -1178,8 +1176,8 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
     final right = face.rightEyeOpenProbability;
     if (left == null || right == null) return false;
 
-    final eyesOpen = left > .45 && right > .45;
-    final eyesClosed = left < .35 && right < .35;
+    final eyesOpen = left > .40 && right > .40;
+    final eyesClosed = left < .45 && right < .45;
     if (eyesOpen) {
       _blinkWasOpen = true;
       _blinkClosedFrames = 0;

@@ -25,8 +25,8 @@ import {
   X,
 } from "lucide-react";
 
-export function Modal({ data, onClose, onSave, onUserSave }) {
-  if (data.type === "user") return <UserModal user={data.user} onClose={onClose} onSave={onUserSave} />;
+export function Modal({ data, onClose, onSave, onUserSave, onUserVerification }) {
+  if (data.type === "user") return <UserModal user={data.user} onClose={onClose} onSave={onUserSave} onVerification={onUserVerification} />;
   if (data.type === "walkin") return <WalkInModal onClose={onClose} onSave={onSave} />;
   if (data.type === "help") return <HelpModal onClose={onClose} />;
   return <IssueModal data={data} onClose={onClose} onSave={onSave} />;
@@ -474,7 +474,7 @@ export function IssueModal({ data, onClose, onSave }) {
   );
 }
 
-export function UserModal({ user, onClose, onSave }) {
+export function UserModal({ user, onClose, onSave, onVerification }) {
   const [standing, setStanding] = useState(user.standing);
   const [selectedAction, setSelectedAction] = useState(null);
   const [reason, setReason] = useState("Spam or duplicate reports");
@@ -482,6 +482,8 @@ export function UserModal({ user, onClose, onSave }) {
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [verificationSaving, setVerificationSaving] = useState(false);
+  const [verificationError, setVerificationError] = useState("");
 
   const chooseAction = (action) => {
     if (selectedAction === action) {
@@ -506,6 +508,18 @@ export function UserModal({ user, onClose, onSave }) {
       setError(saveError.message || "Could not save moderation action.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const reviewVerification = async (decision) => {
+    setVerificationSaving(true);
+    setVerificationError("");
+    try {
+      await onVerification?.(decision);
+    } catch (reviewError) {
+      setVerificationError(reviewError.message || "Could not save the verification decision.");
+    } finally {
+      setVerificationSaving(false);
     }
   };
 
@@ -562,6 +576,31 @@ export function UserModal({ user, onClose, onSave }) {
               empty="No selfie submitted"
             />
           </div>
+          {user.verification === "Verified" ? (
+            <div className="verification-decision approved">
+              <CheckCircle2 size={16} /> ID and selfie approved
+            </div>
+          ) : (
+            <div className="verification-actions">
+              {verificationError && <p className="verification-error" role="alert">{verificationError}</p>}
+              <button
+                type="button"
+                className="verification-reject-button"
+                disabled={verificationSaving}
+                onClick={() => reviewVerification("reject")}
+              >
+                <Ban size={15} /> Reject ID
+              </button>
+              <button
+                type="button"
+                className="verification-approve-button"
+                disabled={verificationSaving}
+                onClick={() => reviewVerification("approve")}
+              >
+                <CheckCircle2 size={15} /> {verificationSaving ? "Saving..." : "Approve ID"}
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="user-modal-content">
