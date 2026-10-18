@@ -132,6 +132,28 @@ async function removeTemporaryUpload(file) {
   }
 }
 
+async function downloadMediaForConversion(mediaUrl) {
+  const parsedUrl = new URL(String(mediaUrl));
+  if (!parsedUrl.hostname.endsWith(".cloudinary.com")) {
+    return path.join(uploadDirectory, path.basename(parsedUrl.pathname));
+  }
+  const response = await fetch(parsedUrl);
+  if (!response.ok) throw new Error(`Unable to download the uploaded video (${response.status}).`);
+  const temporaryPath = path.join(uploadDirectory, `conversion-${crypto.randomBytes(12).toString("hex")}.video`);
+  await fs.promises.writeFile(temporaryPath, Buffer.from(await response.arrayBuffer()));
+  return temporaryPath;
+}
+
+function convertVideoFileToGif(sourcePath, outputPath) {
+  return new Promise((resolve, reject) => {
+    const converter = spawn(ffmpegPath, ["-y", "-i", sourcePath, "-t", "8", "-vf", "fps=12,scale=480:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=sierra2_4a", outputPath]);
+    let errorOutput = "";
+    converter.stderr.on("data", (chunk) => { errorOutput += chunk.toString(); });
+    converter.on("error", reject);
+    converter.on("close", (code) => code === 0 ? resolve() : reject(new Error(`Could not convert video to GIF: ${errorOutput.slice(-300)}`)));
+  });
+}
+
 const legacyHashPassword = (password) => crypto.createHash("sha256").update(password).digest("hex");
 const hashPassword = (password) => {
   const salt = crypto.randomBytes(16).toString("hex");
@@ -1366,22 +1388,29 @@ app.post("/api/uploads/gif", upload.single("file"), (req, res) => {
     res.status(201).json({ url: `${req.protocol}://${req.get("host")}/uploads/${outputName}`, mediaKind: "gif", originalName: req.file.originalname });
   });
 });
-app.post("/api/uploads/convert-gif", (req, res) => {
+app.post("/api/uploads/convert-gif", async (req, res) => {
   const { url: bodyUrl } = req.body ?? {};
   const url = bodyUrl || req.query.url;
   if (!url) return res.status(400).json({ error: "A video URL is required" });
-  const sourceName = path.basename(new URL(String(url)).pathname);
-  const sourcePath = path.join(uploadDirectory, sourceName);
-  if (!fs.existsSync(sourcePath)) return res.status(404).json({ error: "Uploaded video file was not found" });
-  const outputName = `${path.parse(sourceName).name}-${Date.now()}.gif`;
-  const outputPath = path.join(uploadDirectory, outputName);
-  const converter = spawn(ffmpegPath, ["-y", "-i", sourcePath, "-t", "8", "-vf", "fps=12,scale=480:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=sierra2_4a", outputPath]);
-  let errorOutput = "";
-  converter.stderr.on("data", (chunk) => { errorOutput += chunk.toString(); });
-  converter.on("close", (code) => {
-    if (code !== 0) return res.status(422).json({ error: "Could not convert video to GIF", details: errorOutput.slice(-300) });
-    res.status(201).json({ url: `${req.protocol}://${req.get("host")}/uploads/${outputName}`, mediaKind: "gif" });
-  });
+  let sourcePath;
+  let outputPath;
+  try {
+    const sourceName = path.basename(new URL(String(url)).pathname);
+    sourcePath = await downloadMediaForConversion(url);
+    if (!fs.existsSync(sourcePath)) return res.status(404).json({ error: "Uploaded video file was not found" });
+    outputPath = path.join(uploadDirectory, `${path.parse(sourceName).name}-${Date.now()}.gif`);
+    await convertVideoFileToGif(sourcePath, outputPath);
+    const gifFile = { path: outputPath, mimetype: "image/gif", originalname: `${sourceName}.gif` };
+    const cloudinaryUrl = await uploadToCloudinary(gifFile);
+    if (cloudinaryUrl) return res.status(201).json({ url: cloudinaryUrl, mediaKind: "gif", storage: "cloudinary" });
+    res.status(201).json({ url: `${req.protocol}://${req.get("host")}/uploads/${path.basename(outputPath)}`, mediaKind: "gif", storage: "local" });
+  } catch (conversionError) {
+    console.error("Unable to convert video to GIF:", conversionError.message);
+    res.status(422).json({ error: conversionError.message });
+  } finally {
+    if (sourcePath?.startsWith(uploadDirectory)) await fs.promises.rm(sourcePath, { force: true }).catch(() => {});
+    if (outputPath) await fs.promises.rm(outputPath, { force: true }).catch(() => {});
+  }
 });
 app.post("/api/advisories/:id/convert-gif", async (req, res) => {
   const advisoryId = Number(req.params.id);
@@ -1403,7 +1432,7 @@ app.post("/api/advisories/:id/convert-gif", async (req, res) => {
   const media = mediaRows[0];
   if (!media || media.media_type !== "video") return res.status(400).json({ error: "This advisory has no attached video to convert" });
   const sourceName = path.basename(new URL(String(media.file_path)).pathname);
-  const sourcePath = path.join(uploadDirectory, sourceName);
+  const sourcePath = await downloadMediaForConversion(media.file_path);
   if (!fs.existsSync(sourcePath)) return res.status(404).json({ error: "Attached video file was not found" });
   const outputName = `${path.parse(sourceName).name}-${Date.now()}.gif`;
   const outputPath = path.join(uploadDirectory, outputName);
@@ -1413,14 +1442,19 @@ app.post("/api/advisories/:id/convert-gif", async (req, res) => {
   converter.on("close", async (code) => {
     try {
       if (code !== 0) return res.status(422).json({ error: "Could not convert the attached video to GIF", details: errorOutput.slice(-300) });
-      const gifUrl = `${req.protocol}://${req.get("host")}/uploads/${outputName}`;
+      const cloudinaryUrl = await uploadToCloudinary({
+        path: outputPath,
+        mimetype: "image/gif",
+        originalname: outputName,
+      });
+      const gifUrl = cloudinaryUrl || `${req.protocol}://${req.get("host")}/uploads/${outputName}`;
       const updateScope = getAdvisoryScope(req.auth, "a");
       const [result] = await pool.query(
         `UPDATE advisory_media am JOIN advisories a ON a.id = am.advisory_id SET am.file_path = ?, am.media_type = 'gif' WHERE am.id = ? AND a.id = ?${updateScope.sql}`,
         [gifUrl, media.id, advisoryId, ...updateScope.params],
       );
       if (!result.affectedRows) return res.status(404).json({ error: "Advisory not found" });
-      res.json({ url: gifUrl, mediaKind: "gif" });
+      res.json({ url: gifUrl, mediaKind: "gif", storage: cloudinaryUrl ? "cloudinary" : "local" });
     } catch (error) {
       console.error("Could not update converted advisory media", error);
       if (!res.headersSent) {
