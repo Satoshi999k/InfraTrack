@@ -1086,8 +1086,7 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
     _frameBusy = true;
     _processedFrameCount++;
     try {
-      // Do not claim that a YUV420 frame is NV21. Older CameraX versions
-      // sometimes returned a different format even when NV21 was requested.
+      // CameraX may return either NV21 or a three-plane YUV420 frame.
       final inputImage = _inputImageFromCameraImage(cameraImage);
       if (inputImage == null) {
         _setStatus(
@@ -1097,7 +1096,7 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
             'Camera: raw=${cameraImage.format.raw}, '
             'planes=${cameraImage.planes.length}, '
             'size=${cameraImage.width}x${cameraImage.height}. '
-            'Expected one NV21 plane (raw=17) on Android.';
+            'Expected an Android NV21 or YUV420 frame.';
         if (mounted && _frameDiagnostic != diagnostic) {
           setState(() => _frameDiagnostic = diagnostic);
         }
@@ -1239,27 +1238,51 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
     DeviceOrientation.landscapeRight: 270,
   };
 
+  Uint8List? _normalizeYuv420ToNv21(CameraImage image) {
+    if (image.width.isOdd || image.height.isOdd || image.planes.length != 3) {
+      return null;
+    }
+
+    final yPlane = image.planes[0];
+    final uPlane = image.planes[1];
+    final vPlane = image.planes[2];
+    final ySize = image.width * image.height;
+    final chromaWidth = image.width ~/ 2;
+    final chromaHeight = image.height ~/ 2;
+    final bytes = Uint8List(ySize + ySize ~/ 2);
+
+    for (var row = 0; row < image.height; row++) {
+      final sourceStart = row * yPlane.bytesPerRow;
+      final sourceEnd = sourceStart + image.width;
+      if (sourceEnd > yPlane.bytes.length) return null;
+      bytes.setRange(
+        row * image.width,
+        (row + 1) * image.width,
+        yPlane.bytes,
+        sourceStart,
+      );
+    }
+
+    final uPixelStride = uPlane.bytesPerPixel ?? 1;
+    final vPixelStride = vPlane.bytesPerPixel ?? 1;
+    for (var row = 0; row < chromaHeight; row++) {
+      for (var col = 0; col < chromaWidth; col++) {
+        final uIndex = row * uPlane.bytesPerRow + col * uPixelStride;
+        final vIndex = row * vPlane.bytesPerRow + col * vPixelStride;
+        if (uIndex >= uPlane.bytes.length || vIndex >= vPlane.bytes.length) {
+          return null;
+        }
+        final destination = ySize + row * image.width + col * 2;
+        bytes[destination] = vPlane.bytes[vIndex];
+        bytes[destination + 1] = uPlane.bytes[uIndex];
+      }
+    }
+    return bytes;
+  }
+
   InputImage? _inputImageFromCameraImage(CameraImage image) {
     final controller = _cameraController;
-    if (controller == null || image.planes.length != 1) return null;
-
-    final format = InputImageFormatValue.fromRawValue(image.format.raw);
-    if (format == null ||
-        (Platform.isAndroid && format != InputImageFormat.nv21) ||
-        (Platform.isIOS && format != InputImageFormat.bgra8888)) {
-      return null;
-    }
-
-    final plane = image.planes.single;
-    if (plane.bytes.isEmpty) return null;
-
-    // NV21 has one full-resolution Y plane and a half-resolution VU plane.
-    // Reject obviously incomplete buffers instead of passing bad bytes to
-    // the native ML Kit converter.
-    if (Platform.isAndroid &&
-        plane.bytes.length < image.width * image.height * 3 ~/ 2) {
-      return null;
-    }
+    if (controller == null || image.planes.isEmpty) return null;
 
     final camera = controller.description;
     final sensorOrientation = camera.sensorOrientation;
@@ -1267,7 +1290,8 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
     if (Platform.isIOS) {
       rotation = InputImageRotationValue.fromRawValue(sensorOrientation);
     } else {
-      final compensation = _deviceOrientations[controller.value.deviceOrientation];
+      final compensation =
+          _deviceOrientations[controller.value.deviceOrientation];
       if (compensation == null) return null;
       final degrees = camera.lensDirection == CameraLensDirection.front
           ? (sensorOrientation + compensation) % 360
@@ -1276,13 +1300,52 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
     }
     if (rotation == null) return null;
 
+    if (Platform.isIOS) {
+      if (image.format.group != ImageFormatGroup.bgra8888 ||
+          image.planes.length != 1) {
+        return null;
+      }
+      final plane = image.planes.single;
+      if (plane.bytes.length < image.height * plane.bytesPerRow) return null;
+      return InputImage.fromBytes(
+        bytes: plane.bytes,
+        metadata: InputImageMetadata(
+          size: Size(image.width.toDouble(), image.height.toDouble()),
+          rotation: rotation,
+          format: InputImageFormat.bgra8888,
+          bytesPerRow: plane.bytesPerRow,
+        ),
+      );
+    }
+
+    if (!Platform.isAndroid) return null;
+
+    final Uint8List normalizedBytes;
+    if (image.format.group == ImageFormatGroup.nv21 &&
+        image.planes.length == 1) {
+      final expectedLength = image.width * image.height * 3 ~/ 2;
+      final plane = image.planes.single;
+      if (image.width.isOdd ||
+          image.height.isOdd ||
+          plane.bytes.length < expectedLength) {
+        return null;
+      }
+      normalizedBytes = Uint8List.sublistView(plane.bytes, 0, expectedLength);
+    } else if (image.format.group == ImageFormatGroup.yuv420) {
+      final converted = _normalizeYuv420ToNv21(image);
+      if (converted == null) return null;
+      normalizedBytes = converted;
+    } else {
+      return null;
+    }
+
     return InputImage.fromBytes(
-      bytes: plane.bytes,
+      bytes: normalizedBytes,
       metadata: InputImageMetadata(
         size: Size(image.width.toDouble(), image.height.toDouble()),
         rotation: rotation,
-        format: format,
-        bytesPerRow: plane.bytesPerRow,
+        format: InputImageFormat.nv21,
+        bytesPerRow: image.width,
       ),
     );
   }
