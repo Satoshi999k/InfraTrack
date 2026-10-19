@@ -47,9 +47,7 @@ dependencies:
   geolocator: ^13.0.2
   video_player: ^2.10.0
   shared_preferences: ^2.5.3
-  # 0.13.x uses the stable Android image converter. The newer 0.15.x release
-  # currently throws a native null-reference while opening picked files.
-  google_mlkit_face_detection: ^0.13.2
+  google_mlkit_face_detection: ^0.15.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
