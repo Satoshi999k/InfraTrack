@@ -1008,7 +1008,7 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
         ResolutionPreset.medium,
         enableAudio: false,
         imageFormatGroup: Platform.isAndroid
-            ? ImageFormatGroup.nv21
+            ? ImageFormatGroup.yuv420
             : ImageFormatGroup.bgra8888,
       );
 
@@ -1178,12 +1178,13 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
         _setStatus('Unable to analyze camera image. Check debug details.');
         // Do not print long native Java stack traces in the app UI.
         final errorLabel = error is PlatformException
-            ? error.code
+            ? '${error.code}: ${error.message ?? 'No details'}'
             : error.runtimeType.toString();
         setState(() {
           _frameDiagnostic =
               '$errorLabel | raw ${cameraImage.format.raw} | '
-              '${cameraImage.planes.length} plane(s)';
+              '${cameraImage.planes.length} plane(s) | '
+              '${cameraImage.width}x${cameraImage.height}';
         });
       }
     } finally {
@@ -1330,7 +1331,29 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
           plane.bytes.length < expectedLength) {
         return null;
       }
-      normalizedBytes = Uint8List.sublistView(plane.bytes, 0, expectedLength);
+      final rowStride = plane.bytesPerRow;
+      final ySize = image.width * image.height;
+      if (rowStride == image.width && plane.bytes.length == expectedLength) {
+        normalizedBytes = plane.bytes;
+      } else if (rowStride >= image.width &&
+          plane.bytes.length >=
+              rowStride * image.height + (rowStride * image.height ~/ 2)) {
+        final normalized = Uint8List(expectedLength);
+        for (var row = 0; row < image.height; row++) {
+          final sourceStart = row * rowStride;
+          normalized.setRange(
+            row * image.width,
+            (row + 1) * image.width,
+            plane.bytes,
+            sourceStart,
+          );
+        }
+        final chromaStart = rowStride * image.height;
+        normalized.setRange(ySize, expectedLength, plane.bytes, chromaStart);
+        normalizedBytes = normalized;
+      } else {
+        normalizedBytes = Uint8List.sublistView(plane.bytes, 0, expectedLength);
+      }
     } else if (image.format.group == ImageFormatGroup.yuv420) {
       final converted = _normalizeYuv420ToNv21(image);
       if (converted == null) return null;
