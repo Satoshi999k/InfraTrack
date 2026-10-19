@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:camera/camera.dart';
 
@@ -14,6 +16,93 @@ class CameraFrameConverter {
       return _fromNv21(image);
     }
     return null;
+  }
+
+  static Future<File?> writePng(
+    CameraImage image,
+    File destination, {
+    int rotationDegrees = 0,
+  }) async {
+    final rgba = toRgba(image);
+    if (rgba == null) return null;
+
+    final normalizedRotation = ((rotationDegrees % 360) + 360) % 360;
+    if (normalizedRotation != 0 &&
+        normalizedRotation != 90 &&
+        normalizedRotation != 180 &&
+        normalizedRotation != 270) {
+      return null;
+    }
+    final oriented = _rotateRgba(
+      rgba,
+      image.width,
+      image.height,
+      normalizedRotation,
+    );
+    final buffer = await ui.ImmutableBuffer.fromUint8List(oriented.$1);
+    final descriptor = ui.ImageDescriptor.raw(
+      buffer,
+      width: oriented.$2,
+      height: oriented.$3,
+      pixelFormat: ui.PixelFormat.rgba8888,
+    );
+    try {
+      final codec = await descriptor.instantiateCodec();
+      final frame = await codec.getNextFrame();
+      try {
+        final png = await frame.image.toByteData(
+          format: ui.ImageByteFormat.png,
+        );
+        if (png == null) {
+          throw StateError('Could not encode camera frame as PNG.');
+        }
+        await destination.writeAsBytes(
+          png.buffer.asUint8List(png.offsetInBytes, png.lengthInBytes),
+          flush: true,
+        );
+        return destination;
+      } finally {
+        frame.image.dispose();
+        codec.dispose();
+      }
+    } finally {
+      descriptor.dispose();
+      buffer.dispose();
+    }
+  }
+
+  static (Uint8List, int, int) _rotateRgba(
+    Uint8List source,
+    int width,
+    int height,
+    int rotation,
+  ) {
+    if (rotation == 0) return (source, width, height);
+
+    final swapsDimensions = rotation == 90 || rotation == 270;
+    final outputWidth = swapsDimensions ? height : width;
+    final outputHeight = swapsDimensions ? width : height;
+    final output = Uint8List(source.length);
+    for (var y = 0; y < height; y++) {
+      for (var x = 0; x < width; x++) {
+        final outputX = switch (rotation) {
+          90 => height - 1 - y,
+          180 => width - 1 - x,
+          270 => y,
+          _ => x,
+        };
+        final outputY = switch (rotation) {
+          90 => x,
+          180 => height - 1 - y,
+          270 => width - 1 - x,
+          _ => y,
+        };
+        final sourceOffset = (y * width + x) * 4;
+        final outputOffset = (outputY * outputWidth + outputX) * 4;
+        output.setRange(outputOffset, outputOffset + 4, source, sourceOffset);
+      }
+    }
+    return (output, outputWidth, outputHeight);
   }
 
   static Uint8List? _fromYuv420(CameraImage image) {

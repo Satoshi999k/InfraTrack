@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'dart:ui' as ui;
+
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -87,6 +90,82 @@ void main() {
 
     expect(rgba, isNotNull);
     expect(rgba, everyElement(255));
+  });
+
+  test('writes encoded PNG bytes for ML Kit file-path input', () async {
+    final image = _cameraImage(
+      format: 35,
+      width: 2,
+      height: 2,
+      planes: [
+        _plane([235, 235, 235, 235], bytesPerRow: 2, bytesPerPixel: 1),
+        _plane([128], bytesPerRow: 1, bytesPerPixel: 1),
+        _plane([128], bytesPerRow: 1, bytesPerPixel: 1),
+      ],
+    );
+    final destination = File(
+      '${Directory.systemTemp.path}${Platform.pathSeparator}'
+      'infratrack_converter_test_${DateTime.now().microsecondsSinceEpoch}.png',
+    );
+
+    try {
+      final png = await CameraFrameConverter.writePng(image, destination);
+
+      expect(png, destination);
+      expect(await png!.exists(), isTrue);
+      expect(await png.length(), greaterThan(8));
+      expect(
+        (await png.openRead(0, 8).fold<List<int>>([], (bytes, chunk) {
+          bytes.addAll(chunk);
+          return bytes;
+        })),
+        [137, 80, 78, 71, 13, 10, 26, 10],
+      );
+    } finally {
+      if (await destination.exists()) await destination.delete();
+    }
+  });
+
+  test('rotates the encoded PNG to the requested image orientation', () async {
+    final image = _cameraImage(
+      format: 35,
+      width: 4,
+      height: 2,
+      planes: [
+        _plane(
+          [235, 235, 235, 235, 235, 235, 235, 235],
+          bytesPerRow: 4,
+          bytesPerPixel: 1,
+        ),
+        _plane([128, 128], bytesPerRow: 2, bytesPerPixel: 1),
+        _plane([128, 128], bytesPerRow: 2, bytesPerPixel: 1),
+      ],
+    );
+    final destination = File(
+      '${Directory.systemTemp.path}${Platform.pathSeparator}'
+      'infratrack_rotation_test_${DateTime.now().microsecondsSinceEpoch}.png',
+    );
+
+    try {
+      await CameraFrameConverter.writePng(
+        image,
+        destination,
+        rotationDegrees: 90,
+      );
+      final codec = await ui.instantiateImageCodec(
+        await destination.readAsBytes(),
+      );
+      final frame = await codec.getNextFrame();
+      try {
+        expect(frame.image.width, 2);
+        expect(frame.image.height, 4);
+      } finally {
+        frame.image.dispose();
+        codec.dispose();
+      }
+    } finally {
+      if (await destination.exists()) await destination.delete();
+    }
   });
 
   test('rejects incomplete YUV420 buffers', () {

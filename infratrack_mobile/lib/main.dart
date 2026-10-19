@@ -16,7 +16,6 @@ import 'package:latlong2/latlong.dart';
 import 'package:video_player/video_player.dart';
 
 import 'api_service.dart';
-import 'camera_frame_converter.dart';
 
 part 'screens/home_page.dart';
 part 'screens/map_page.dart';
