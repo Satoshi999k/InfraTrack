@@ -1,0 +1,106 @@
+import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:infatrack/camera_frame_converter.dart';
+
+CameraImage _cameraImage({
+  required int format,
+  required int width,
+  required int height,
+  required List<Map<String, Object>> planes,
+}) =>
+    // camera_platform_interface is intentionally kept out of direct app deps.
+    // ignore: deprecated_member_use
+    CameraImage.fromPlatformData({
+      'format': format,
+      'width': width,
+      'height': height,
+      'planes': planes
+          .map(
+            (plane) => {
+              'bytes': plane['bytes'],
+              'bytesPerRow': plane['bytesPerRow'],
+              'bytesPerPixel': plane['bytesPerPixel'],
+            },
+          )
+          .toList(),
+    });
+
+Map<String, Object> _plane(
+  List<int> bytes, {
+  required int bytesPerRow,
+  required int bytesPerPixel,
+}) => {
+  'bytes': Uint8List.fromList(bytes),
+  'bytesPerRow': bytesPerRow,
+  'bytesPerPixel': bytesPerPixel,
+};
+
+void main() {
+  final originalPlatform = debugDefaultTargetPlatformOverride;
+
+  setUp(() {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+  });
+
+  tearDown(() {
+    debugDefaultTargetPlatformOverride = originalPlatform;
+  });
+
+  test('converts padded YUV420 planes to RGBA pixels', () {
+    final image = _cameraImage(
+      format: 35,
+      width: 2,
+      height: 2,
+      planes: [
+        _plane(
+          [235, 235, 0, 0, 235, 235, 0, 0],
+          bytesPerRow: 4,
+          bytesPerPixel: 1,
+        ),
+        _plane([128, 0], bytesPerRow: 2, bytesPerPixel: 2),
+        _plane([128, 0], bytesPerRow: 2, bytesPerPixel: 2),
+      ],
+    );
+
+    final rgba = CameraFrameConverter.toRgba(image);
+
+    expect(rgba, isNotNull);
+    expect(rgba, everyElement(255));
+  });
+
+  test('converts an NV21 frame to RGBA pixels', () {
+    final image = _cameraImage(
+      format: 17,
+      width: 2,
+      height: 2,
+      planes: [
+        _plane(
+          [235, 235, 235, 235, 128, 128],
+          bytesPerRow: 2,
+          bytesPerPixel: 1,
+        ),
+      ],
+    );
+
+    final rgba = CameraFrameConverter.toRgba(image);
+
+    expect(rgba, isNotNull);
+    expect(rgba, everyElement(255));
+  });
+
+  test('rejects incomplete YUV420 buffers', () {
+    final image = _cameraImage(
+      format: 35,
+      width: 2,
+      height: 2,
+      planes: [
+        _plane([235], bytesPerRow: 2, bytesPerPixel: 1),
+        _plane([128], bytesPerRow: 1, bytesPerPixel: 1),
+        _plane([128], bytesPerRow: 1, bytesPerPixel: 1),
+      ],
+    );
+
+    expect(CameraFrameConverter.toRgba(image), isNull);
+  });
+}

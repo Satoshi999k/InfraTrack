@@ -1239,48 +1239,6 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
     DeviceOrientation.landscapeRight: 270,
   };
 
-  Uint8List? _normalizeYuv420ToNv21(CameraImage image) {
-    if (image.width.isOdd || image.height.isOdd || image.planes.length != 3) {
-      return null;
-    }
-
-    final yPlane = image.planes[0];
-    final uPlane = image.planes[1];
-    final vPlane = image.planes[2];
-    final ySize = image.width * image.height;
-    final chromaWidth = image.width ~/ 2;
-    final chromaHeight = image.height ~/ 2;
-    final bytes = Uint8List(ySize + ySize ~/ 2);
-
-    for (var row = 0; row < image.height; row++) {
-      final sourceStart = row * yPlane.bytesPerRow;
-      final sourceEnd = sourceStart + image.width;
-      if (sourceEnd > yPlane.bytes.length) return null;
-      bytes.setRange(
-        row * image.width,
-        (row + 1) * image.width,
-        yPlane.bytes,
-        sourceStart,
-      );
-    }
-
-    final uPixelStride = uPlane.bytesPerPixel ?? 1;
-    final vPixelStride = vPlane.bytesPerPixel ?? 1;
-    for (var row = 0; row < chromaHeight; row++) {
-      for (var col = 0; col < chromaWidth; col++) {
-        final uIndex = row * uPlane.bytesPerRow + col * uPixelStride;
-        final vIndex = row * vPlane.bytesPerRow + col * vPixelStride;
-        if (uIndex >= uPlane.bytes.length || vIndex >= vPlane.bytes.length) {
-          return null;
-        }
-        final destination = ySize + row * image.width + col * 2;
-        bytes[destination] = vPlane.bytes[vIndex];
-        bytes[destination + 1] = uPlane.bytes[uIndex];
-      }
-    }
-    return bytes;
-  }
-
   InputImage? _inputImageFromCameraImage(CameraImage image) {
     final controller = _cameraController;
     if (controller == null || image.planes.isEmpty) return null;
@@ -1321,55 +1279,14 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
 
     if (!Platform.isAndroid) return null;
 
-    final Uint8List normalizedBytes;
-    if (image.format.group == ImageFormatGroup.nv21 &&
-        image.planes.length == 1) {
-      final expectedLength = image.width * image.height * 3 ~/ 2;
-      final plane = image.planes.single;
-      if (image.width.isOdd ||
-          image.height.isOdd ||
-          plane.bytes.length < expectedLength) {
-        return null;
-      }
-      final rowStride = plane.bytesPerRow;
-      final ySize = image.width * image.height;
-      if (rowStride == image.width && plane.bytes.length == expectedLength) {
-        normalizedBytes = plane.bytes;
-      } else if (rowStride >= image.width &&
-          plane.bytes.length >=
-              rowStride * image.height + (rowStride * image.height ~/ 2)) {
-        final normalized = Uint8List(expectedLength);
-        for (var row = 0; row < image.height; row++) {
-          final sourceStart = row * rowStride;
-          normalized.setRange(
-            row * image.width,
-            (row + 1) * image.width,
-            plane.bytes,
-            sourceStart,
-          );
-        }
-        final chromaStart = rowStride * image.height;
-        normalized.setRange(ySize, expectedLength, plane.bytes, chromaStart);
-        normalizedBytes = normalized;
-      } else {
-        normalizedBytes = Uint8List.sublistView(plane.bytes, 0, expectedLength);
-      }
-    } else if (image.format.group == ImageFormatGroup.yuv420) {
-      final converted = _normalizeYuv420ToNv21(image);
-      if (converted == null) return null;
-      normalizedBytes = converted;
-    } else {
-      return null;
-    }
+    final rgba = CameraFrameConverter.toRgba(image);
+    if (rgba == null) return null;
 
-    return InputImage.fromBytes(
-      bytes: normalizedBytes,
-      metadata: InputImageMetadata(
-        size: Size(image.width.toDouble(), image.height.toDouble()),
-        rotation: rotation,
-        format: InputImageFormat.nv21,
-        bytesPerRow: image.width,
-      ),
+    return InputImage.fromBitmap(
+      bitmap: rgba,
+      width: image.width,
+      height: image.height,
+      rotation: rotation.rawValue,
     );
   }
 
