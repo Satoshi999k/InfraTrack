@@ -13,13 +13,9 @@ const _productionApiBaseUrl = 'https://infratrack-3a8u.onrender.com/api';
 
 String get apiBaseUrl {
   if (_configuredApiBaseUrl.isNotEmpty) return _configuredApiBaseUrl;
-  if (kReleaseMode) return _productionApiBaseUrl;
   // Web preview uses the host machine's localhost.
-  // Real devices must target the machine running the Node.js API on the same LAN.
-  // For Android emulator, override with:
-  // flutter run --dart-define=API_BASE_URL=http://10.0.2.2:3001/api
   if (kIsWeb) return 'http://localhost:3001/api';
-  return 'http://10.230.167.43:3001/api';
+  return _productionApiBaseUrl;
 }
 
 String? publicMediaUrl(String? value) {
