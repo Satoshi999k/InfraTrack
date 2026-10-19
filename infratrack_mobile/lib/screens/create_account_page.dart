@@ -942,7 +942,7 @@ class SelfieVerificationPage extends StatefulWidget {
 class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
   final FaceDetector _faceDetector = FaceDetector(
     options: FaceDetectorOptions(
-      performanceMode: FaceDetectorMode.accurate,
+      performanceMode: FaceDetectorMode.fast,
       enableContours: false,
       enableLandmarks: false,
       enableClassification: true,
@@ -958,6 +958,7 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
   bool _livenessCheckRunning = false;
   bool _captureInProgress = false;
   bool _livenessComplete = false;
+  bool _frameAnalysisInProgress = false;
   int _processedFrameCount = 0;
   String? _frameDiagnostic;
   int _challengeIndex = -1;
@@ -1004,7 +1005,7 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
         ResolutionPreset.medium,
         enableAudio: false,
         imageFormatGroup: Platform.isAndroid
-            ? ImageFormatGroup.yuv420
+            ? ImageFormatGroup.nv21
             : ImageFormatGroup.bgra8888,
       );
 
@@ -1065,120 +1066,173 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
         _status = 'Center your face in the oval.';
       });
 
-      await _runSnapshotLivenessCheck();
+      final controller = _cameraController!;
+      if (controller.value.isStreamingImages) {
+        await controller.stopImageStream();
+      }
+      if (!mounted) return;
+      await controller.startImageStream((image) {
+        unawaited(_processCameraFrame(image));
+      });
+    } catch (error, stackTrace) {
+      debugPrint('Unable to start live selfie detection: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      _livenessComplete = true;
+      if (mounted) {
+        setState(() {
+          _status = 'Unable to start live selfie detection.';
+          _frameDiagnostic = error.toString();
+        });
+      }
     } finally {
       _livenessCheckRunning = false;
     }
   }
 
-  Future<void> _runSnapshotLivenessCheck() async {
-    while (mounted && !_livenessComplete && !_processing) {
-      final controller = _cameraController;
-      if (controller == null || !controller.value.isInitialized) return;
+  InputImage? _inputImageFromCameraFrame(CameraImage image) {
+    final controller = _cameraController;
+    if (controller == null || image.planes.length != 1) return null;
 
-      XFile? snapshot;
-      var keepSnapshot = false;
-      _processedFrameCount++;
-      try {
-        snapshot = await controller.takePicture();
-        if (!mounted || _livenessComplete) return;
+    final camera = controller.description;
+    final sensorOrientation = camera.sensorOrientation;
+    InputImageRotation? rotation;
+    if (Platform.isIOS) {
+      rotation = InputImageRotationValue.fromRawValue(sensorOrientation);
+    } else if (Platform.isAndroid) {
+      const orientations = {
+        DeviceOrientation.portraitUp: 0,
+        DeviceOrientation.landscapeLeft: 90,
+        DeviceOrientation.portraitDown: 180,
+        DeviceOrientation.landscapeRight: 270,
+      };
+      var compensation = orientations[controller.value.deviceOrientation];
+      if (compensation == null) return null;
+      if (camera.lensDirection == CameraLensDirection.front) {
+        compensation = (sensorOrientation + compensation) % 360;
+      } else {
+        compensation = (sensorOrientation - compensation + 360) % 360;
+      }
+      rotation = InputImageRotationValue.fromRawValue(compensation);
+    }
 
-        final faces = await _faceDetector.processImage(
-          InputImage.fromFilePath(snapshot.path),
+    final format = InputImageFormatValue.fromRawValue(image.format.raw);
+    if (rotation == null ||
+        format == null ||
+        (Platform.isAndroid && format != InputImageFormat.nv21) ||
+        (Platform.isIOS && format != InputImageFormat.bgra8888)) {
+      return null;
+    }
+
+    final plane = image.planes.single;
+    return InputImage.fromBytes(
+      bytes: plane.bytes,
+      metadata: InputImageMetadata(
+        size: Size(image.width.toDouble(), image.height.toDouble()),
+        rotation: rotation,
+        format: format,
+        bytesPerRow: plane.bytesPerRow,
+      ),
+    );
+  }
+
+  Future<void> _processCameraFrame(CameraImage image) async {
+    if (_frameAnalysisInProgress || _livenessComplete || _processing) return;
+    _frameAnalysisInProgress = true;
+    _processedFrameCount++;
+
+    try {
+      final inputImage = _inputImageFromCameraFrame(image);
+      if (inputImage == null) {
+        throw StateError('Unsupported camera frame format or orientation.');
+      }
+      final faces = await _faceDetector.processImage(inputImage);
+      if (!mounted || _livenessComplete) return;
+
+      if (_frameDiagnostic == null || _processedFrameCount % 5 == 0) {
+        setState(() {
+          _frameDiagnostic =
+              'Frame $_processedFrameCount | ${faces.length} face(s)';
+        });
+      }
+      if (faces.length != 1) {
+        _centeredFrames = 0;
+        _turnFrames = 0;
+        _setStatus(
+          faces.isEmpty
+              ? 'Place your face inside the oval.'
+              : 'Only one person should be visible.',
         );
-        if (!mounted || _livenessComplete) return;
+        return;
+      }
 
-        _frameDiagnostic =
-            'Snapshot $_processedFrameCount | ${faces.length} face(s)';
-        if (faces.length != 1) {
-          _centeredFrames = 0;
-          _turnFrames = 0;
-          _setStatus(
-            faces.isEmpty
-                ? 'Place your face inside the oval.'
-                : 'Only one person should be visible.',
-          );
+      final face = faces.single;
+      if (_challengeIndex == -1) {
+        _centeredFrames++;
+        if (_centeredFrames >= 2) {
+          _challengeIndex = 0;
+          _setStatus('Face detected. Blink once when you are ready.');
         } else {
-          final face = faces.single;
-          if (_challengeIndex == -1) {
-            _centeredFrames++;
-            if (_centeredFrames >= 2) {
-              _challengeIndex = 0;
-              _setStatus('Face detected. Blink once when you are ready.');
-            } else {
-              _setStatus('Face detected. Hold still…');
-            }
-          } else {
-            final challenge = _challenges[_challengeIndex];
-            final completed = switch (challenge) {
-              LivenessChallenge.turnLeft => _turnSatisfied(
-                face.headEulerAngleY,
-                turnLeft: true,
-              ),
-              LivenessChallenge.turnRight => _turnSatisfied(
-                face.headEulerAngleY,
-                turnLeft: false,
-              ),
-              LivenessChallenge.blink => _blinkSatisfied(face),
-            };
-
-            if (!completed) {
-              _setStatus(LivenessChallengeState.instructionFor(challenge));
-            } else if (_challengeIndex + 1 < _challenges.length) {
-              _challengeIndex++;
-              _turnFrames = 0;
-              _blinkClosedFrames = 0;
-              _blinkWasOpen = false;
-              _blinkWasClosed = false;
-              _setStatus(
-                LivenessChallengeState.instructionFor(
-                  _challenges[_challengeIndex],
-                ),
-              );
-            } else {
-              _livenessComplete = true;
-              keepSnapshot = true;
-              _setStatus('Great. Capturing your selfie…');
-              await _captureSelfie(capturedImage: snapshot);
-              return;
-            }
-          }
-        }
-      } catch (error, stackTrace) {
-        debugPrint('Live snapshot face detection failed: $error');
-        debugPrintStack(stackTrace: stackTrace);
-        if (mounted) {
-          _setStatus('Unable to analyze selfie. Check debug details.');
-          final nativeDetails = error is PlatformException
-              ? error.details?.toString().replaceAll(RegExp(r'\s+'), ' ').trim()
-              : null;
-          final errorLabel = [
-            if (error is PlatformException)
-              '${error.code}: ${error.message ?? 'No details'}'
-            else
-              error.runtimeType.toString(),
-            if (nativeDetails != null && nativeDetails.isNotEmpty)
-              nativeDetails,
-          ].join(' | ');
-          final visibleError = errorLabel.length > 900
-              ? '${errorLabel.substring(0, 900)}…'
-              : errorLabel;
-          setState(() => _frameDiagnostic = 'Snapshot: $visibleError');
+          _setStatus('Face detected. Hold still…');
         }
         return;
-      } finally {
-        if (snapshot != null && !keepSnapshot) {
-          try {
-            await File(snapshot.path).delete();
-          } on FileSystemException catch (error) {
-            debugPrint('Unable to remove temporary camera snapshot: $error');
-          }
-        }
       }
 
-      if (mounted && !_livenessComplete && !_processing) {
-        await Future<void>.delayed(const Duration(milliseconds: 80));
+      final challenge = _challenges[_challengeIndex];
+      final completed = switch (challenge) {
+        LivenessChallenge.turnLeft => _turnSatisfied(
+          face.headEulerAngleY,
+          turnLeft: true,
+        ),
+        LivenessChallenge.turnRight => _turnSatisfied(
+          face.headEulerAngleY,
+          turnLeft: false,
+        ),
+        LivenessChallenge.blink => _blinkSatisfied(face),
+      };
+      if (!completed) {
+        _setStatus(LivenessChallengeState.instructionFor(challenge));
+        return;
       }
+
+      if (_challengeIndex + 1 < _challenges.length) {
+        _challengeIndex++;
+        _turnFrames = 0;
+        _blinkClosedFrames = 0;
+        _blinkWasOpen = false;
+        _blinkWasClosed = false;
+        _setStatus(
+          LivenessChallengeState.instructionFor(_challenges[_challengeIndex]),
+        );
+        return;
+      }
+
+      _livenessComplete = true;
+      _setStatus('Great. Capturing your selfie…');
+      final controller = _cameraController;
+      if (controller != null && controller.value.isStreamingImages) {
+        await controller.stopImageStream();
+      }
+      await _captureSelfie();
+    } catch (error, stackTrace) {
+      debugPrint('Live camera frame analysis failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      _livenessComplete = true;
+      if (mounted) {
+        setState(() {
+          _status = 'Unable to analyze selfie. Check debug details.';
+          _frameDiagnostic = 'Frame: $error';
+        });
+      }
+      final controller = _cameraController;
+      if (controller != null && controller.value.isStreamingImages) {
+        try {
+          await controller.stopImageStream();
+        } on CameraException catch (stopError) {
+          debugPrint('Unable to stop camera frame stream: $stopError');
+        }
+      }
+    } finally {
+      _frameAnalysisInProgress = false;
     }
   }
 
@@ -1543,14 +1597,20 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
             ),
           ],
           const SizedBox(height: 20),
-          if (_selfie != null)
+          if (_selfie != null || _livenessComplete)
             SizedBox(
               width: double.infinity,
               height: 54,
               child: FilledButton.icon(
                 onPressed: _processing ? null : _startLivenessCheck,
                 icon: const Icon(Icons.refresh),
-                label: Text(_processing ? 'Checking face…' : 'Retake selfie'),
+                label: Text(
+                  _processing
+                      ? 'Checking face…'
+                      : _selfie == null
+                      ? 'Try liveness again'
+                      : 'Retake selfie',
+                ),
                 style: FilledButton.styleFrom(
                   backgroundColor: clay,
                   foregroundColor: Colors.white,
