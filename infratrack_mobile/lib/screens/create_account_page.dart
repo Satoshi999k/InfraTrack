@@ -1149,10 +1149,21 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
         debugPrintStack(stackTrace: stackTrace);
         if (mounted) {
           _setStatus('Unable to analyze selfie. Check debug details.');
-          final errorLabel = error is PlatformException
-              ? '${error.code}: ${error.message ?? 'No details'}'
-              : error.runtimeType.toString();
-          setState(() => _frameDiagnostic = 'Snapshot: $errorLabel');
+          final nativeDetails = error is PlatformException
+              ? error.details?.toString().replaceAll(RegExp(r'\s+'), ' ').trim()
+              : null;
+          final errorLabel = [
+            if (error is PlatformException)
+              '${error.code}: ${error.message ?? 'No details'}'
+            else
+              error.runtimeType.toString(),
+            if (nativeDetails != null && nativeDetails.isNotEmpty)
+              nativeDetails,
+          ].join(' | ');
+          final visibleError = errorLabel.length > 900
+              ? '${errorLabel.substring(0, 900)}…'
+              : errorLabel;
+          setState(() => _frameDiagnostic = 'Snapshot: $visibleError');
         }
         return;
       } finally {
