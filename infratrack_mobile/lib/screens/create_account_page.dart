@@ -1356,6 +1356,51 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
     }
   }
 
+  Future<void> _showAccountCreatedDialog() async {
+    final navigator = Navigator.of(context);
+    await showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      barrierLabel: 'Account created',
+      barrierColor: deepNavy.withValues(alpha: .34),
+      transitionDuration: const Duration(milliseconds: 280),
+      pageBuilder: (dialogContext, animation, secondaryAnimation) => Stack(
+        children: [
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: ColoredBox(color: deepNavy.withValues(alpha: .20)),
+            ),
+          ),
+          Center(
+            child: AccountCreatedDialog(
+              onOk: () {
+                navigator.pop();
+                navigator.pushAndRemoveUntil(
+                  MaterialPageRoute<void>(builder: (_) => const LoginPage()),
+                  (_) => false,
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+      transitionBuilder: (context, animation, secondaryAnimation, child) =>
+          FadeTransition(
+            opacity: CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+            ),
+            child: ScaleTransition(
+              scale: Tween<double>(begin: .92, end: 1).animate(
+                CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
+              ),
+              child: child,
+            ),
+          ),
+    );
+  }
+
   Future<void> _captureSelfie() async {
     if (_captureInProgress) return;
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
@@ -1439,6 +1484,7 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
             ? 'Verification submitted. An admin will review your ID and selfie.'
             : 'Verification submitted. Your ID and selfie are ready for admin review.';
       });
+      await _showAccountCreatedDialog();
     } on MissingPluginException {
       _showMessage(
         'Face detection is available in the Android/iOS build. Please reinstall the latest APK.',
@@ -1645,6 +1691,157 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
               ),
             ),
         ],
+      ),
+    ),
+  );
+}
+
+class AccountCreatedDialog extends StatelessWidget {
+  const AccountCreatedDialog({required this.onOk, super.key});
+
+  final VoidCallback onOk;
+
+  @override
+  Widget build(BuildContext context) => Dialog(
+    backgroundColor: Colors.transparent,
+    insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 420),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(24, 28, 24, 22),
+        decoration: BoxDecoration(
+          color: sand,
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(color: Colors.white.withValues(alpha: .82)),
+          boxShadow: [
+            BoxShadow(
+              color: deepNavy.withValues(alpha: .24),
+              blurRadius: 36,
+              offset: const Offset(0, 18),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 82,
+              height: 82,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(
+                  colors: [teal, Color(0xFF43A69A)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: teal.withValues(alpha: .26),
+                    blurRadius: 22,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.check_rounded,
+                color: Colors.white,
+                size: 42,
+              ),
+            ),
+            const SizedBox(height: 20),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: teal.withValues(alpha: .11),
+                borderRadius: BorderRadius.circular(30),
+              ),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+                child: Text(
+                  'VERIFICATION SUBMITTED',
+                  style: TextStyle(
+                    color: teal,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.05,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Your account is ready!',
+              textAlign: TextAlign.center,
+              style: infraHeading(
+                color: navy,
+                fontSize: 23,
+                weight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 9),
+            const Text(
+              'Your account has been created and your ID and selfie have been sent for review. You can now sign in to InfraTrack.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: inkSoft, fontSize: 13, height: 1.55),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(13),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: .72),
+                borderRadius: BorderRadius.circular(17),
+                border: Border.all(color: navy.withValues(alpha: .07)),
+              ),
+              child: const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.verified_user_outlined, color: teal, size: 21),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Our team will review your verification documents. We will keep them private and secure.',
+                      style: TextStyle(
+                        color: inkSoft,
+                        fontSize: 11,
+                        height: 1.45,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 22),
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: FilledButton(
+                onPressed: onOk,
+                style: FilledButton.styleFrom(
+                  backgroundColor: navy,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(17),
+                  ),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'OK, go to sign in',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    SizedBox(width: 9),
+                    Icon(Icons.arrow_forward_rounded, size: 18),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     ),
   );
