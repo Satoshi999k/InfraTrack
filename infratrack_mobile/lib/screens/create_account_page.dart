@@ -1364,6 +1364,7 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
     }
 
     _captureInProgress = true;
+    var failureStage = 'selfie verification';
     try {
       setState(() {
         _processing = true;
@@ -1405,14 +1406,24 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
           widget.mobile != null &&
           widget.barangay != null &&
           widget.password != null) {
-        await ApiService.register(
-          name: widget.name!,
-          email: widget.email!,
-          mobile: widget.mobile!,
-          barangay: widget.barangay!,
-          password: widget.password!,
-        );
+        final currentEmail = ApiService.currentUser?['email']
+            ?.toString()
+            .toLowerCase();
+        final accountAlreadyCreated =
+            ApiService.isSignedIn &&
+            currentEmail == widget.email!.toLowerCase();
+        if (!accountAlreadyCreated) {
+          failureStage = 'account creation';
+          await ApiService.register(
+            name: widget.name!,
+            email: widget.email!,
+            mobile: widget.mobile!,
+            barangay: widget.barangay!,
+            password: widget.password!,
+          );
+        }
         if (!mounted) return;
+        failureStage = 'verification document upload';
         setState(
           () => _status = 'Account created. Uploading verification securely…',
         );
@@ -1437,9 +1448,14 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
         'Face detection was unavailable for this selfie. Please try again in good lighting or continue with manual review.',
       );
     } catch (error, stackTrace) {
-      debugPrint('Selfie capture or verification upload failed: $error');
+      debugPrint('$failureStage failed: $error');
       debugPrintStack(stackTrace: stackTrace);
-      _showMessage('Selfie capture or verification failed. Please retry.');
+      final message = error.toString().replaceFirst(
+        RegExp(r'^(Exception|Error):\s*'),
+        '',
+      );
+      _setStatus('$failureStage failed. $message');
+      _showMessage('$failureStage failed: $message');
     } finally {
       _captureInProgress = false;
       if (mounted) {
