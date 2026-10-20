@@ -142,15 +142,9 @@ class _NewsPageState extends State<NewsPage> {
           ),
           const SizedBox(height: 18),
           if (_loading)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 30),
-              child: Center(child: CircularProgressIndicator(color: teal)),
-            )
+            const NewsFeedSkeleton()
           else if (_loadError != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20),
-              child: Text(_loadError!, style: const TextStyle(color: clay)),
-            )
+            LoadErrorPanel(message: _loadError!, onRetry: _loadNews)
           else ...[
             for (final issue in _visibleIssues)
               NewsCard(

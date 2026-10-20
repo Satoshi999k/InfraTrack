@@ -176,9 +176,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         if (_loading)
-                          const Center(child: CircularProgressIndicator())
+                          const NotificationFeedSkeleton(count: 5)
                         else if (_loadError != null)
-                          Text(_loadError!, style: const TextStyle(color: clay))
+                          LoadErrorPanel(
+                            message: _loadError!,
+                            onRetry: _loadNotifications,
+                          )
                         else if (visible.isEmpty)
                           _EmptyNotifications(
                             message: ApiService.isSignedIn

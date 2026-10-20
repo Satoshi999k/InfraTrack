@@ -140,17 +140,11 @@ class _MyReportsPageState extends State<MyReportsPage> {
                   sliver: SliverList(
                     delegate: SliverChildListDelegate([
                       if (_loading)
-                        const Padding(
-                          padding: EdgeInsets.only(top: 24),
-                          child: Center(child: CircularProgressIndicator()),
-                        )
+                        const ReportFeedSkeleton(count: 4)
                       else if (_loadError != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 24),
-                          child: Text(
-                            _loadError!,
-                            style: const TextStyle(color: clay),
-                          ),
+                        LoadErrorPanel(
+                          message: _loadError!,
+                          onRetry: _loadReports,
                         )
                       else if (visible.isEmpty)
                         Padding(

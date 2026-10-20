@@ -17,6 +17,7 @@ import 'package:video_player/video_player.dart';
 
 import 'api_service.dart';
 
+part 'loading_skeleton.dart';
 part 'screens/home_page.dart';
 part 'screens/map_page.dart';
 part 'screens/report_page.dart';
@@ -2073,10 +2074,12 @@ class AppHeader extends StatelessWidget {
     super.key,
     required this.eyebrow,
     required this.title,
+    this.subtitle,
     this.trailing,
   });
   final String eyebrow;
   final String title;
+  final String? subtitle;
   final Widget? trailing;
   @override
   Widget build(BuildContext context) => Padding(
@@ -2106,6 +2109,13 @@ class AppHeader extends StatelessWidget {
                   weight: FontWeight.w800,
                 ),
               ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 3),
+                Text(
+                  subtitle!,
+                  style: const TextStyle(color: inkSoft, fontSize: 11.5),
+                ),
+              ],
             ],
           ),
         ),
