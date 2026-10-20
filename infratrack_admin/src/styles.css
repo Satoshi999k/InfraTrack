@@ -4990,39 +4990,42 @@ tbody tr:last-child td {
 }
 .leaflet-pin {
   position: relative;
-  width: 40px;
-  height: 40px;
-  transform: rotate(-45deg);
+  width: 64px;
+  height: 58px;
 }
 .leaflet-pin-ring {
-  width: 40px;
-  height: 40px;
+  width: 64px;
+  height: 58px;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   border: 3px solid #fff;
-  border-radius: 50% 50% 50% 4px;
-  background: var(--sand);
-  box-shadow: 0 6px 14px #09273247;
+  border-radius: 10px;
+  background: #092732;
+  box-shadow: 0 3px 10px #09273270;
 }
 .leaflet-pin-photo {
+  position: relative;
   width: 100%;
   height: 100%;
   display: grid;
   place-items: center;
-  transform: rotate(45deg) scale(1.45);
+  overflow: hidden;
   background-position: center;
-  background-size: cover;
+  background-size: contain;
   color: var(--navy);
   font-size: 13px;
   font-weight: 800;
 }
 .leaflet-pin-photo img {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  background: #092732;
 }
 .leaflet-pin.critical .leaflet-pin-ring {
   border-color: var(--red);
@@ -5038,10 +5041,10 @@ tbody tr:last-child td {
 }
 .leaflet-pin-status {
   position: absolute;
-  top: -3px;
-  right: -3px;
-  width: 13px;
-  height: 13px;
+  top: -5px;
+  right: -5px;
+  width: 14px;
+  height: 14px;
   border: 2px solid #fff;
   border-radius: 50%;
   background: var(--ink-soft);

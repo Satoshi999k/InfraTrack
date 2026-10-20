@@ -80,14 +80,19 @@ function MapSearchControl({ issues, map }) {
 
 function issuePinIcon(issue) {
   const severity = String(issue.severity || "medium").toLowerCase();
-  const markerContent = issue.media_url
-    ? `<img src="${escapeHtmlAttribute(issue.media_url)}" alt="" />`
-    : `<span>${escapeHtmlAttribute(String(issue.category || "?").slice(0, 1).toUpperCase())}</span>`;
+  const categoryInitial = escapeHtmlAttribute(
+    String(issue.category || "?").slice(0, 1).toUpperCase(),
+  );
+  const markerContent = `<span>${categoryInitial}</span>${
+    issue.media_url
+      ? `<img src="${escapeHtmlAttribute(issue.media_url)}" alt="" />`
+      : ""
+  }`;
   return divIcon({
     className: "leaflet-issue-icon",
-    iconSize: [40, 48],
-    iconAnchor: [20, 44],
-    popupAnchor: [0, -42],
+    iconSize: [64, 58],
+    iconAnchor: [32, 29],
+    popupAnchor: [0, -30],
     html: `
       <div class="leaflet-pin ${severity}">
         <span class="leaflet-pin-ring">
