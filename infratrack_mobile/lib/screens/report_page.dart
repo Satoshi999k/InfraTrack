@@ -83,6 +83,11 @@ class _ReportPageState extends State<ReportPage> {
       );
     } catch (error) {
       if (mounted) {
+        if (error is ApiException && error.code == 'REPORTING_SUSPENDED') {
+          setState(() {});
+          return;
+        }
+        if (error is ApiException && error.code == 'ACCOUNT_BANNED') return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(error.toString().replaceFirst('Exception: ', '')),
@@ -164,6 +169,16 @@ class _ReportPageState extends State<ReportPage> {
     });
   }
 
+  Object? get _suspendedUntil => ApiService.currentUser?['suspended_until'];
+
+  bool get _isReportingSuspended {
+    if (ApiService.currentUser?['standing']?.toString() != 'Suspended') {
+      return false;
+    }
+    final end = DateTime.tryParse(_suspendedUntil?.toString() ?? '')?.toLocal();
+    return end == null || end.isAfter(DateTime.now());
+  }
+
   @override
   Widget build(BuildContext context) => PageEntrance(
     child: AppScroll(
@@ -171,6 +186,8 @@ class _ReportPageState extends State<ReportPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const AppHeader(eyebrow: 'NEW SUBMISSION', title: 'Report an issue'),
+          if (_isReportingSuspended)
+            _ReportingSuspendedNotice(suspendedUntil: _suspendedUntil),
           Card(
             margin: EdgeInsets.zero,
             clipBehavior: Clip.antiAlias,
@@ -180,7 +197,7 @@ class _ReportPageState extends State<ReportPage> {
               side: BorderSide(color: Colors.white.withValues(alpha: .9)),
             ),
             child: InkWell(
-              onTap: _openCamera,
+              onTap: _isReportingSuspended ? null : _openCamera,
               borderRadius: BorderRadius.circular(22),
               child: _capturedMedia == null
                   ? SizedBox(
@@ -291,7 +308,7 @@ class _ReportPageState extends State<ReportPage> {
                 ),
                 elevation: 3,
               ),
-              onPressed: _submitReport,
+              onPressed: _isReportingSuspended ? null : _submitReport,
               child: const Text('Submit report'),
             ),
           ),
@@ -299,6 +316,100 @@ class _ReportPageState extends State<ReportPage> {
       ),
     ),
   );
+}
+
+class _ReportingSuspendedNotice extends StatelessWidget {
+  const _ReportingSuspendedNotice({this.suspendedUntil});
+
+  final Object? suspendedUntil;
+
+  @override
+  Widget build(BuildContext context) {
+    final end = DateTime.tryParse(suspendedUntil?.toString() ?? '')?.toLocal();
+    final endLabel = end == null
+        ? 'until an administrator restores access'
+        : 'until ${MaterialLocalizations.of(context).formatMediumDate(end)} at ${MaterialLocalizations.of(context).formatTimeOfDay(TimeOfDay.fromDateTime(end))}';
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: .82),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE7CDAF)),
+        boxShadow: [
+          BoxShadow(
+            color: deepNavy.withValues(alpha: .06),
+            blurRadius: 22,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: clay.withValues(alpha: .12),
+              borderRadius: BorderRadius.circular(17),
+            ),
+            child: const Icon(
+              Icons.hourglass_top_rounded,
+              color: clay,
+              size: 27,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'Report submissions are suspended',
+            style: infraHeading(
+              color: navy,
+              fontSize: 19,
+              weight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Your account is under a reporting suspension. You can still browse community reports, updates, and your account.',
+            style: TextStyle(color: inkSoft, fontSize: 13, height: 1.5),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
+            decoration: BoxDecoration(
+              color: sand,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.schedule_rounded, color: teal, size: 18),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    'Report access resumes $endLabel.',
+                    style: const TextStyle(
+                      color: navy,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          const Text(
+            'Questions? Contact Mati City support.',
+            style: TextStyle(color: inkSoft, fontSize: 11, height: 1.4),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _AddMediaPlaceholder extends StatelessWidget {

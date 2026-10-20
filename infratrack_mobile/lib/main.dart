@@ -379,6 +379,7 @@ class _LoginPageState extends State<LoginPage> {
   bool _obscurePassword = true;
   bool _isLoggingIn = false;
   String? _loginError;
+  bool _loginErrorIsBan = false;
 
   @override
   void initState() {
@@ -417,11 +418,17 @@ class _LoginPageState extends State<LoginPage> {
         _emailController.text.trim(),
         _passwordController.text,
       );
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() {
         _isLoggingIn = false;
-        _loginError = 'We couldn’t sign you in with those details.';
+        if (error is ApiException && error.code == 'ACCOUNT_BANNED') {
+          _loginErrorIsBan = true;
+          _loginError = error.message;
+        } else {
+          _loginErrorIsBan = false;
+          _loginError = 'We couldn’t sign you in with those details.';
+        }
       });
       return;
     }
@@ -646,6 +653,7 @@ class _LoginPageState extends State<LoginPage> {
                                         padding: const EdgeInsets.only(top: 10),
                                         child: _LoginErrorCard(
                                           message: _loginError!,
+                                          isAccountBan: _loginErrorIsBan,
                                         ),
                                       ),
                               ),
@@ -878,9 +886,10 @@ class _LoginBackgroundPainter extends CustomPainter {
 }
 
 class _LoginErrorCard extends StatelessWidget {
-  const _LoginErrorCard({required this.message});
+  const _LoginErrorCard({required this.message, this.isAccountBan = false});
 
   final String message;
+  final bool isAccountBan;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -908,8 +917,10 @@ class _LoginErrorCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Sign-in unsuccessful',
+              Text(
+                isAccountBan
+                    ? 'Account access restricted'
+                    : 'Sign-in unsuccessful',
                 style: TextStyle(
                   color: red,
                   fontSize: 11.5,
@@ -918,7 +929,9 @@ class _LoginErrorCard extends StatelessWidget {
               ),
               const SizedBox(height: 3),
               Text(
-                '$message Check your email and password, or use the testing account below.',
+                isAccountBan
+                    ? message
+                    : '$message Check your email and password, or use the testing account below.',
                 style: const TextStyle(
                   color: inkSoft,
                   fontSize: 10.5,
@@ -1315,6 +1328,133 @@ class _SessionNoticeContent extends StatelessWidget {
   );
 }
 
+class _AccountBannedDialog extends StatelessWidget {
+  const _AccountBannedDialog({required this.onContinue});
+
+  final VoidCallback onContinue;
+
+  @override
+  Widget build(BuildContext context) => Dialog(
+    backgroundColor: Colors.transparent,
+    insetPadding: const EdgeInsets.symmetric(horizontal: 22),
+    child: Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: sand,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: Colors.white.withValues(alpha: .85)),
+        boxShadow: [
+          BoxShadow(
+            color: deepNavy.withValues(alpha: .25),
+            blurRadius: 32,
+            offset: const Offset(0, 16),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(24, 26, 24, 24),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [deepNavy, navy],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  width: 68,
+                  height: 68,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: .13),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: .25),
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.gpp_bad_outlined,
+                    color: Colors.white,
+                    size: 34,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Account access restricted',
+                  textAlign: TextAlign.center,
+                  style: infraHeading(
+                    color: Colors.white,
+                    fontSize: 20,
+                    weight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Your InfraTrack account has been banned. You have been signed out and cannot sign in while the ban is in effect.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFFD5E3E6),
+                    fontSize: 13,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(22, 18, 22, 22),
+            child: Column(
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.info_outline_rounded,
+                      color: teal,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 9),
+                    const Expanded(
+                      child: Text(
+                        'If you believe this is a mistake, contact Mati City support for help.',
+                        style: TextStyle(
+                          color: inkSoft,
+                          fontSize: 12,
+                          height: 1.45,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: onContinue,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: clay,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                    ),
+                    child: const Text('OK, sign out'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 class _SessionExpiredDialog extends StatelessWidget {
   const _SessionExpiredDialog({
     required this.message,
@@ -1447,6 +1587,7 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int index = 0;
   bool _handlingExpiredSession = false;
+  bool _handlingAccountBan = false;
   final _homeKey = GlobalKey<_HomePageState>();
   final _mapKey = GlobalKey<_MapPageState>();
   final _reportKey = GlobalKey<_ReportPageState>();
@@ -1465,6 +1606,29 @@ class _MainShellState extends State<MainShell> {
   void initState() {
     super.initState();
     ApiService.sessionExpired.addListener(_handleExpiredSession);
+    ApiService.accountBanned.addListener(_handleAccountBanned);
+  }
+
+  void _handleAccountBanned() {
+    if (_handlingAccountBan || !mounted) return;
+    _handlingAccountBan = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => _AccountBannedDialog(
+          onContinue: () => Navigator.of(dialogContext).pop(),
+        ),
+      );
+      if (!mounted) return;
+      await ApiService.signOutForExpiredSession();
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginPage()),
+        (_) => false,
+      );
+    });
   }
 
   void _handleExpiredSession() {
@@ -1494,6 +1658,7 @@ class _MainShellState extends State<MainShell> {
   @override
   void dispose() {
     ApiService.sessionExpired.removeListener(_handleExpiredSession);
+    ApiService.accountBanned.removeListener(_handleAccountBanned);
     super.dispose();
   }
 

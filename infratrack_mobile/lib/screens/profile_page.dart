@@ -749,10 +749,10 @@ class _ProfileHeader extends StatelessWidget {
     final membership = createdAt == null
         ? 'Browsing without an account'
         : 'Member since ${createdAt.month}/${createdAt.year}';
-    final accountStatus =
-        profile['verification']?.toString() ??
-        profile['standing']?.toString() ??
-        'Guest access';
+    final standing = profile['standing']?.toString();
+    final accountStatus = standing != null && standing != 'Active'
+        ? standing
+        : profile['verification']?.toString() ?? standing ?? 'Guest access';
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 46),

@@ -8,6 +8,16 @@ import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+class ApiException implements Exception {
+  const ApiException(this.message, {this.code});
+
+  final String message;
+  final String? code;
+
+  @override
+  String toString() => message;
+}
+
 const _configuredApiBaseUrl = String.fromEnvironment('API_BASE_URL');
 const _productionApiBaseUrl = 'https://infratrack-3a8u.onrender.com/api';
 
@@ -39,6 +49,7 @@ class ApiService {
   static Map<String, dynamic>? currentUser;
   static String? _sessionToken;
   static final ValueNotifier<int> sessionExpired = ValueNotifier<int>(0);
+  static final ValueNotifier<int> accountBanned = ValueNotifier<int>(0);
   static String? _sessionNotice;
 
   static bool get isSignedIn => _sessionToken != null;
@@ -164,8 +175,21 @@ class ApiService {
     }
     final body = Map<String, dynamic>.from(decoded);
     if (response.statusCode >= 400) {
-      throw Exception(
-        body['error'] ?? 'Request failed (${response.statusCode})',
+      final code = body['code']?.toString();
+      if (code == 'ACCOUNT_BANNED' && _sessionToken != null) {
+        unawaited(_clearSession());
+        accountBanned.value++;
+      } else if (code == 'REPORTING_SUSPENDED' && currentUser != null) {
+        currentUser = {
+          ...currentUser!,
+          'standing': 'Suspended',
+          'suspended_until': body['suspendedUntil'],
+        };
+        unawaited(_persistSession());
+      }
+      throw ApiException(
+        body['error']?.toString() ?? 'Request failed (${response.statusCode})',
+        code: code,
       );
     }
     return body;

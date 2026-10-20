@@ -19,6 +19,11 @@ import {
 import { canManageSystemSettings } from "./permissions.js";
 import { sendEmailNotification } from "./emailNotifications.js";
 import { analyzeReportThemes } from "./thematicAnalysis.js";
+import {
+  moderationNotification,
+  standingAfterModeration,
+  suspensionHours,
+} from "./moderationPolicy.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -442,6 +447,8 @@ async function initializeDatabase() {
     standing VARCHAR(30) NOT NULL DEFAULT 'Active', verification VARCHAR(40) NOT NULL DEFAULT 'Pending ID match',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
   ) ENGINE=InnoDB`);
+  await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS suspended_until DATETIME NULL");
+  await pool.query("UPDATE users SET standing = 'Active' WHERE standing = 'Warned'");
   await pool.query("ALTER TABLE users MODIFY COLUMN password_hash VARCHAR(255) NOT NULL");
   await pool.query(`CREATE TABLE IF NOT EXISTS reports (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, public_id VARCHAR(32) NOT NULL UNIQUE,
@@ -636,6 +643,26 @@ app.use((req, res, next) => {
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
 });
+async function restoreExpiredSuspension(user) {
+  if (user.standing !== "Suspended" || !user.suspended_until) return false;
+  const [result] = await pool.query(
+    "UPDATE users SET standing = 'Active', suspended_until = NULL WHERE id = ? AND standing = 'Suspended' AND suspended_until <= CURRENT_TIMESTAMP",
+    [user.id],
+  );
+  if (!result.affectedRows) return false;
+  await pool.query(
+    "INSERT INTO moderation_actions (user_id, admin_id, action, reason) VALUES (?, NULL, 'restore', 'Suspension period ended')",
+    [user.id],
+  );
+  await pool.query(
+    "INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'account', 'Reporting access restored', 'Your suspension period has ended. You can submit reports again.')",
+    [user.id],
+  );
+  user.standing = "Active";
+  user.suspended_until = null;
+  return true;
+}
+
 app.use(async (req, res, next) => {
   const publicMobileRoutes = new Set([
     "/api/mobile/issues",
@@ -658,7 +685,7 @@ app.use(async (req, res, next) => {
   let user;
   try {
     [[user]] = await pool.query(
-      "SELECT u.id, u.name, u.email, u.mobile, u.barangay, u.role, u.standing, u.created_at FROM admin_sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > CURRENT_TIMESTAMP",
+      "SELECT u.id, u.name, u.email, u.mobile, u.barangay, u.role, u.standing, u.suspended_until, u.created_at FROM admin_sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > CURRENT_TIMESTAMP",
       [hashSessionToken(token)],
     );
   } catch (error) {
@@ -668,8 +695,29 @@ app.use(async (req, res, next) => {
   if (!user || (!isMobileRoute && !isMobileUpload && !["lgu", "admin", "barangay_staff"].includes(user.role))) {
     return res.status(401).json({ error: "Session expired or invalid" });
   }
-  if (isMobileRoute && !isPublicMobileRoute && user.standing !== "Active") {
-    return res.status(403).json({ error: "This account is not active" });
+  const isMobileClient = isMobileRoute || isMobileUpload;
+  if (isMobileClient) await restoreExpiredSuspension(user);
+  if (isMobileClient && user.role === "resident" && user.standing === "Banned") {
+    await pool.query("DELETE FROM admin_sessions WHERE token_hash = ?", [hashSessionToken(token)]);
+    return res.status(403).json({
+      code: "ACCOUNT_BANNED",
+      error: "This account has been banned from InfraTrack. Contact Mati City support if you believe this is an error.",
+    });
+  }
+  const isReportSubmission =
+    (req.method === "POST" && req.path === "/api/mobile/reports") ||
+    (req.method === "POST" && req.path === "/api/uploads");
+  if (
+    isMobileClient &&
+    user.role === "resident" &&
+    user.standing === "Suspended" &&
+    isReportSubmission
+  ) {
+    return res.status(403).json({
+      code: "REPORTING_SUSPENDED",
+      error: "Your account is temporarily suspended from submitting reports. You can continue using other parts of InfraTrack.",
+      suspendedUntil: user.suspended_until,
+    });
   }
   req.auth = user;
   req.authToken = token;
@@ -1000,13 +1048,26 @@ async function handleLogin(req, res, { requireRecaptcha, auditAction }) {
     return res.status(401).json({ error: "Invalid email or password" });
   }
   loginAttempts.delete(ip);
+  await restoreExpiredSuspension(user);
+  if (user.role === "resident" && user.standing === "Banned") {
+    await writeAuditLog(req, {
+      action: "login_blocked",
+      resourceType: "authentication",
+      details: { reason: "account_banned", email: user.email },
+      actor: user,
+    });
+    return res.status(403).json({
+      code: "ACCOUNT_BANNED",
+      error: "This account has been banned from InfraTrack. Contact Mati City support if you believe this is an error.",
+    });
+  }
   if (!user.password_hash.startsWith("scrypt$")) {
     await pool.query("UPDATE users SET password_hash = ? WHERE id = ?", [hashPassword(String(password ?? "")), user.id]);
   }
   const sessionToken = createSessionToken();
   await pool.query("INSERT INTO admin_sessions (token_hash, user_id, expires_at) VALUES (?, ?, DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 8 HOUR))", [hashSessionToken(sessionToken), user.id]);
   await writeAuditLog(req, { action: auditAction, resourceType: "authentication", actor: user });
-  res.json({ token: sessionToken, user: { id: user.id, name: user.name, email: user.email, barangay: user.barangay, role: user.role } });
+  res.json({ token: sessionToken, user: { id: user.id, name: user.name, email: user.email, barangay: user.barangay, role: user.role, standing: user.standing, suspended_until: user.suspended_until } });
 }
 app.post("/api/auth/login", (req, res) => handleLogin(req, res, { requireRecaptcha: true, auditAction: "login" }));
 app.post("/api/mobile/auth/login", (req, res) => handleLogin(req, res, { requireRecaptcha: false, auditAction: "mobile_login" }));
@@ -1229,7 +1290,7 @@ app.get("/api/analytics", async (req, res) => {
 app.get("/api/users", async (req, res) => {
   const viewer = req.auth;
   const barangayFilter = viewer?.role === "barangay_staff" ? " AND u.barangay = ?" : "";
-  const [users] = await pool.query(`SELECT u.id, u.name, u.email, u.barangay, u.standing, u.verification,
+  const [users] = await pool.query(`SELECT u.id, u.name, u.email, u.barangay, u.standing, u.suspended_until, u.verification,
     DATE_FORMAT(u.created_at, '%b %Y') AS joined, COUNT(DISTINCT r.id) AS reports,
     MAX(CASE WHEN vd.document_type = 'selfie' THEN vd.file_path END) AS selfie_path,
     MAX(CASE WHEN vd.document_side = 'front' THEN vd.file_path END) AS id_front_path,
@@ -1633,18 +1694,83 @@ app.patch("/api/users/:id/moderation", async (req, res) => {
   const adminId = req.auth.id;
   const allowedActions = ["warn", "suspend", "ban", "restore"];
   if (!allowedActions.includes(action) || !reason) return res.status(400).json({ error: "A valid action and reason are required" });
-  const [users] = await pool.query("SELECT id FROM users WHERE id = ? AND role = 'resident'", [Number(req.params.id)]);
-  if (!users[0]) return res.status(404).json({ error: "Resident account not found" });
-  const moderator = req.auth;
-  const [[targetUser]] = await pool.query("SELECT barangay FROM users WHERE id = ?", [Number(req.params.id)]);
-  if (moderator?.role === "barangay_staff" && moderator.barangay !== targetUser?.barangay) return res.status(403).json({ error: "You can only manage members in your barangay" });
-  const standing = action === "warn" ? "Warned" : action === "suspend" ? "Suspended" : action === "ban" ? "Banned" : "Active";
-  await pool.query("INSERT INTO moderation_actions (user_id, admin_id, action, reason, duration, note) VALUES (?, ?, ?, ?, ?, ?)", [users[0].id, adminId ?? null, action, reason, duration ?? null, note ?? null]);
-  await pool.query("UPDATE users SET standing = ? WHERE id = ?", [standing, users[0].id]);
-  await pool.query("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'account', ?, ?)", [users[0].id, `Account ${standing.toLowerCase()}`, `Your InfraTrack account has been ${standing.toLowerCase()}.`]);
-  const [updated] = await pool.query("SELECT id, name, email, barangay, standing, verification FROM users WHERE id = ?", [users[0].id]);
+  let suspensionDuration = null;
+  if (action === "suspend") {
+    try {
+      suspensionDuration = suspensionHours(duration);
+    } catch (error) {
+      return res.status(400).json({ error: error.message });
+    }
+  }
+  const connection = await pool.getConnection();
+  let transactionStarted = false;
+  let targetUser;
+  let updatedUser;
+  try {
+    await connection.beginTransaction();
+    transactionStarted = true;
+    const [users] = await connection.query(
+      "SELECT id, standing, barangay FROM users WHERE id = ? AND role = 'resident' FOR UPDATE",
+      [Number(req.params.id)],
+    );
+    targetUser = users[0];
+    if (!targetUser) {
+      await connection.rollback();
+      transactionStarted = false;
+      return res.status(404).json({ error: "Resident account not found" });
+    }
+    const moderator = req.auth;
+    if (moderator?.role === "barangay_staff" && moderator.barangay !== targetUser.barangay) {
+      await connection.rollback();
+      transactionStarted = false;
+      return res.status(403).json({ error: "You can only manage members in your barangay" });
+    }
+    if (targetUser.standing === "Banned" && action !== "restore") {
+      await connection.rollback();
+      transactionStarted = false;
+      return res.status(409).json({ error: "Restore this banned account before applying another moderation action." });
+    }
+    const standing = standingAfterModeration(action, targetUser.standing);
+    await connection.query(
+      "INSERT INTO moderation_actions (user_id, admin_id, action, reason, duration, note) VALUES (?, ?, ?, ?, ?, ?)",
+      [targetUser.id, adminId ?? null, action, reason, action === "suspend" ? duration : null, note ?? null],
+    );
+    if (action !== "warn") {
+      const suspendedUntil =
+        action === "suspend" && suspensionDuration !== null
+          ? `DATE_ADD(CURRENT_TIMESTAMP, INTERVAL ${suspensionDuration} HOUR)`
+          : "NULL";
+      await connection.query(
+        `UPDATE users SET standing = ?, suspended_until = ${suspendedUntil} WHERE id = ?`,
+        [standing, targetUser.id],
+      );
+    }
+    const notification = moderationNotification(action, duration);
+    await connection.query(
+      "INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'account', ?, ?)",
+      [targetUser.id, notification.title, notification.message],
+    );
+    const [updated] = await connection.query(
+      "SELECT id, name, email, barangay, standing, suspended_until, verification FROM users WHERE id = ?",
+      [targetUser.id],
+    );
+    updatedUser = updated[0];
+    await connection.commit();
+    transactionStarted = false;
+  } catch (error) {
+    if (transactionStarted) {
+      try {
+        await connection.rollback();
+      } catch (rollbackError) {
+        console.error("Could not roll back user moderation", rollbackError);
+      }
+    }
+    throw error;
+  } finally {
+    connection.release();
+  }
   await writeAuditLog(req, { actorId: adminId, action: `user_${action}`, resourceType: "user", resourceId: req.params.id, details: { reason, duration, note } });
-  res.json({ user: updated[0] });
+  res.json({ user: updatedUser });
 });
 app.patch("/api/users/:id/verification", async (req, res) => {
   const decision = String(req.body?.decision || "").toLowerCase();

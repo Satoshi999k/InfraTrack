@@ -512,7 +512,7 @@ export function UserModal({ user, onClose, onSave, onVerification, onFetchReport
   const [standing, setStanding] = useState(user.standing);
   const [selectedAction, setSelectedAction] = useState(null);
   const [reason, setReason] = useState("Spam or duplicate reports");
-  const [duration, setDuration] = useState("24 hours");
+  const [duration, setDuration] = useState("3 days");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -713,66 +713,115 @@ export function UserModal({ user, onClose, onSave, onVerification, onFetchReport
             <div className="safety-card-wrap">
               <div className="safety-card">
                 <div className="safety-card-header">ACCOUNT STANDING</div>
-                <p className="safety-note">No abuse flags on this account.</p>
+                <p className="safety-note">
+                  {standing === "Banned"
+                    ? "This account is banned and cannot sign in."
+                    : standing === "Suspended"
+                      ? user.suspended_until
+                        ? `Report submissions are suspended until ${new Date(user.suspended_until).toLocaleString()}.`
+                        : "Report submissions are suspended until an administrator restores access."
+                      : "This account is active. Warnings are informational and do not restrict account access."}
+                </p>
 
                 <div className="safety-actions">
-                  <button
-                    className={selectedAction === "warn" ? "selected" : ""}
-                    onClick={() => chooseAction("warn")}
-                  >
-                    <AlertTriangle size={15} /> Warn
-                  </button>
-                  <button
-                    className={selectedAction === "suspend" ? "selected" : ""}
-                    onClick={() => chooseAction("suspend")}
-                  >
-                    <Clock3 size={15} /> Suspend
-                  </button>
-                  <button
-                    className={`ban-button ${selectedAction === "ban" ? "selected" : ""}`}
-                    onClick={() => chooseAction("ban")}
-                  >
-                    <Ban size={15} /> Ban
-                  </button>
+                  {standing !== "Banned" && (
+                    <>
+                      <button
+                        className={selectedAction === "warn" ? "selected" : ""}
+                        onClick={() => chooseAction("warn")}
+                      >
+                        <AlertTriangle size={15} /> Warn
+                      </button>
+                      <button
+                        className={selectedAction === "suspend" ? "selected" : ""}
+                        onClick={() => chooseAction("suspend")}
+                      >
+                        <Clock3 size={15} /> Suspend
+                      </button>
+                      <button
+                        className={`ban-button ${selectedAction === "ban" ? "selected" : ""}`}
+                        onClick={() => chooseAction("ban")}
+                      >
+                        <Ban size={15} /> Ban
+                      </button>
+                    </>
+                  )}
+                  {standing !== "Active" && (
+                    <button
+                      className={selectedAction === "restore" ? "selected" : ""}
+                      onClick={() => chooseAction("restore")}
+                    >
+                      <CheckCircle2 size={15} /> Restore
+                    </button>
+                  )}
                 </div>
 
                 {selectedAction && (
                   <div className="selected-action-block">
+                    <label>
+                      Reason
+                      <select value={reason} onChange={(event) => setReason(event.target.value)}>
+                        <option>Spam or duplicate reports</option>
+                        <option>Abusive or threatening language</option>
+                        <option>Fraudulent account activity</option>
+                      </select>
+                    </label>
+                    {selectedAction === "suspend" && (
                       <label>
-                        Reason
-                        <select value={reason} onChange={(event) => setReason(event.target.value)}>
-                          <option>Spam or duplicate reports</option>
-                          <option>Abusive or threatening language</option>
-                          <option>Fraudulent account activity</option>
-                        </select>
-                      </label>
-                      <label>
-                        Duration
+                        Reporting restriction
                         <select value={duration} onChange={(event) => setDuration(event.target.value)}>
                           <option>24 hours</option>
                           <option>3 days</option>
                           <option>7 days</option>
+                          <option>14 days</option>
+                          <option>30 days</option>
                           <option>Permanent</option>
                         </select>
                       </label>
-                      <label>
-                        Note
-                        <textarea value={note} onChange={(event) => setNote(event.target.value)} />
-                      </label>
-                      {error && <p className="login-error" role="alert">{error}</p>}
-                      <button
-                        className={`primary-button full-button ${selectedAction}-action`}
-                        onClick={() => apply(selectedAction === "suspend" ? "Suspended" : selectedAction === "ban" ? "Banned" : "Warned")}
-                        disabled={saving}
-                      >
-                        {saving ? "Saving..." : "Apply action"}
-                      </button>
+                    )}
+                    <p className="safety-note">
+                      {selectedAction === "warn"
+                        ? "A warning sends a notice only. The account remains active."
+                        : selectedAction === "suspend"
+                          ? "Suspension prevents report submissions for the selected period. Other app features remain available."
+                          : selectedAction === "ban"
+                            ? "A ban signs the resident out and prevents future sign-in until access is restored."
+                            : "Restore this resident’s account and report-submission access."}
+                    </p>
+                    <label>
+                      Note
+                      <textarea value={note} onChange={(event) => setNote(event.target.value)} />
+                    </label>
+                    {error && <p className="login-error" role="alert">{error}</p>}
+                    <button
+                      className={`primary-button full-button ${selectedAction}-action`}
+                      onClick={() => apply(
+                        selectedAction === "suspend"
+                          ? "Suspended"
+                          : selectedAction === "ban"
+                            ? "Banned"
+                            : selectedAction === "restore"
+                              ? "Active"
+                              : standing,
+                      )}
+                      disabled={saving}
+                    >
+                      {saving
+                        ? "Saving..."
+                        : selectedAction === "restore"
+                          ? "Restore account"
+                          : selectedAction === "ban"
+                            ? "Ban account"
+                            : selectedAction === "suspend"
+                              ? "Suspend reporting"
+                              : "Send warning"}
+                    </button>
                   </div>
                 )}
               </div>
 
               <p className="safety-footer">
-                The resident is notified automatically when a warning, suspension, or ban is issued. Every action is logged with your admin account.
+                Warnings are notice-only. Suspensions restrict report submissions for the selected period; bans block sign-in until restored. Every action is recorded and the resident is notified.
               </p>
             </div>
           </div>
