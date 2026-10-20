@@ -46,6 +46,12 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  Future<void> _openNotifications() async {
+    await Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const NotificationsPage()));
+    if (mounted) await _loadProfile();
+  }
+
   Future<void> _editProfile(BuildContext context) async {
     if (!ApiService.isSignedIn) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -675,9 +681,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 .length,
             onMyReportsTap: () => Navigator.of(context)
                 .push(MaterialPageRoute(builder: (_) => const MyReportsPage())),
-            onNotificationsTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const NotificationsPage()),
-            ),
+            onNotificationsTap: _openNotifications,
             onChatbotTap: () => Navigator.of(context)
                 .push(MaterialPageRoute(builder: (_) => const ChatbotPage())),
           ),

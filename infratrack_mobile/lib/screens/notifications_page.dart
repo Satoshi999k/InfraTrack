@@ -38,18 +38,32 @@ class _NotificationsPageState extends State<NotificationsPage> {
     }
   }
 
-  Future<void> _markAllRead() async {
+  Future<void> _markRead(_NotificationItem notification) async {
+    if (!notification.unread) return;
+    final previousReadAt = _serverNotifications.firstWhere(
+      (item) => item['id'].toString() == notification.id.toString(),
+    )['read_at'];
+    setState(() {
+      _serverNotifications = _serverNotifications.map((item) {
+        if (item['id'].toString() != notification.id.toString()) return item;
+        return {...item, 'read_at': DateTime.now().toIso8601String()};
+      }).toList();
+    });
     try {
-      await ApiService.markNotificationsRead();
-      await _loadNotifications();
+      await ApiService.markNotificationRead(notification.id);
     } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(error.toString().replaceFirst('Exception: ', '')),
-          ),
-        );
-      }
+      if (!mounted) return;
+      setState(() {
+        _serverNotifications = _serverNotifications.map((item) {
+          if (item['id'].toString() != notification.id.toString()) return item;
+          return {...item, 'read_at': previousReadAt};
+        }).toList();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
     }
   }
 
@@ -87,6 +101,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
       _ => clay,
     };
     return _NotificationItem(
+      id: int.parse(item['id'].toString()),
       group: group,
       title: title,
       message: item['message'] as String? ?? '',
@@ -169,11 +184,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
                           ),
                         ],
                       ),
-                    ),
-                    IconButton(
-                      onPressed: _markAllRead,
-                      tooltip: 'Mark all as read',
-                      icon: const Icon(Icons.done_all, color: teal),
                     ),
                   ],
                 ),
@@ -266,7 +276,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
                       const SizedBox(height: 9),
                       ...visible
                           .where((item) => item.group == group)
-                          .map((item) => _NotificationCard(item: item)),
+                          .map(
+                            (item) => _NotificationCard(
+                              item: item,
+                              onTap: () => _markRead(item),
+                            ),
+                          ),
                       const SizedBox(height: 5),
                     ],
               ],
@@ -280,6 +295,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
 class _NotificationItem {
   const _NotificationItem({
+    required this.id,
     required this.group,
     required this.title,
     required this.message,
@@ -290,6 +306,7 @@ class _NotificationItem {
     required this.type,
     required this.unread,
   });
+  final int id;
   final String group, title, message, time, label, type;
   final Color color;
   final IconData icon;
@@ -334,8 +351,9 @@ class _CountBadge extends StatelessWidget {
 }
 
 class _NotificationCard extends StatelessWidget {
-  const _NotificationCard({required this.item});
+  const _NotificationCard({required this.item, required this.onTap});
   final _NotificationItem item;
+  final VoidCallback onTap;
   @override
   Widget build(BuildContext context) => Card(
     margin: const EdgeInsets.only(bottom: 10),
@@ -345,94 +363,98 @@ class _NotificationCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(18),
       side: BorderSide(color: item.color.withValues(alpha: .22)),
     ),
-    child: Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: item.color.withValues(alpha: .12),
-              borderRadius: BorderRadius.circular(12),
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: item.color.withValues(alpha: .12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(item.icon, color: item.color, size: 18),
             ),
-            child: Icon(item.icon, color: item.color, size: 18),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        item.title,
-                        style: const TextStyle(
-                          color: ink,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          height: 1.25,
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          item.title,
+                          style: const TextStyle(
+                            color: ink,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            height: 1.25,
+                          ),
                         ),
                       ),
-                    ),
-                    if (item.unread) ...[
-                      const SizedBox(width: 7),
-                      Container(
-                        width: 7,
-                        height: 7,
-                        decoration: BoxDecoration(
-                          color: item.color,
-                          shape: BoxShape.circle,
+                      if (item.unread) ...[
+                        const SizedBox(width: 7),
+                        Container(
+                          width: 7,
+                          height: 7,
+                          decoration: BoxDecoration(
+                            color: item.color,
+                            shape: BoxShape.circle,
+                          ),
                         ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    item.message,
+                    style: const TextStyle(
+                      color: inkSoft,
+                      fontSize: 10.5,
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: item.color.withValues(alpha: .12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          item.label,
+                          style: TextStyle(
+                            color: item.color,
+                            fontSize: 8.5,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: .2,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        item.time,
+                        style: infraMono(fontSize: 9, color: inkSoft),
                       ),
                     ],
-                  ],
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  item.message,
-                  style: const TextStyle(
-                    color: inkSoft,
-                    fontSize: 10.5,
-                    height: 1.35,
                   ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: item.color.withValues(alpha: .12),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        item.label,
-                        style: TextStyle(
-                          color: item.color,
-                          fontSize: 8.5,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: .2,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      item.time,
-                      style: infraMono(fontSize: 9, color: inkSoft),
-                    ),
-                  ],
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     ),
   );

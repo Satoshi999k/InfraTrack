@@ -365,8 +365,12 @@ class ApiService {
     );
   }
 
-  static Future<void> markNotificationsRead() async {
-    await _request('PATCH', '/mobile/notifications/read', authenticated: true);
+  static Future<void> markNotificationRead(int notificationId) async {
+    await _request(
+      'PATCH',
+      '/mobile/notifications/$notificationId/read',
+      authenticated: true,
+    );
   }
 
   static Future<Map<String, dynamic>> profile() async {
