@@ -1383,6 +1383,7 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
         _score = score;
         _status = 'Face detected. Creating your account securely…';
       });
+      final isReverification = widget.name == null && ApiService.isSignedIn;
       if (widget.name != null &&
           widget.email != null &&
           widget.mobile != null &&
@@ -1404,25 +1405,34 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
             password: widget.password!,
           );
         }
-        if (!mounted) return;
-        failureStage = 'verification document upload';
-        setState(
-          () => _status = 'Account created. Uploading verification securely…',
-        );
-        await ApiService.submitVerificationDocuments(
-          idFrontImage: widget.idImage,
-          idBackImage: widget.idBackImage,
-          selfieImage: image,
-          documentType: widget.documentType,
-        );
       }
+      if (!ApiService.isSignedIn) {
+        throw StateError('Sign in before submitting verification documents.');
+      }
+      if (!mounted) return;
+      failureStage = 'verification document upload';
+      setState(
+        () => _status = isReverification
+            ? 'Submitting your updated verification securely…'
+            : 'Account created. Uploading verification securely…',
+      );
+      await ApiService.submitVerificationDocuments(
+        idFrontImage: widget.idImage,
+        idBackImage: widget.idBackImage,
+        selfieImage: image,
+        documentType: widget.documentType,
+      );
       if (!mounted) return;
       setState(() {
         _status = score == null
             ? 'Verification submitted. An admin will review your ID and selfie.'
             : 'Verification submitted. Your ID and selfie are ready for admin review.';
       });
-      await _showAccountCreatedDialog();
+      if (isReverification) {
+        await _showReverificationSubmittedDialog();
+      } else {
+        await _showAccountCreatedDialog();
+      }
     } on MissingPluginException {
       _showMessage(
         'Face detection is available in the Android/iOS build. Please reinstall the latest APK.',
@@ -1446,6 +1456,30 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
         setState(() => _processing = false);
       }
     }
+  }
+
+  Future<void> _showReverificationSubmittedDialog() async {
+    final navigator = Navigator.of(context);
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Verification submitted'),
+        content: const Text(
+          'Your updated ID and selfie were submitted. Your account is pending admin review.',
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              navigator.pop();
+              navigator.pop();
+            },
+            child: const Text('Back to verification status'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showMessage(String message) {

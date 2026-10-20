@@ -301,6 +301,12 @@ class ApiService {
         decoded['error'] ?? 'Could not submit verification documents.',
       );
     }
+    final decoded = body.isEmpty ? <String, dynamic>{} : jsonDecode(body);
+    final verification = decoded['verification'];
+    if (currentUser != null && verification is String) {
+      currentUser = {...currentUser!, 'verification': verification};
+      await _persistSession();
+    }
   }
 
   static String _imageExtension(String path) {

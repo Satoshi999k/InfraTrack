@@ -79,8 +79,10 @@ function MapSearchControl({ issues, map }) {
 }
 
 function issuePinIcon(issue) {
-  const severity = issue.severity.toLowerCase();
-  const photoCategory = issue.category.toLowerCase();
+  const severity = String(issue.severity || "medium").toLowerCase();
+  const markerContent = issue.media_url
+    ? `<img src="${escapeHtmlAttribute(issue.media_url)}" alt="" />`
+    : `<span>${escapeHtmlAttribute(String(issue.category || "?").slice(0, 1).toUpperCase())}</span>`;
   return divIcon({
     className: "leaflet-issue-icon",
     iconSize: [40, 48],
@@ -89,12 +91,22 @@ function issuePinIcon(issue) {
     html: `
       <div class="leaflet-pin ${severity}">
         <span class="leaflet-pin-ring">
-          <span class="leaflet-pin-photo ${photoCategory}-photo"></span>
+          <span class="leaflet-pin-photo">${markerContent}</span>
         </span>
         <i class="leaflet-pin-status"></i>
       </div>
     `,
   });
+}
+
+function escapeHtmlAttribute(value) {
+  return value.replace(/[&"'<>]/g, (character) => ({
+    "&": "&amp;",
+    '"': "&quot;",
+    "'": "&#39;",
+    "<": "&lt;",
+    ">": "&gt;",
+  })[character]);
 }
 
 export function LeafletInfrastructureMap({ large = false, onOpenIssue, issues = [], barangay }) {

@@ -725,8 +725,8 @@ app.get("/api/health", async (_req, res) => {
 app.get("/api/mobile/issues", async (_req, res) => {
   const [issues] = await pool.query(`SELECT r.public_id, r.title, r.description, r.category,
     r.location, r.latitude, r.longitude, r.severity, r.status, r.created_at, r.updated_at,
-    (SELECT m.file_path FROM media m WHERE m.report_id = r.id ORDER BY m.id DESC LIMIT 1) AS media_url,
-    (SELECT m.media_type FROM media m WHERE m.report_id = r.id ORDER BY m.id DESC LIMIT 1) AS media_kind
+    (SELECT m.file_path FROM media m WHERE m.report_id = r.id ORDER BY m.id ASC LIMIT 1) AS media_url,
+    (SELECT m.media_type FROM media m WHERE m.report_id = r.id ORDER BY m.id ASC LIMIT 1) AS media_kind
     FROM reports r
     WHERE r.status <> 'Archived' ORDER BY r.created_at DESC`);
   res.json({ issues: issues.map((issue) => ({
@@ -776,8 +776,8 @@ app.get("/api/mobile/advisories", async (req, res) => {
 });
 app.get("/api/mobile/reports", async (req, res) => {
   const [reports] = await pool.query(`SELECT r.*, u.name AS reporter,
-    (SELECT m.file_path FROM media m WHERE m.report_id = r.id ORDER BY m.id DESC LIMIT 1) AS media_url,
-    (SELECT m.media_type FROM media m WHERE m.report_id = r.id ORDER BY m.id DESC LIMIT 1) AS media_kind
+    (SELECT m.file_path FROM media m WHERE m.report_id = r.id ORDER BY m.id ASC LIMIT 1) AS media_url,
+    (SELECT m.media_type FROM media m WHERE m.report_id = r.id ORDER BY m.id ASC LIMIT 1) AS media_kind
     FROM reports r LEFT JOIN users u ON u.id = r.reporter_id
     WHERE r.reporter_id = ? ORDER BY r.created_at DESC`, [req.auth.id]);
   res.json({ reports: reports.map((report) => ({
@@ -1163,8 +1163,8 @@ app.get("/api/issues", async (req, res) => {
   const search = `%${String(req.query.search ?? "").toLowerCase()}%`;
   const scope = getReportScope(req.auth, "r");
   const [issues] = await pool.query(`SELECT r.*, u.name AS reporter,
-    (SELECT m.file_path FROM media m WHERE m.report_id = r.id ORDER BY m.id DESC LIMIT 1) AS media_url,
-    (SELECT m.media_type FROM media m WHERE m.report_id = r.id ORDER BY m.id DESC LIMIT 1) AS media_kind,
+    (SELECT m.file_path FROM media m WHERE m.report_id = r.id ORDER BY m.id ASC LIMIT 1) AS media_url,
+    (SELECT m.media_type FROM media m WHERE m.report_id = r.id ORDER BY m.id ASC LIMIT 1) AS media_kind,
     (SELECT COUNT(*) FROM media m WHERE m.report_id = r.id) AS media_count,
     (SELECT COUNT(*) FROM media m WHERE m.report_id = r.id AND m.media_type IN ('photo', 'gif')) AS photo_count,
     (SELECT COUNT(*) FROM media m WHERE m.report_id = r.id AND m.media_type = 'video') AS video_count,
@@ -1306,12 +1306,30 @@ app.post("/api/mobile/verification-documents", (req, res, next) => {
       const storedIdBackUrl = idBackUrl || `/uploads/${idBackFile.filename}`;
       const storedSelfieUrl = selfieUrl || `/uploads/${selfieFile.filename}`;
       const documentType = String(req.body?.documentType || "identity_document").trim().slice(0, 60);
-      await pool.query(
-        "INSERT INTO verification_documents (user_id, document_type, document_side, file_path) VALUES (?, ?, 'front', ?), (?, ?, 'back', ?), (?, 'selfie', 'selfie', ?)",
-        [req.auth.id, documentType, storedIdFrontUrl, req.auth.id, documentType, storedIdBackUrl, req.auth.id, storedSelfieUrl],
-      );
-      await pool.query("UPDATE users SET verification = 'Pending ID match' WHERE id = ?", [req.auth.id]);
-      res.status(201).json({ ok: true });
+      const verification = "Pending ID match";
+      const connection = await pool.getConnection();
+      try {
+        await connection.beginTransaction();
+        await connection.query(
+          "DELETE FROM verification_documents WHERE user_id = ?",
+          [req.auth.id],
+        );
+        await connection.query(
+          "INSERT INTO verification_documents (user_id, document_type, document_side, file_path) VALUES (?, ?, 'front', ?), (?, ?, 'back', ?), (?, 'selfie', 'selfie', ?)",
+          [req.auth.id, documentType, storedIdFrontUrl, req.auth.id, documentType, storedIdBackUrl, req.auth.id, storedSelfieUrl],
+        );
+        await connection.query(
+          "UPDATE users SET verification = ? WHERE id = ?",
+          [verification, req.auth.id],
+        );
+        await connection.commit();
+      } catch (databaseError) {
+        await connection.rollback();
+        throw databaseError;
+      } finally {
+        connection.release();
+      }
+      res.status(201).json({ ok: true, verification });
     } catch (routeError) {
       next(routeError);
     }

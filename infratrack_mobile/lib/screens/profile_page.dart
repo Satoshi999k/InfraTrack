@@ -684,11 +684,16 @@ class _ProfilePageState extends State<ProfilePage> {
           const SizedBox(height: 20),
           const _ProfileSectionTitle(title: 'TRUST & SECURITY'),
           _TrustSettingsGroup(
-            onIdentityTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const IdentityVerificationPage(),
-              ),
-            ),
+            verification:
+                _profile['verification']?.toString() ?? 'Not submitted',
+            onIdentityTap: () async {
+              await Navigator.of(context).push<void>(
+                MaterialPageRoute(
+                  builder: (_) => const IdentityVerificationPage(),
+                ),
+              );
+              if (mounted) await _loadProfile();
+            },
             onPrivacyTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const PrivacySecurityPage()),
             ),
@@ -1050,7 +1055,7 @@ class _ProfileCompletionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isVerified = verification.toLowerCase().contains('verified');
+    final isVerified = verification.toLowerCase() == 'verified';
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 15),
       decoration: BoxDecoration(
@@ -1172,10 +1177,12 @@ class _SettingsGroup extends StatelessWidget {
 
 class _TrustSettingsGroup extends StatelessWidget {
   const _TrustSettingsGroup({
+    required this.verification,
     required this.onIdentityTap,
     required this.onPrivacyTap,
   });
 
+  final String verification;
   final VoidCallback onIdentityTap;
   final VoidCallback onPrivacyTap;
 
@@ -1190,11 +1197,13 @@ class _TrustSettingsGroup extends StatelessWidget {
     child: Column(
       children: [
         MenuRow(
-          icon: Icons.verified_user_outlined,
+          icon: verification.toLowerCase() == 'verified'
+              ? Icons.verified_user_outlined
+              : Icons.hourglass_top,
           title: 'Identity verification',
-          subtitle: 'Verified account',
-          badge: 'Verified',
-          accentColor: green,
+          subtitle: verification,
+          badge: verification,
+          accentColor: verification.toLowerCase() == 'verified' ? green : amber,
           inGroup: true,
           onTap: onIdentityTap,
         ),
@@ -1212,8 +1221,58 @@ class _TrustSettingsGroup extends StatelessWidget {
   );
 }
 
-class IdentityVerificationPage extends StatelessWidget {
+class IdentityVerificationPage extends StatefulWidget {
   const IdentityVerificationPage({super.key});
+
+  @override
+  State<IdentityVerificationPage> createState() =>
+      _IdentityVerificationPageState();
+}
+
+class _IdentityVerificationPageState extends State<IdentityVerificationPage> {
+  String _verification =
+      ApiService.currentUser?['verification']?.toString() ?? 'Not submitted';
+  bool _loading = false;
+  String? _loadError;
+
+  bool get _isVerified => _verification.toLowerCase() == 'verified';
+  bool get _isPending => _verification.toLowerCase().contains('pending');
+  bool get _isRejected =>
+      _verification.toLowerCase().contains('mismatch') ||
+      _verification.toLowerCase().contains('rejected');
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVerification();
+  }
+
+  Future<void> _loadVerification() async {
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
+    try {
+      final profile = await ApiService.profile();
+      if (!mounted) return;
+      setState(() {
+        _verification = profile['verification']?.toString() ?? 'Not submitted';
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(
+        () => _loadError = error.toString().replaceFirst('Exception: ', ''),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _startReverification() async {
+    await Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const VerifyIdPage()));
+    if (mounted) await _loadVerification();
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -1225,6 +1284,7 @@ class IdentityVerificationPage extends StatelessWidget {
       elevation: 0,
     ),
     body: AppScroll(
+      onRefresh: _loadVerification,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1272,21 +1332,37 @@ class IdentityVerificationPage extends StatelessWidget {
                         vertical: 7,
                       ),
                       decoration: BoxDecoration(
-                        color: green.withValues(alpha: .28),
+                        color: (_isVerified ? green : amber).withValues(
+                          alpha: .28,
+                        ),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(color: Colors.white24),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            Icons.check_circle,
+                            _isVerified
+                                ? Icons.check_circle
+                                : _isPending
+                                ? Icons.hourglass_top
+                                : _isRejected
+                                ? Icons.error_outline
+                                : Icons.info_outline,
                             color: Colors.white,
                             size: 15,
                           ),
                           SizedBox(width: 5),
                           Text(
-                            'VERIFIED',
+                            _loading
+                                ? 'CHECKING'
+                                : _isVerified
+                                ? 'VERIFIED'
+                                : _isPending
+                                ? 'PENDING REVIEW'
+                                : _isRejected
+                                ? 'ACTION REQUIRED'
+                                : 'NOT SUBMITTED',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 10,
@@ -1300,8 +1376,14 @@ class IdentityVerificationPage extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 20),
-                const Text(
-                  'Your identity is confirmed',
+                Text(
+                  _isVerified
+                      ? 'Your identity is confirmed'
+                      : _isPending
+                      ? 'Your documents are under review'
+                      : _isRejected
+                      ? 'Your verification needs attention'
+                      : 'Verify your identity',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 20,
@@ -1309,18 +1391,49 @@ class IdentityVerificationPage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 6),
-                const Text(
-                  'You can file trusted reports with InfraTrack.',
-                  style: TextStyle(color: Color(0xFFC5E4E0), fontSize: 12),
+                Text(
+                  _isVerified
+                      ? 'You can file trusted reports with InfraTrack.'
+                      : _isPending
+                      ? 'An admin will review your ID and selfie.'
+                      : 'Submit your ID and selfie for admin review.',
+                  style: const TextStyle(
+                    color: Color(0xFFC5E4E0),
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 22),
-          const _SecuritySectionLabel(
+          _SecuritySectionLabel(
             title: 'VERIFICATION CHECKLIST',
-            subtitle: 'Both checks are complete for this account.',
+            subtitle: _isVerified
+                ? 'Both checks are complete for this account.'
+                : _isPending
+                ? 'Your documents are waiting for admin review.'
+                : _isRejected
+                ? 'Please submit your documents again for review.'
+                : 'Complete both steps to submit your identity for review.',
           ),
+          if (_loadError != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Could not refresh verification status: $_loadError',
+                      style: const TextStyle(color: clay, fontSize: 12),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _loading ? null : _loadVerification,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             decoration: BoxDecoration(
@@ -1328,19 +1441,37 @@ class IdentityVerificationPage extends StatelessWidget {
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: Colors.white.withValues(alpha: .9)),
             ),
-            child: const Column(
+            child: Column(
               children: [
                 _IdentityStep(
                   icon: Icons.badge_outlined,
                   title: 'Government ID',
-                  subtitle: 'Document verified securely',
+                  subtitle: _isVerified
+                      ? 'Document verified securely'
+                      : _isPending
+                      ? 'Waiting for admin review'
+                      : _isRejected
+                      ? 'Please submit a clear ID image'
+                      : 'Not submitted',
                   isLast: false,
+                  isVerified: _isVerified,
+                  isPending: _isPending,
+                  isRejected: _isRejected,
                 ),
                 _IdentityStep(
                   icon: Icons.face_retouching_natural,
                   title: 'Live selfie',
-                  subtitle: 'Face check completed securely',
+                  subtitle: _isVerified
+                      ? 'Face check completed securely'
+                      : _isPending
+                      ? 'Waiting for admin review'
+                      : _isRejected
+                      ? 'Please retake your selfie'
+                      : 'Not submitted',
                   isLast: true,
+                  isVerified: _isVerified,
+                  isPending: _isPending,
+                  isRejected: _isRejected,
                 ),
               ],
             ),
@@ -1376,9 +1507,7 @@ class IdentityVerificationPage extends StatelessWidget {
             width: double.infinity,
             height: 52,
             child: FilledButton.icon(
-              onPressed: () => Navigator.of(
-                context,
-              ).push(MaterialPageRoute(builder: (_) => const VerifyIdPage())),
+              onPressed: _startReverification,
               icon: const Icon(Icons.refresh),
               label: const Text('Re-verify identity'),
               style: FilledButton.styleFrom(
@@ -1402,70 +1531,92 @@ class _IdentityStep extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.isLast,
+    required this.isVerified,
+    required this.isPending,
+    required this.isRejected,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
   final bool isLast;
+  final bool isVerified;
+  final bool isPending;
+  final bool isRejected;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    height: 78,
-    child: Row(
-      children: [
-        SizedBox(
-          width: 42,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              if (!isLast)
-                Positioned(
-                  top: 42,
-                  bottom: 0,
-                  child: Container(
-                    width: 2,
-                    color: green.withValues(alpha: .28),
+  Widget build(BuildContext context) {
+    final statusColor = isVerified
+        ? green
+        : isPending
+        ? amber
+        : isRejected
+        ? clay
+        : inkSoft;
+    final statusIcon = isVerified
+        ? Icons.check_circle
+        : isPending
+        ? Icons.hourglass_top
+        : isRejected
+        ? Icons.error_outline
+        : Icons.radio_button_unchecked;
+    return SizedBox(
+      height: 78,
+      child: Row(
+        children: [
+          SizedBox(
+            width: 42,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                if (!isLast)
+                  Positioned(
+                    top: 42,
+                    bottom: 0,
+                    child: Container(
+                      width: 2,
+                      color: statusColor.withValues(alpha: .28),
+                    ),
+                  ),
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: .12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: statusColor, size: 19),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: ink,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: green.withValues(alpha: .12),
-                  shape: BoxShape.circle,
+                const SizedBox(height: 3),
+                Text(
+                  subtitle,
+                  style: const TextStyle(color: inkSoft, fontSize: 10.5),
                 ),
-                child: Icon(icon, color: green, size: 19),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  color: ink,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                subtitle,
-                style: const TextStyle(color: inkSoft, fontSize: 10.5),
-              ),
-            ],
-          ),
-        ),
-        const Icon(Icons.check_circle, color: green, size: 20),
-      ],
-    ),
-  );
+          Icon(statusIcon, color: statusColor, size: 20),
+        ],
+      ),
+    );
+  }
 }
 
 class PrivacySecurityPage extends StatefulWidget {
