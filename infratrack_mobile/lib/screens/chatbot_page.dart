@@ -11,6 +11,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
   final _composer = TextEditingController();
   final _scrollController = ScrollController();
   bool _isThinking = false;
+  bool _hasAssistantReply = false;
   final _messages = <_ChatMessage>[
     _ChatMessage(
       text:
@@ -43,6 +44,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
       if (!mounted) return;
       setState(() {
         _messages.add(_ChatMessage(text: reply, fromUser: false, time: 'Now'));
+        _hasAssistantReply = true;
       });
     } catch (error) {
       if (!mounted) return;
@@ -135,7 +137,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: const EdgeInsets.fromLTRB(20, 22, 20, 12),
               children: [
-                const _ChatIntro(),
+                _ChatIntro(hasAssistantReply: _hasAssistantReply),
                 const SizedBox(height: 18),
                 const Text(
                   'SUGGESTED QUESTIONS',
@@ -255,12 +257,20 @@ class _BotAvatarState extends State<_BotAvatar>
     super.initState();
     _animation = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1000),
+      duration: const Duration(milliseconds: 1600),
     );
     if (widget.thinking) {
-      // Thinking is a one-way sequence: once frame 4 is reached, hold it
-      // until the response arrives instead of playing back through frame 3.
-      _animation.forward();
+      _animation.repeat();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _BotAvatar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.thinking && !oldWidget.thinking) {
+      _animation.repeat();
+    } else if (!widget.thinking && oldWidget.thinking) {
+      _animation.stop();
     }
   }
 
@@ -274,7 +284,7 @@ class _BotAvatarState extends State<_BotAvatar>
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: _animation,
     builder: (context, _) {
-      final wave = (Curves.easeInOut.transform(_animation.value) * 2) - 1;
+      final wave = math.sin(_animation.value * math.pi * 2);
       final frame = (_animation.value * _thinkingFrames.length).floor().clamp(
         0,
         _thinkingFrames.length - 1,
@@ -308,12 +318,14 @@ class _BotAvatarState extends State<_BotAvatar>
 }
 
 class _ChatIntro extends StatelessWidget {
-  const _ChatIntro();
+  const _ChatIntro({required this.hasAssistantReply});
+  final bool hasAssistantReply;
+
   @override
   Widget build(BuildContext context) => Row(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      const _BotAvatar(size: 104, welcome: true),
+      _BotAvatar(size: 104, welcome: hasAssistantReply),
       const SizedBox(width: 11),
       Expanded(
         child: Container(
@@ -418,9 +430,12 @@ class _Composer extends StatelessWidget {
         Expanded(
           child: TextField(
             controller: controller,
-            onSubmitted: (_) => onSend(),
             maxLength: 2000,
-            textInputAction: TextInputAction.send,
+            minLines: 1,
+            maxLines: 5,
+            keyboardType: TextInputType.multiline,
+            textCapitalization: TextCapitalization.sentences,
+            textInputAction: TextInputAction.newline,
             decoration: const InputDecoration(
               counterText: '',
               hintText: 'Ask the assistant...',

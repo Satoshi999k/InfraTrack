@@ -129,21 +129,30 @@ class _ConnectionUnavailablePage extends StatefulWidget {
       _ConnectionUnavailablePageState();
 }
 
-class _ConnectionUnavailablePageState
-    extends State<_ConnectionUnavailablePage> {
+class _ConnectionUnavailablePageState extends State<_ConnectionUnavailablePage>
+    with WidgetsBindingObserver {
   bool _checking = false;
+  bool _isForeground = true;
   Timer? _retryTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _retryTimer = Timer.periodic(const Duration(seconds: 8), (_) {
-      _retry();
+      if (_isForeground) _retry();
     });
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _isForeground = state == AppLifecycleState.resumed;
+    if (_isForeground) _retry();
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _retryTimer?.cancel();
     super.dispose();
   }

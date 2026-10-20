@@ -94,4 +94,46 @@ void main() {
     ApiService.connectionIssue.value = null;
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  testWidgets('chat composer grows to multiple lines for longer messages', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: ChatbotPage()));
+
+    final composerFinder = find.byWidgetPredicate(
+      (widget) =>
+          widget is TextField &&
+          widget.decoration?.hintText == 'Ask the assistant...',
+    );
+    final composer = tester.widget<TextField>(composerFinder);
+    expect(composer.minLines, 1);
+    expect(composer.maxLines, 5);
+    expect(composer.keyboardType, TextInputType.multiline);
+    expect(find.byTooltip('Send message'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is AssetImage &&
+            (widget.image as AssetImage).assetName ==
+                'assets/chatbot_character/chatbot_face/profile.png',
+      ),
+      findsWidgets,
+    );
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is AssetImage &&
+            (widget.image as AssetImage).assetName ==
+                'assets/chatbot_character/chatbot_face/thumbs_up.png',
+      ),
+      findsNothing,
+    );
+
+    final initialHeight = tester.getSize(composerFinder).height;
+    await tester.enterText(composerFinder, 'One line\nTwo lines\nThree lines');
+    await tester.pumpAndSettle();
+    expect(tester.getSize(composerFinder).height, greaterThan(initialHeight));
+  });
 }

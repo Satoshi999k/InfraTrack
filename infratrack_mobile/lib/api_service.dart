@@ -145,6 +145,7 @@ class ApiService {
     String path, {
     Map<String, dynamic>? body,
     bool authenticated = false,
+    Duration timeout = const Duration(seconds: 30),
   }) async {
     if (authenticated && _sessionToken == null) {
       throw Exception('Please sign in to use this feature.');
@@ -162,11 +163,9 @@ class ApiService {
       if (_sessionToken != null) {
         request.headers['Authorization'] = 'Bearer $_sessionToken';
       }
-      final streamedResponse = await client
-          .send(request)
-          .timeout(const Duration(seconds: 30));
+      final streamedResponse = await client.send(request).timeout(timeout);
       final response = await http.Response.fromStream(streamedResponse)
-          .timeout(const Duration(seconds: 30));
+          .timeout(timeout);
       _markConnected();
       if (response.statusCode != 401) {
         await _recordSessionActivity(requestToken);
@@ -411,6 +410,7 @@ class ApiService {
       '/mobile/chat',
       body: {'messages': messages},
       authenticated: true,
+      timeout: const Duration(seconds: 90),
     );
     final reply = response['reply'];
     if (reply is! String || reply.trim().isEmpty) {
