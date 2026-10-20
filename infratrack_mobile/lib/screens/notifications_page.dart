@@ -150,140 +150,68 @@ class _NotificationsPageState extends State<NotificationsPage> {
       backgroundColor: sand,
       body: SafeArea(
         child: PageEntrance(
-          child: AppScroll(
+          child: RefreshIndicator(
+            color: teal,
+            backgroundColor: Colors.white,
+            triggerMode: RefreshIndicatorTriggerMode.onEdge,
             onRefresh: _loadNotifications,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    _NotificationBackButton(
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'ACCOUNT',
-                            style: TextStyle(
-                              color: teal,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.1,
-                            ),
-                          ),
-                          Text(
-                            'Notifications',
-                            style: infraHeading(
-                              color: navy,
-                              fontSize: 24,
-                              weight: FontWeight.w800,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 17),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  clipBehavior: Clip.none,
-                  child: Row(
-                    children:
-                        [
-                          'All',
-                          'Report updates',
-                          'City updates',
-                          'Account',
-                        ].map((item) {
-                          final selected = filter == item;
-                          final count = item == 'All'
-                              ? notifications
-                                    .where((item) => item.unread)
-                                    .length
-                              : notifications
-                                    .where(
-                                      (entry) =>
-                                          entry.type == item && entry.unread,
-                                    )
-                                    .length;
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: FilterChip(
-                              label: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(item),
-                                  if (count > 0) ...[
-                                    const SizedBox(width: 6),
-                                    _CountBadge(
-                                      count: count,
-                                      selected: selected,
-                                    ),
-                                  ],
-                                ],
-                              ),
-                              selected: selected,
-                              showCheckmark: false,
-                              onSelected: (_) => setState(() => filter = item),
-                              selectedColor: navy,
-                              backgroundColor: Colors.white.withValues(
-                                alpha: .72,
-                              ),
-                              side: BorderSide(color: selected ? navy : line),
-                              shape: const StadiumBorder(),
-                              labelStyle: TextStyle(
-                                color: selected ? Colors.white : inkSoft,
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w700,
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 7,
-                                vertical: 5,
-                              ),
-                            ),
-                          );
-                        }).toList(),
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
+              ),
+              slivers: [
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: _NotificationHeaderDelegate(
+                    filter: filter,
+                    notifications: notifications,
+                    onFilterChanged: (value) => setState(() => filter = value),
+                    onBack: () => Navigator.pop(context),
                   ),
                 ),
-                const SizedBox(height: 16),
-                if (_loading)
-                  const Center(child: CircularProgressIndicator())
-                else if (_loadError != null)
-                  Text(_loadError!, style: const TextStyle(color: clay))
-                else if (visible.isEmpty)
-                  _EmptyNotifications(
-                    message: ApiService.isSignedIn
-                        ? 'No notifications in this category.'
-                        : 'Sign in to view your notifications.',
-                  )
-                else
-                  for (final group in ['TODAY', 'YESTERDAY', 'EARLIER'])
-                    if (groups.contains(group)) ...[
-                      Text(
-                        group,
-                        style: const TextStyle(
-                          color: inkSoft,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                      const SizedBox(height: 9),
-                      ...visible
-                          .where((item) => item.group == group)
-                          .map(
-                            (item) => _NotificationCard(
-                              item: item,
-                              onTap: () => _markRead(item),
-                            ),
-                          ),
-                      const SizedBox(height: 5),
-                    ],
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 30),
+                  sliver: SliverToBoxAdapter(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (_loading)
+                          const Center(child: CircularProgressIndicator())
+                        else if (_loadError != null)
+                          Text(_loadError!, style: const TextStyle(color: clay))
+                        else if (visible.isEmpty)
+                          _EmptyNotifications(
+                            message: ApiService.isSignedIn
+                                ? 'No notifications in this category.'
+                                : 'Sign in to view your notifications.',
+                          )
+                        else
+                          for (final group in ['TODAY', 'YESTERDAY', 'EARLIER'])
+                            if (groups.contains(group)) ...[
+                              Text(
+                                group,
+                                style: const TextStyle(
+                                  color: inkSoft,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                              const SizedBox(height: 9),
+                              ...visible
+                                  .where((item) => item.group == group)
+                                  .map(
+                                    (item) => _NotificationCard(
+                                      item: item,
+                                      onTap: () => _markRead(item),
+                                    ),
+                                  ),
+                              const SizedBox(height: 5),
+                            ],
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -291,6 +219,137 @@ class _NotificationsPageState extends State<NotificationsPage> {
       ),
     );
   }
+}
+
+class _NotificationHeaderDelegate extends SliverPersistentHeaderDelegate {
+  const _NotificationHeaderDelegate({
+    required this.filter,
+    required this.notifications,
+    required this.onFilterChanged,
+    required this.onBack,
+  });
+
+  final String filter;
+  final List<_NotificationItem> notifications;
+  final ValueChanged<String> onFilterChanged;
+  final VoidCallback onBack;
+
+  @override
+  double get minExtent => 132;
+
+  @override
+  double get maxExtent => 132;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Material(
+      color: sand,
+      elevation: overlapsContent ? 2 : 0,
+      shadowColor: navy.withValues(alpha: .12),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              height: 48,
+              child: Row(
+                children: [
+                  _NotificationBackButton(onPressed: onBack),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'ACCOUNT',
+                          style: TextStyle(
+                            color: teal,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.1,
+                          ),
+                        ),
+                        Text(
+                          'Notifications',
+                          style: infraHeading(
+                            color: navy,
+                            fontSize: 24,
+                            weight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              clipBehavior: Clip.none,
+              child: Row(
+                children: ['All', 'Report updates', 'City updates', 'Account']
+                    .map((item) {
+                      final selected = filter == item;
+                      final count = item == 'All'
+                          ? notifications.where((item) => item.unread).length
+                          : notifications
+                                .where(
+                                  (entry) => entry.type == item && entry.unread,
+                                )
+                                .length;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: FilterChip(
+                          label: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(item),
+                              if (count > 0) ...[
+                                const SizedBox(width: 6),
+                                _CountBadge(count: count, selected: selected),
+                              ],
+                            ],
+                          ),
+                          selected: selected,
+                          showCheckmark: false,
+                          onSelected: (_) => onFilterChanged(item),
+                          selectedColor: navy,
+                          backgroundColor: Colors.white.withValues(alpha: .72),
+                          side: BorderSide(color: selected ? navy : line),
+                          shape: const StadiumBorder(),
+                          labelStyle: TextStyle(
+                            color: selected ? Colors.white : inkSoft,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 5,
+                          ),
+                        ),
+                      );
+                    })
+                    .toList(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _NotificationHeaderDelegate oldDelegate) =>
+      oldDelegate.filter != filter ||
+      oldDelegate.notifications != notifications;
 }
 
 class _NotificationItem {

@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:infatrack/main.dart';
@@ -33,4 +34,21 @@ void main() {
       );
     },
   );
+
+  testWidgets('notification header and filters stay in a pinned sliver', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: NotificationsPage()));
+    await tester.pumpAndSettle();
+
+    final header = tester.widget<SliverPersistentHeader>(
+      find.byType(SliverPersistentHeader),
+    );
+    expect(header.pinned, isTrue);
+    expect(find.text('Notifications'), findsOneWidget);
+    expect(find.text('All'), findsOneWidget);
+    expect(find.text('Report updates'), findsOneWidget);
+    expect(find.text('City updates'), findsOneWidget);
+    expect(find.text('Account'), findsOneWidget);
+  });
 }
