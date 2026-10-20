@@ -249,13 +249,16 @@ test("discovers an available Groq model after configured models return 404", asy
           json: async () => ({
             data: [
               { id: "meta-llama/llama-prompt-guard-2-86m", active: true },
+              { id: "llama-3.1-8b-instant", active: true },
               { id: "llama-custom-model", active: true },
             ],
           }),
         };
       }
       const model = JSON.parse(options.body).model;
-      if (model.includes("prompt-guard")) return { ok: false, status: 400 };
+      if (model.includes("prompt-guard") || model.startsWith("llama-3.1")) {
+        return { ok: false, status: 400 };
+      }
       if (model === "llama-custom-model") {
         return {
           ok: true,
@@ -286,6 +289,13 @@ test("discovers an available Groq model after configured models return 404", asy
       ({ options }) =>
         options.body &&
         JSON.parse(options.body).model.includes("prompt-guard"),
+    ),
+  );
+  assert.ok(
+    !requests.some(
+      ({ options }) =>
+        options.body &&
+        JSON.parse(options.body).model.startsWith("llama-3.1"),
     ),
   );
 });
