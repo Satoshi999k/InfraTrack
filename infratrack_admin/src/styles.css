@@ -4995,11 +4995,9 @@ tbody tr:last-child td {
   transform: rotate(-45deg);
 }
 .leaflet-pin-ring {
+  position: relative;
   width: 40px;
   height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   overflow: hidden;
   border: 3px solid #fff;
   border-radius: 50% 50% 50% 4px;
@@ -5007,13 +5005,11 @@ tbody tr:last-child td {
   box-shadow: 0 6px 14px #09273247;
 }
 .leaflet-pin-photo {
-  position: relative;
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  inset: 0;
   display: block;
-  flex: 0 0 100%;
-  overflow: visible;
   transform: rotate(45deg) scale(1.45);
+  transform-origin: center;
   background-position: center;
   background-size: cover;
   color: var(--navy);
@@ -5028,6 +5024,13 @@ tbody tr:last-child td {
   height: 100%;
   max-width: none;
   object-fit: cover;
+  object-position: center;
+}
+.leaflet-pin-photo > span {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
 }
 .leaflet-pin.critical .leaflet-pin-ring {
   border-color: var(--red);
