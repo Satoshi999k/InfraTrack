@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:infatrack/api_service.dart';
@@ -32,6 +33,24 @@ void main() {
       expect(
         LivenessChallengeState.isTurnSatisfied(headYaw: 8, turnLeft: false),
         isFalse,
+      );
+    },
+  );
+
+  test(
+    'thinking animation GIF is bundled as an animated image asset',
+    () async {
+      final gif = await rootBundle.load(
+        'assets/chatbot_character/thinking_animation/infratrack_mascot_hand_thinking.gif',
+      );
+
+      expect(
+        String.fromCharCodes([
+          gif.getUint8(0),
+          gif.getUint8(1),
+          gif.getUint8(2),
+        ]),
+        'GIF',
       );
     },
   );

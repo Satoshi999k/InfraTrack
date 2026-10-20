@@ -228,7 +228,7 @@ class _ChatMessage {
   final bool isError;
 }
 
-class _BotAvatar extends StatefulWidget {
+class _BotAvatar extends StatelessWidget {
   const _BotAvatar({
     this.size = 72,
     this.welcome = false,
@@ -237,83 +237,19 @@ class _BotAvatar extends StatefulWidget {
   final double size;
   final bool welcome;
   final bool thinking;
-  @override
-  State<_BotAvatar> createState() => _BotAvatarState();
-}
-
-class _BotAvatarState extends State<_BotAvatar>
-    with SingleTickerProviderStateMixin {
-  static const _thinkingFrames = [
-    'assets/chatbot_character/thinking_animation/thinking1.png',
-    'assets/chatbot_character/thinking_animation/thinking2.png',
-    'assets/chatbot_character/thinking_animation/thinking3.png',
-    'assets/chatbot_character/thinking_animation/thinking4.png',
-  ];
-
-  late final AnimationController _animation;
 
   @override
-  void initState() {
-    super.initState();
-    _animation = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1600),
-    );
-    if (widget.thinking) {
-      _animation.repeat();
-    }
-  }
-
-  @override
-  void didUpdateWidget(covariant _BotAvatar oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.thinking && !oldWidget.thinking) {
-      _animation.repeat();
-    } else if (!widget.thinking && oldWidget.thinking) {
-      _animation.stop();
-    }
-  }
-
-  @override
-  void dispose() {
-    _animation.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: _animation,
-    builder: (context, _) {
-      final wave = math.sin(_animation.value * math.pi * 2);
-      final frame = (_animation.value * _thinkingFrames.length).floor().clamp(
-        0,
-        _thinkingFrames.length - 1,
-      );
-      return Transform.translate(
-        offset: widget.thinking ? Offset(wave * 5, 0) : Offset.zero,
-        child: Transform.rotate(
-          angle: widget.thinking ? wave * .10 : 0,
-          child: Transform.scale(
-            scale: 1,
-            child: Image.asset(
-              widget.thinking
-                  ? _thinkingFrames[frame]
-                  : widget.welcome
-                  ? 'assets/chatbot_character/chatbot_face/thumbs_up.png'
-                  : 'assets/chatbot_character/chatbot_face/profile.png',
-              width: widget.size,
-              height: widget.size + 7,
-              fit: BoxFit.contain,
-              errorBuilder: (_, _, _) => Icon(
-                Icons.auto_awesome,
-                color: teal,
-                size: widget.size * .45,
-              ),
-            ),
-          ),
-        ),
-      );
-    },
+  Widget build(BuildContext context) => Image.asset(
+    thinking
+        ? 'assets/chatbot_character/thinking_animation/infratrack_mascot_hand_thinking.gif'
+        : welcome
+        ? 'assets/chatbot_character/chatbot_face/thumbs_up.png'
+        : 'assets/chatbot_character/chatbot_face/profile.png',
+    width: size,
+    height: size + 7,
+    fit: BoxFit.contain,
+    errorBuilder: (_, _, _) =>
+        Icon(Icons.auto_awesome, color: teal, size: size * .45),
   );
 }
 
