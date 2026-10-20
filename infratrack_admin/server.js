@@ -541,6 +541,25 @@ async function initializeDatabase() {
     CONSTRAINT moderation_user_fk FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     CONSTRAINT moderation_admin_fk FOREIGN KEY (admin_id) REFERENCES users(id) ON DELETE SET NULL
   ) ENGINE=InnoDB`);
+  await pool.query(`UPDATE users u
+    JOIN moderation_actions ma ON ma.user_id = u.id AND ma.action = 'suspend'
+    JOIN (
+      SELECT user_id, MAX(id) AS action_id
+      FROM moderation_actions
+      WHERE action = 'suspend'
+      GROUP BY user_id
+    ) latest ON latest.action_id = ma.id
+    SET u.suspended_until = CASE ma.duration
+      WHEN '24 hours' THEN DATE_ADD(ma.created_at, INTERVAL 24 HOUR)
+      WHEN '3 days' THEN DATE_ADD(ma.created_at, INTERVAL 3 DAY)
+      WHEN '7 days' THEN DATE_ADD(ma.created_at, INTERVAL 7 DAY)
+      WHEN '14 days' THEN DATE_ADD(ma.created_at, INTERVAL 14 DAY)
+      WHEN '30 days' THEN DATE_ADD(ma.created_at, INTERVAL 30 DAY)
+      ELSE NULL
+    END
+    WHERE u.standing = 'Suspended'
+      AND u.suspended_until IS NULL
+      AND ma.duration IN ('24 hours', '3 days', '7 days', '14 days', '30 days')`);
   await pool.query(`CREATE TABLE IF NOT EXISTS audit_logs (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     actor_id INT UNSIGNED NULL, actor_name VARCHAR(160), actor_email VARCHAR(255), actor_barangay VARCHAR(120),
@@ -943,7 +962,7 @@ app.patch("/api/mobile/notifications/read", async (req, res) => {
 });
 app.get("/api/mobile/profile", async (req, res) => {
   const [users] = await pool.query(
-    "SELECT id, name, email, mobile, barangay, role, standing, verification, created_at FROM users WHERE id = ?",
+    "SELECT id, name, email, mobile, barangay, role, standing, suspended_until, verification, created_at FROM users WHERE id = ?",
     [req.auth.id],
   );
   if (!users[0]) return res.status(404).json({ error: "Account not found" });
@@ -957,7 +976,7 @@ app.patch("/api/mobile/profile", async (req, res) => {
     [String(name).trim(), String(mobile ?? "").trim(), String(barangay ?? "").trim(), req.auth.id],
   );
   const [users] = await pool.query(
-    "SELECT id, name, email, mobile, barangay, role, standing, verification, created_at FROM users WHERE id = ?",
+    "SELECT id, name, email, mobile, barangay, role, standing, suspended_until, verification, created_at FROM users WHERE id = ?",
     [req.auth.id],
   );
   req.auth = { ...req.auth, ...users[0] };
