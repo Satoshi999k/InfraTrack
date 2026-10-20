@@ -57,12 +57,19 @@ test("discovers an available Gemini model after a configured model returns 404",
           json: async () => ({
             models: [
               {
+                name: "models/gemini-2.5-flash-preview-tts",
+                supportedGenerationMethods: ["generateContent"],
+              },
+              {
                 name: "models/gemini-2.5-flash-lite",
                 supportedGenerationMethods: ["generateContent"],
               },
             ],
           }),
         };
+      }
+      if (url.includes("models/gemini-2.5-flash-preview-tts:generateContent")) {
+        return { ok: false, status: 400 };
       }
       if (url.includes("models/gemini-2.5-flash-lite:generateContent")) {
         return {
@@ -80,6 +87,11 @@ test("discovers an available Gemini model after a configured model returns 404",
   assert.ok(
     requests.some(({ url }) =>
       url.includes("models/gemini-2.5-flash-lite:generateContent"),
+    ),
+  );
+  assert.ok(
+    !requests.some(({ url }) =>
+      url.includes("models/gemini-2.5-flash-preview-tts:generateContent"),
     ),
   );
 });
@@ -143,11 +155,15 @@ test("discovers an available Groq model after configured models return 404", asy
         return {
           ok: true,
           json: async () => ({
-            data: [{ id: "llama-custom-model", active: true }],
+            data: [
+              { id: "meta-llama/llama-prompt-guard-2-86m", active: true },
+              { id: "llama-custom-model", active: true },
+            ],
           }),
         };
       }
       const model = JSON.parse(options.body).model;
+      if (model.includes("prompt-guard")) return { ok: false, status: 400 };
       if (model === "llama-custom-model") {
         return {
           ok: true,
@@ -171,6 +187,13 @@ test("discovers an available Groq model after configured models return 404", asy
       ({ options }) =>
         options.body &&
         JSON.parse(options.body).model === "llama-custom-model",
+    ),
+  );
+  assert.ok(
+    !requests.some(
+      ({ options }) =>
+        options.body &&
+        JSON.parse(options.body).model.includes("prompt-guard"),
     ),
   );
 });

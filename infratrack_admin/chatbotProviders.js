@@ -75,6 +75,21 @@ function groqModelId(value) {
   return model;
 }
 
+function isGeminiChatModel(model) {
+  return !/(?:tts|text-to-speech|speech|embedding|imagen|veo|audio|transcri|whisper|aqa|live|computer-use|robotics|deep-research)/i.test(
+    model,
+  );
+}
+
+function isGroqChatModel(model) {
+  return (
+    model.toLowerCase().includes("llama") &&
+    !/(?:prompt.?guard|guard|safety|whisper|speech|audio|embedding|vision)/i.test(
+      model,
+    )
+  );
+}
+
 async function requestGemini({ apiKey, model, messages, fetchImpl }) {
   const response = await fetchImpl(
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
@@ -119,7 +134,7 @@ async function listGeminiModels(apiKey, fetchImpl) {
         : false,
     )
     .map((item) => String(item.name || "").replace(/^models\//, ""))
-    .filter(Boolean);
+    .filter((model) => model && isGeminiChatModel(model));
 }
 
 async function requestGeminiWithFallback(options) {
@@ -195,7 +210,7 @@ async function listGroqModels(apiKey, fetchImpl) {
   return (Array.isArray(data.data) ? data.data : [])
     .filter((item) => item.active !== false)
     .map((item) => String(item.id || ""))
-    .filter((id) => id.toLowerCase().includes("llama"));
+    .filter(isGroqChatModel);
 }
 
 async function requestGroqWithFallback(options) {
