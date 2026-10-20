@@ -180,142 +180,163 @@ class _ReportPageState extends State<ReportPage> {
   }
 
   @override
-  Widget build(BuildContext context) => PageEntrance(
-    child: AppScroll(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const AppHeader(eyebrow: 'NEW SUBMISSION', title: 'Report an issue'),
-          if (_isReportingSuspended)
-            _ReportingSuspendedNotice(suspendedUntil: _suspendedUntil),
-          Card(
-            margin: EdgeInsets.zero,
-            clipBehavior: Clip.antiAlias,
-            color: Colors.white.withValues(alpha: .78),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(22),
-              side: BorderSide(color: Colors.white.withValues(alpha: .9)),
-            ),
-            child: InkWell(
-              onTap: _isReportingSuspended ? null : _openCamera,
-              borderRadius: BorderRadius.circular(22),
-              child: _capturedMedia == null
-                  ? SizedBox(
-                      height: 158,
-                      width: double.infinity,
-                      child: _AddMediaPlaceholder(),
-                    )
-                  : _CapturedMediaPreview(
-                      file: _capturedMedia!,
-                      isVideo: _capturedVideo,
-                    ),
-            ),
-          ),
-          const SizedBox(height: 18),
-          const Text(
-            'CATEGORY',
-            style: TextStyle(
-              color: inkSoft,
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget build(BuildContext context) {
+    if (_isReportingSuspended) {
+      return PageEntrance(
+        child: AppScroll(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _CategoryButton(
-                label: 'Road',
-                icon: Icons.construction_outlined,
-                color: clay,
-                selected: category == 'Road',
-                onTap: () => setState(() => category = 'Road'),
+              const AppHeader(
+                eyebrow: 'NEW SUBMISSION',
+                title: 'Report an issue',
               ),
-              _CategoryButton(
-                label: 'Water',
-                icon: Icons.water_drop_outlined,
-                color: teal,
-                selected: category == 'Water',
-                onTap: () => setState(() => category = 'Water'),
-              ),
-              _CategoryButton(
-                label: 'Drainage',
-                icon: Icons.water_damage_outlined,
-                color: amber,
-                selected: category == 'Drainage',
-                onTap: () => setState(() => category = 'Drainage'),
-              ),
-              _CategoryButton(
-                label: 'Lighting',
-                icon: Icons.lightbulb_outline,
-                color: navy,
-                selected: category == 'Lighting',
-                onTap: () => setState(() => category = 'Lighting'),
-              ),
+              const SizedBox(height: 12),
+              _ReportingSuspendedNotice(suspendedUntil: _suspendedUntil),
             ],
           ),
-          const SizedBox(height: 18),
-          const Text(
-            'LOCATION',
-            style: TextStyle(
-              color: inkSoft,
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
+        ),
+      );
+    }
+
+    return PageEntrance(
+      child: AppScroll(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const AppHeader(
+              eyebrow: 'NEW SUBMISSION',
+              title: 'Report an issue',
             ),
-          ),
-          const SizedBox(height: 8),
-          _CoordinatesCard(
-            position: _position,
-            loading: _locating,
-            error: _locationError,
-            onRefresh: _refreshLocation,
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            'DESCRIPTION',
-            style: TextStyle(
-              color: inkSoft,
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _descriptionController,
-            maxLines: 4,
-            decoration: InputDecoration(
-              hintText: 'Describe what you saw — size, severity, and any safety risk...',
-              filled: true,
-              fillColor: Colors.white,
-              contentPadding: EdgeInsets.all(16),
-              hintStyle: TextStyle(color: inkSoft, fontSize: 12),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.all(Radius.circular(14)),
-                borderSide: BorderSide.none,
+            Card(
+              margin: EdgeInsets.zero,
+              clipBehavior: Clip.antiAlias,
+              color: Colors.white.withValues(alpha: .78),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(22),
+                side: BorderSide(color: Colors.white.withValues(alpha: .9)),
+              ),
+              child: InkWell(
+                onTap: _isReportingSuspended ? null : _openCamera,
+                borderRadius: BorderRadius.circular(22),
+                child: _capturedMedia == null
+                    ? SizedBox(
+                        height: 158,
+                        width: double.infinity,
+                        child: _AddMediaPlaceholder(),
+                      )
+                    : _CapturedMediaPreview(
+                        file: _capturedMedia!,
+                        isVideo: _capturedVideo,
+                      ),
               ),
             ),
-          ),
-          const SizedBox(height: 18),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: clay,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 17),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+            const SizedBox(height: 18),
+            const Text(
+              'CATEGORY',
+              style: TextStyle(
+                color: inkSoft,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _CategoryButton(
+                  label: 'Road',
+                  icon: Icons.construction_outlined,
+                  color: clay,
+                  selected: category == 'Road',
+                  onTap: () => setState(() => category = 'Road'),
                 ),
-                elevation: 3,
-              ),
-              onPressed: _isReportingSuspended ? null : _submitReport,
-              child: const Text('Submit report'),
+                _CategoryButton(
+                  label: 'Water',
+                  icon: Icons.water_drop_outlined,
+                  color: teal,
+                  selected: category == 'Water',
+                  onTap: () => setState(() => category = 'Water'),
+                ),
+                _CategoryButton(
+                  label: 'Drainage',
+                  icon: Icons.water_damage_outlined,
+                  color: amber,
+                  selected: category == 'Drainage',
+                  onTap: () => setState(() => category = 'Drainage'),
+                ),
+                _CategoryButton(
+                  label: 'Lighting',
+                  icon: Icons.lightbulb_outline,
+                  color: navy,
+                  selected: category == 'Lighting',
+                  onTap: () => setState(() => category = 'Lighting'),
+                ),
+              ],
             ),
-          ),
-        ],
+            const SizedBox(height: 18),
+            const Text(
+              'LOCATION',
+              style: TextStyle(
+                color: inkSoft,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _CoordinatesCard(
+              position: _position,
+              loading: _locating,
+              error: _locationError,
+              onRefresh: _refreshLocation,
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'DESCRIPTION',
+              style: TextStyle(
+                color: inkSoft,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _descriptionController,
+              maxLines: 4,
+              decoration: InputDecoration(
+                hintText: 'Describe what you saw — size, severity, and any safety risk...',
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: EdgeInsets.all(16),
+                hintStyle: TextStyle(color: inkSoft, fontSize: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(14)),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: clay,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 17),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 3,
+                ),
+                onPressed: _isReportingSuspended ? null : _submitReport,
+                child: const Text('Submit report'),
+              ),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _ReportingSuspendedNotice extends StatelessWidget {
@@ -332,79 +353,89 @@ class _ReportingSuspendedNotice extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(top: 10),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: .82),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: const Color(0xFFE7CDAF)),
         boxShadow: [
           BoxShadow(
             color: deepNavy.withValues(alpha: .06),
-            blurRadius: 22,
-            offset: const Offset(0, 8),
+            blurRadius: 16,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: clay.withValues(alpha: .12),
-              borderRadius: BorderRadius.circular(17),
-            ),
-            child: const Icon(
-              Icons.hourglass_top_rounded,
-              color: clay,
-              size: 27,
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: clay.withValues(alpha: .12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.hourglass_top_rounded,
+                  color: clay,
+                  size: 23,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Reporting suspended',
+                      style: infraHeading(
+                        color: navy,
+                        fontSize: 16,
+                        weight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'You can still browse reports, updates, and your account.',
+                      style: TextStyle(
+                        color: inkSoft,
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 18),
-          Text(
-            'Report submissions are suspended',
-            style: infraHeading(
-              color: navy,
-              fontSize: 19,
-              weight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Your account is under a reporting suspension. You can still browse community reports, updates, and your account.',
-            style: TextStyle(color: inkSoft, fontSize: 13, height: 1.5),
-          ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
             decoration: BoxDecoration(
               color: sand,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(13),
             ),
             child: Row(
               children: [
-                const Icon(Icons.schedule_rounded, color: teal, size: 18),
-                const SizedBox(width: 9),
+                const Icon(Icons.schedule_rounded, color: teal, size: 17),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Report access resumes $endLabel.',
                     style: const TextStyle(
                       color: navy,
-                      fontSize: 12,
+                      fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 14),
-          const Text(
-            'Questions? Contact Mati City support.',
-            style: TextStyle(color: inkSoft, fontSize: 11, height: 1.4),
           ),
         ],
       ),
