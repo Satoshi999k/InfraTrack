@@ -2667,6 +2667,11 @@ tbody tr:last-child td {
   border-color: var(--teal);
   color: var(--teal);
 }
+.type-picker button.selected.advertisement {
+  background: var(--teal-soft);
+  border-color: var(--teal);
+  color: var(--teal);
+}
 .type-picker button.selected.gen {
   background: var(--sand);
   border-color: var(--navy);
@@ -2753,6 +2758,7 @@ tbody tr:last-child td {
   border: 1px solid var(--line);
 }
 .advisory-card.alert { background: #fbe3e2; border-color: transparent; }
+.advisory-card.advertisement { background: var(--teal-soft); border-color: transparent; }
 .advisory-card.maint { background: var(--teal-soft); border-color: transparent; }
 .advisory-card.gen { background: #fff; }
 .advisory-tag {
@@ -2773,6 +2779,7 @@ tbody tr:last-child td {
   flex: 0 0 auto;
 }
 .advisory-card.alert .advisory-tag { background: var(--red); }
+.advisory-card.advertisement .advisory-tag { background: var(--teal); }
 .advisory-card.maint .advisory-tag { background: var(--teal); }
 .advisory-card h3 {
   margin: 0 0 5px;

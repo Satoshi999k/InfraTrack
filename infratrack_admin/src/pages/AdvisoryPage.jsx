@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  AlertTriangle,
   Camera,
   CheckCircle2,
+  Image,
   Megaphone,
   MapPin,
   Pencil,
@@ -17,7 +17,8 @@ import { API_BASE, apiFetch } from "../api";
 import { getAdvisoryAudience, validateAdvisoryDraft } from "../advisoryForm";
 
 const typeMeta = {
-  alert: ["Emergency alert", AlertTriangle],
+  alert: ["Advertisement", Image],
+  advertisement: ["Advertisement", Image],
   maint: ["Maintenance", Wrench],
   gen: ["Announcement", Megaphone],
 };
@@ -25,7 +26,7 @@ const typeMeta = {
 export default function AdvisoryPage({ publishedOnly = false, onNotify, onViewAll, user }) {
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
-  const [type, setType] = useState("alert");
+  const [type, setType] = useState("advertisement");
   const [media, setMedia] = useState(null);
   const [audience, setAudience] = useState("All barangays");
   const [published, setPublished] = useState(false);
@@ -164,7 +165,7 @@ export default function AdvisoryPage({ publishedOnly = false, onNotify, onViewAl
       ...advisory,
       draftTitle: advisory.title,
       draftMessage: advisory.message,
-      draftType: advisory.type,
+      draftType: advisory.type === "alert" ? "advertisement" : advisory.type,
       draftMedia: advisory.media || (advisory.media_url
         ? { kind: advisory.media_kind, src: advisory.media_url }
         : null),
@@ -231,8 +232,8 @@ export default function AdvisoryPage({ publishedOnly = false, onNotify, onViewAl
         </div>
         <label>Advisory type</label>
         <div className="type-picker">
-          <button type="button" className={type === "alert" ? "selected alert" : "alert"} onClick={() => setType("alert")}>
-            <AlertTriangle size={16} strokeWidth={2.2} /> Emergency
+          <button type="button" className={type === "advertisement" ? "selected advertisement" : "advertisement"} onClick={() => setType("advertisement")}>
+            <Image size={16} strokeWidth={2.2} /> Advertisement
           </button>
           <button type="button" className={type === "maint" ? "selected maint" : "maint"} onClick={() => setType("maint")}>
             <Wrench size={16} strokeWidth={2.2} /> Maintenance
@@ -351,7 +352,7 @@ export default function AdvisoryPage({ publishedOnly = false, onNotify, onViewAl
         ) : displayedAdvisories.map((advisory) => {
           const [label, AdvisoryIcon] = typeMeta[advisory.type];
           return (
-            <div className={`advisory-card ${advisory.type}`} key={advisory.id}>
+            <div className={`advisory-card ${advisory.type === "alert" ? "advertisement" : advisory.type}`} key={advisory.id}>
               {(advisory.media || advisory.media_url) && (
                 <div className="advisory-card-media">
                   {(advisory.media?.kind || advisory.media_kind) === "video"
@@ -399,8 +400,8 @@ export default function AdvisoryPage({ publishedOnly = false, onNotify, onViewAl
 
             <label>Advisory type</label>
             <div className="type-picker advisory-edit-picker">
-              <button type="button" className={editingAdvisory.draftType === "alert" ? "selected alert" : "alert"} onClick={() => setEditingAdvisory((current) => ({ ...current, draftType: "alert" }))}>
-                <AlertTriangle size={16} strokeWidth={2.2} /> Emergency
+              <button type="button" className={editingAdvisory.draftType === "advertisement" ? "selected advertisement" : "advertisement"} onClick={() => setEditingAdvisory((current) => ({ ...current, draftType: "advertisement" }))}>
+                <Image size={16} strokeWidth={2.2} /> Advertisement
               </button>
               <button type="button" className={editingAdvisory.draftType === "maint" ? "selected maint" : "maint"} onClick={() => setEditingAdvisory((current) => ({ ...current, draftType: "maint" }))}>
                 <Wrench size={16} strokeWidth={2.2} /> Maintenance

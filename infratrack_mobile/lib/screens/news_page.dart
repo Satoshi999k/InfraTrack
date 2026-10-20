@@ -1,5 +1,17 @@
 part of '../main.dart';
 
+bool isRotatingAdvisoryMedia(String? mediaKind, String? mediaUrl) {
+  if (mediaUrl == null || mediaUrl.trim().isEmpty) return false;
+  final kind = (mediaKind ?? '').toLowerCase();
+  final extension =
+      Uri.tryParse(mediaUrl)?.path.split('.').last.toLowerCase() ?? '';
+  const videoExtensions = {'mp4', 'mov', 'm4v', 'webm', 'mkv'};
+  if (kind == 'video' || videoExtensions.contains(extension)) return false;
+  if (kind == 'gif' || kind == 'photo' || kind == 'image') return true;
+  return kind.isEmpty &&
+      const {'gif', 'jpg', 'jpeg', 'png', 'webp', 'avif'}.contains(extension);
+}
+
 class NewsPage extends StatefulWidget {
   const NewsPage({super.key});
 
@@ -43,7 +55,11 @@ class _NewsPageState extends State<NewsPage> {
       setState(() {
         _advisories = results[0];
         _issues = results[1];
+        _currentPage = 0;
         _loading = false;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_pageController.hasClients) _pageController.jumpToPage(0);
       });
     } catch (_) {
       if (mounted) {
@@ -56,17 +72,27 @@ class _NewsPageState extends State<NewsPage> {
   }
 
   List<({String image, String title, String subtitle})> get _stories =>
-      _advisories.map((advisory) {
-        final mediaUrl = publicMediaUrl(advisory['media_url'] as String?);
-        return (
-          image: mediaUrl ?? '',
-          title: advisory['title'] as String? ?? 'City advisory',
-          subtitle: _advisoryType(advisory['type'] as String?),
-        );
-      }).toList();
+      _advisories
+          .map((advisory) {
+            final mediaUrl = publicMediaUrl(advisory['media_url'] as String?);
+            if (mediaUrl == null ||
+                !isRotatingAdvisoryMedia(
+                  advisory['media_kind'] as String?,
+                  mediaUrl,
+                )) {
+              return null;
+            }
+            return (
+              image: mediaUrl,
+              title: advisory['title'] as String? ?? 'City advisory',
+              subtitle: _advisoryType(advisory['type'] as String?),
+            );
+          })
+          .whereType<({String image, String title, String subtitle})>()
+          .toList();
 
   String _advisoryType(String? type) => switch (type) {
-    'alert' => 'Emergency alert',
+    'alert' || 'advertisement' => 'Advertisement',
     'maint' => 'Maintenance advisory',
     _ => 'Public announcement',
   };
@@ -92,8 +118,8 @@ class _NewsPageState extends State<NewsPage> {
   @override
   Widget build(BuildContext context) => PageEntrance(
     child: AppScroll(
-        onRefresh: _loadNews,
-        child: Column(
+      onRefresh: _loadNews,
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const AppHeader(
@@ -186,11 +212,12 @@ class _PublicAdvisoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final type = advisory['type'] as String? ?? 'gen';
-    final color = type == 'alert'
-        ? red
-        : type == 'maint'
-        ? amber
-        : teal;
+    final color = type == 'maint' ? amber : teal;
+    final label = switch (type) {
+      'alert' || 'advertisement' => 'ADVERTISEMENT',
+      'maint' => 'MAINTENANCE',
+      _ => 'ANNOUNCEMENT',
+    };
     final mediaUrl = publicMediaUrl(advisory['media_url'] as String?);
     final mediaKind = advisory['media_kind'] as String?;
     return Card(
@@ -206,11 +233,7 @@ class _PublicAdvisoryCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  type == 'alert'
-                      ? 'EMERGENCY ALERT'
-                      : type == 'maint'
-                      ? 'MAINTENANCE'
-                      : 'ANNOUNCEMENT',
+                  label,
                   style: TextStyle(
                     color: color,
                     fontSize: 9,
