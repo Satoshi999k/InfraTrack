@@ -74,7 +74,7 @@ class ApiService {
       lastOpenedMilliseconds,
     );
     if (DateTime.now().difference(lastOpened) >= _sessionLifetime) {
-      _sessionNotice = 'Your InfraTrack session expired after 7 days for your security. Please sign in again.';
+      _sessionNotice = 'Your InfraTrack session expired after 8 hours of inactivity. Please sign in again.';
       await _clearStoredSession(preferences);
       return;
     }
@@ -113,6 +113,16 @@ class ApiService {
     await preferences.remove(_lastOpenedKey);
   }
 
+  static Future<void> _recordSessionActivity(String? token) async {
+    if (token == null || _sessionToken != token) return;
+    final preferences = await SharedPreferences.getInstance();
+    if (_sessionToken != token) return;
+    await preferences.setInt(
+      _lastOpenedKey,
+      DateTime.now().millisecondsSinceEpoch,
+    );
+  }
+
   static Future<void> _clearSession() async {
     _sessionToken = null;
     currentUser = null;
@@ -140,6 +150,7 @@ class ApiService {
       throw Exception('Please sign in to use this feature.');
     }
 
+    final requestToken = authenticated ? _sessionToken : null;
     final client = http.Client();
     try {
       final request = http.Request(method, Uri.parse('$apiBaseUrl$path'))
@@ -157,6 +168,9 @@ class ApiService {
       final response = await http.Response.fromStream(streamedResponse)
           .timeout(const Duration(seconds: 30));
       _markConnected();
+      if (response.statusCode != 401) {
+        await _recordSessionActivity(requestToken);
+      }
       return _decodeResponse(response);
     } on SocketException {
       connectionIssue.value = 'Could not connect to InfraTrack. Check your internet connection and try again.';
@@ -288,6 +302,7 @@ class ApiService {
       );
     }
 
+    final requestToken = _sessionToken;
     final request =
         http.MultipartRequest(
             'POST',
@@ -328,6 +343,9 @@ class ApiService {
 
     final response = await request.send().timeout(const Duration(seconds: 60));
     final body = await response.stream.bytesToString();
+    if (response.statusCode != 401) {
+      await _recordSessionActivity(requestToken);
+    }
     if (response.statusCode == 401) {
       _sessionNotice = 'Your session has expired. For your security, please sign in again to continue.';
       await _clearSession();
@@ -438,6 +456,21 @@ class ApiService {
     if (_sessionToken == null) {
       throw Exception('Please sign in before changing your profile photo.');
     }
+    final requestToken = _sessionToken!;
+    final extension = photo.name.split('.').last.toLowerCase();
+    final subtype = switch (photo.mimeType) {
+      'image/jpeg' => 'jpeg',
+      'image/png' => 'png',
+      'image/webp' => 'webp',
+      null => switch (extension) {
+        'jpg' || 'jpeg' => 'jpeg',
+        'png' => 'png',
+        'webp' => 'webp',
+        _ => throw Exception('Choose a JPG, PNG, or WebP profile photo.'),
+      },
+      _ => throw Exception('Choose a JPG, PNG, or WebP profile photo.'),
+    };
+    final fileExtension = subtype == 'jpeg' ? 'jpg' : subtype;
     final request =
         http.MultipartRequest(
             'POST',
@@ -449,8 +482,8 @@ class ApiService {
             await http.MultipartFile.fromPath(
               'photo',
               photo.path,
-              filename: 'profile-photo.jpg',
-              contentType: MediaType('image', 'jpeg'),
+              filename: 'profile-photo.$fileExtension',
+              contentType: MediaType('image', subtype),
             ),
           );
     final client = http.Client();
@@ -461,6 +494,9 @@ class ApiService {
       final response = await http.Response.fromStream(streamedResponse)
           .timeout(const Duration(seconds: 60));
       _markConnected();
+      if (response.statusCode != 401) {
+        await _recordSessionActivity(requestToken);
+      }
       final body = _decodeResponse(response);
       currentUser = Map<String, dynamic>.from(body['user'] as Map);
       await _persistSession();

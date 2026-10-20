@@ -1236,8 +1236,8 @@ class _SettingsGroup extends StatelessWidget {
         MenuRow(
           icon: Icons.chat_outlined,
           title: 'Chatbot assistant',
-          subtitle: 'Online · replies in seconds',
-          badge: 'Online',
+          subtitle: 'Ask about reports and city updates',
+          badge: 'Chat',
           accentColor: navy,
           inGroup: true,
           lastInGroup: true,

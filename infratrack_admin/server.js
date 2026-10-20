@@ -728,6 +728,12 @@ app.use(async (req, res, next) => {
   if (!user || (!isMobileRoute && !isMobileUpload && !["lgu", "admin", "barangay_staff"].includes(user.role))) {
     return res.status(401).json({ error: "Session expired or invalid" });
   }
+  if (isMobileRoute) {
+    await pool.query(
+      "UPDATE admin_sessions SET expires_at = DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 8 HOUR) WHERE token_hash = ?",
+      [hashSessionToken(token)],
+    );
+  }
   const isMobileClient = isMobileRoute || isMobileUpload;
   if (isMobileClient) await restoreExpiredSuspension(user);
   if (isMobileClient && user.role === "resident" && user.standing === "Banned") {

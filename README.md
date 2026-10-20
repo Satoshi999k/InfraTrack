@@ -140,6 +140,18 @@ npm run dev
 
 By default, open the admin portal at **http://localhost:5173**. The API listens on **http://localhost:3001**. The API health endpoint is **http://localhost:3001/api/health**.
 
+The chatbot requires a provider key on the API server. Set `GEMINI_API_KEY` or
+`GROQ_API_KEY` in `infratrack_admin/.env` for local development. For the
+production API, add one of these variables in the hosting service's environment
+settings and redeploy. Never put provider keys in the Flutter app or commit them
+to the repository. Without a configured key, the chatbot returns a setup message
+instead of generating replies; the profile screen avoids falsely claiming that
+the chatbot is online.
+
+For durable profile-photo uploads on hosts with ephemeral filesystems such as
+Render, configure `CLOUDINARY_CLOUD_NAME` and `CLOUDINARY_UPLOAD_PRESET` in the
+API service environment. Local uploads may be lost when the service restarts.
+
 The first API startup creates the configured database and tables and may insert demonstration users, reports, teams, and advisories when the database is empty. This demo seed behavior is intended for development; read [Security and operational considerations](#security-and-operational-considerations) before exposing a fresh instance.
 
 To run only one part:
