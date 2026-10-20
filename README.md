@@ -148,9 +148,10 @@ to the repository. Without a configured key, the chatbot returns a setup message
 instead of generating replies; the profile screen avoids falsely claiming that
 the chatbot is online.
 
-On Render, `GEMINI_MODEL` and `GROQ_LLAMA_MODEL` override the API's defaults.
-If chat reports HTTP 404, check those model IDs or remove the overrides to use
-the configured defaults: `gemini-2.5-flash` and `llama-3.3-70b-versatile`.
+On Render, use these API model IDs for chat: `GEMINI_MODEL=gemini-2.5-flash`
+and `GROQ_LLAMA_MODEL=llama-3.3-70b-versatile`. Do not use Gemini TTS/Gemma
+or Groq prompt-guard model IDs for chat; the API maps unsupported model
+overrides to compatible chat defaults.
 
 For durable profile-photo uploads on hosts with ephemeral filesystems such as
 Render, configure `CLOUDINARY_CLOUD_NAME` and `CLOUDINARY_UPLOAD_PRESET` in the

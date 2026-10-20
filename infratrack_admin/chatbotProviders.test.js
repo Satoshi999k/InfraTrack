@@ -83,6 +83,25 @@ test("normalizes the Gemini display name to its API model ID", async () => {
   assert.match(requestUrl, /models\/gemini-2\.5-flash:generateContent/);
 });
 
+test("replaces an unsupported Gemma chat override with Gemini Flash", async () => {
+  let requestUrl;
+  await generateChatReply({
+    messages,
+    env: { GEMINI_API_KEY: "gemini-test", GEMINI_MODEL: "gemma-4-26b-a4b-it" },
+    fetchImpl: async (url) => {
+      requestUrl = url;
+      return {
+        ok: true,
+        json: async () => ({
+          candidates: [{ content: { parts: [{ text: "Hello." }] } }],
+        }),
+      };
+    },
+  });
+
+  assert.match(requestUrl, /models\/gemini-2\.5-flash:generateContent/);
+});
+
 test("discovers an available Gemini model after a configured model returns 404", async () => {
   const requests = [];
   const reply = await generateChatReply({
@@ -100,6 +119,10 @@ test("discovers an available Gemini model after a configured model returns 404",
                 supportedGenerationMethods: ["generateContent"],
               },
               {
+                name: "models/gemma-4-26b-a4b-it",
+                supportedGenerationMethods: ["generateContent"],
+              },
+              {
                 name: "models/gemini-2.5-flash-lite",
                 supportedGenerationMethods: ["generateContent"],
               },
@@ -108,6 +131,9 @@ test("discovers an available Gemini model after a configured model returns 404",
         };
       }
       if (url.includes("models/gemini-2.5-flash-preview-tts:generateContent")) {
+        return { ok: false, status: 400 };
+      }
+      if (url.includes("models/gemma-4-26b-a4b-it:generateContent")) {
         return { ok: false, status: 400 };
       }
       if (url.includes("models/gemini-2.5-flash-lite:generateContent")) {
@@ -131,6 +157,11 @@ test("discovers an available Gemini model after a configured model returns 404",
   assert.ok(
     !requests.some(({ url }) =>
       url.includes("models/gemini-2.5-flash-preview-tts:generateContent"),
+    ),
+  );
+  assert.ok(
+    !requests.some(({ url }) =>
+      url.includes("models/gemma-4-26b-a4b-it:generateContent"),
     ),
   );
 });
@@ -168,6 +199,28 @@ test("normalizes the Groq display name to its API model ID", async () => {
     env: {
       GROQ_API_KEY: "groq-test",
       GROQ_LLAMA_MODEL: "Llama 3.3 70B Enterprise",
+    },
+    fetchImpl: async (_url, options) => {
+      requestBody = JSON.parse(options.body);
+      return {
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: "Hello." } }],
+        }),
+      };
+    },
+  });
+
+  assert.equal(requestBody.model, "llama-3.3-70b-versatile");
+});
+
+test("maps the retired Groq 3.1 model override to the documented Llama chat model", async () => {
+  let requestBody;
+  await generateChatReply({
+    messages,
+    env: {
+      GROQ_API_KEY: "groq-test",
+      GROQ_LLAMA_MODEL: "llama-3.1-8b-instant",
     },
     fetchImpl: async (_url, options) => {
       requestBody = JSON.parse(options.body);

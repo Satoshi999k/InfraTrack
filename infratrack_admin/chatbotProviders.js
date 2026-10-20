@@ -78,24 +78,29 @@ function geminiModelId(value) {
     /^models\//i,
     "",
   );
-  return model.toLowerCase().replace(/\s+/g, "-") === "gemini-2.5-flash"
-    ? "gemini-2.5-flash"
-    : model;
+  const normalized = model.toLowerCase().replace(/\s+/g, "-");
+  if (
+    normalized === "gemini-2.5-flash" ||
+    normalized === "gemini-2.5-flash-lite"
+  ) {
+    return normalized;
+  }
+  return "gemini-2.5-flash";
 }
 
 function groqModelId(value) {
   const model = configuredModel(value, "llama-3.3-70b-versatile");
   const normalized = model.toLowerCase().replace(/\s+/g, "-");
+  if (normalized.includes("llama-3.3-70b")) {
+    return "llama-3.3-70b-versatile";
+  }
   if (
-    [
-      "llama-3.3-70b",
-      "llama-3.3-70b-enterprise",
-      "llama-3.3-70b-versatile",
-    ].includes(normalized)
+    normalized === "llama-3.1-8b-instant" ||
+    normalized === "meta-llama/llama-3.1-8b-instant"
   ) {
     return "llama-3.3-70b-versatile";
   }
-  return model;
+  return isGroqChatModel(model) ? model : "llama-3.3-70b-versatile";
 }
 
 function isGeminiChatModel(model) {
@@ -161,7 +166,12 @@ async function listGeminiModels(apiKey, fetchImpl) {
         : false,
     )
     .map((item) => String(item.name || "").replace(/^models\//, ""))
-    .filter((model) => model && isGeminiChatModel(model));
+    .filter(
+      (model) =>
+        model &&
+        model.toLowerCase().startsWith("gemini-") &&
+        isGeminiChatModel(model),
+    );
 }
 
 async function requestGeminiWithFallback(options) {
