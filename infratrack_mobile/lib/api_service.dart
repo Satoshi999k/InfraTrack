@@ -365,6 +365,22 @@ class ApiService {
     );
   }
 
+  static Future<String> chatbotReply(List<Map<String, String>> messages) async {
+    final response = await _request(
+      'POST',
+      '/mobile/chat',
+      body: {'messages': messages},
+      authenticated: true,
+    );
+    final reply = response['reply'];
+    if (reply is! String || reply.trim().isEmpty) {
+      throw Exception(
+        'The assistant returned an empty response. Please try again.',
+      );
+    }
+    return reply.trim();
+  }
+
   static Future<void> markNotificationRead(int notificationId) async {
     await _request(
       'PATCH',

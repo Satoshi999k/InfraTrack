@@ -83,7 +83,7 @@ The mobile app and portal are separate clients of the same API. The promotional 
 | --- | --- |
 | Mobile | Flutter, Dart, Material 3, `http`, `shared_preferences`, `camera`, `image_picker`, `geolocator`, `flutter_map`, `video_player`, Google ML Kit face detection |
 | Admin frontend | React, Vite, JavaScript (ES modules), React Leaflet / Leaflet, Lucide React |
-| API | Node.js, Express, JavaScript (ES modules), MySQL (`mysql2`), Multer, `ffmpeg-static` |
+| API | Node.js, Express, JavaScript (ES modules), MySQL (`mysql2`), Multer, `ffmpeg-static`; Gemini-first AI chat with Groq-hosted Llama fallback |
 | Promotional website | React, Vite, Tailwind CSS, GSAP, Lucide React |
 | Database | MySQL-compatible database (for local development, XAMPP MySQL is supported) |
 | Maps | OpenStreetMap tiles through the mapping libraries; internet access is required for map tiles |
@@ -215,8 +215,18 @@ The API reads environment variables from `infratrack_admin/.env`. Start from [`i
 | `BREVO_SENDER_EMAIL` / `BREVO_SENDER_NAME` | Verified sender details for email | Optional; verify the sender in Brevo |
 | `APP_PUBLIC_URL` | Public sign-in URL used in email links | Optional |
 | `BREVO_LOGO_URL` | Public HTTPS logo URL for email templates | Optional |
+| `GEMINI_API_KEY` | Google AI Studio key for the primary chatbot provider | Optional; configure on the API server |
+| `GEMINI_MODEL` | Gemini model name | Defaults to `gemini-2.5-flash`; provider availability can change |
+| `GROQ_API_KEY` | Groq key for the backup chatbot provider | Optional; Groq hosts the Llama model used as fallback |
+| `GROQ_LLAMA_MODEL` | Llama model identifier available to your Groq account | Defaults to `llama-3.3-70b-versatile`; change if unavailable |
 
 The mobile app has its own API setting: pass `--dart-define=API_BASE_URL=<base-url>` to Flutter when running or building. See the mobile setup above and [`infratrack_mobile/README.md`](./infratrack_mobile/README.md).
+
+### AI chatbot provider behavior and cost
+
+The resident chatbot sends messages to the InfraTrack API; provider keys are kept on the server and are never shipped in the mobile app. The API tries Gemini first, then a Llama model hosted by Groq if Gemini fails (including quota or rate-limit responses). If only one provider key is configured, that provider is used alone. Configure both keys for fallback, then restart/redeploy the API.
+
+Gemini, Groq, and Llama should not be described as guaranteed-free. Providers may offer free developer tiers or promotional quotas, but availability, rate limits, eligible models, and pricing can change and may vary by account or region. Llama is an open model family, not a free hosted inference service by itself; in this setup Groq supplies the inference API. Review each provider's current pricing, quota, and usage terms before deployment. The API also limits each signed-in user to 15 chatbot messages per minute.
 
 ## Database and uploaded media
 

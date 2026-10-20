@@ -27,29 +27,48 @@ class _ChatbotPageState extends State<ChatbotPage> {
     super.dispose();
   }
 
-  void _send([String? suggestedText]) {
+  Future<void> _send([String? suggestedText]) async {
     final text = (suggestedText ?? _composer.text).trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty || _isThinking) return;
     setState(() {
       _messages.add(_ChatMessage(text: text, fromUser: true, time: 'Now'));
       _composer.clear();
       _isThinking = true;
     });
-    Future<void>.delayed(const Duration(milliseconds: 1100), () {
+    _scrollToBottom();
+    try {
+      final reply = await ApiService.chatbotReply(
+        _messages
+            .skip((_messages.length - 12).clamp(0, _messages.length).toInt())
+            .map(
+              (message) => {
+                'role': message.fromUser ? 'user' : 'assistant',
+                'content': message.text,
+              },
+            )
+            .toList(),
+      );
       if (!mounted) return;
       setState(() {
-        _isThinking = false;
+        _messages.add(_ChatMessage(text: reply, fromUser: false, time: 'Now'));
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
         _messages.add(
-          const _ChatMessage(
-            text: 'I can help with that. Check My Reports for live status updates, or use Report an issue to send a new concern to the city team.',
+          _ChatMessage(
+            text: error.toString().replaceFirst('Exception: ', ''),
             fromUser: false,
             time: 'Now',
           ),
         );
       });
-      _scrollToBottom();
-    });
-    _scrollToBottom();
+    } finally {
+      if (mounted) {
+        setState(() => _isThinking = false);
+        _scrollToBottom();
+      }
+    }
   }
 
   void _scrollToBottom() {

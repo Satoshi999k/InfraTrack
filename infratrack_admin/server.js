@@ -19,6 +19,7 @@ import {
 import { canManageSystemSettings } from "./permissions.js";
 import { sendEmailNotification } from "./emailNotifications.js";
 import { analyzeReportThemes } from "./thematicAnalysis.js";
+import { ChatProviderError, generateChatReply } from "./chatbotProviders.js";
 import {
   moderationNotification,
   standingAfterModeration,
@@ -32,6 +33,7 @@ const port = Number(process.env.PORT || 3001);
 const forceHttps = String(process.env.FORCE_HTTPS || "false").toLowerCase() === "true";
 const recaptchaSecret = process.env.RECAPTCHA_SECRET_KEY || "";
 const loginAttempts = new Map();
+const chatbotRequests = new Map();
 const loginMaxAttempts = Number(process.env.LOGIN_MAX_ATTEMPTS || 10);
 if (!Number.isInteger(loginMaxAttempts) || loginMaxAttempts < 1) {
   throw new Error("LOGIN_MAX_ATTEMPTS must be a positive integer");
@@ -948,6 +950,74 @@ app.get("/api/mobile/notifications", async (req, res) => {
     [req.auth.id],
   );
   res.json({ notifications });
+});
+app.post("/api/mobile/chat", async (req, res) => {
+  const messages = req.body?.messages;
+  if (
+    !Array.isArray(messages) ||
+    messages.length === 0 ||
+    messages.length > 12 ||
+    messages.some(
+      (message) =>
+        !message ||
+        !["user", "assistant"].includes(message.role) ||
+        typeof message.content !== "string" ||
+        !message.content.trim() ||
+        message.content.length > 2000,
+    )
+  ) {
+    return res.status(400).json({
+      code: "INVALID_CHAT_MESSAGES",
+      error: "Send between 1 and 12 valid messages, each up to 2,000 characters.",
+    });
+  }
+
+  const now = Date.now();
+  const windowMs = 60_000;
+  const previousRequests = (chatbotRequests.get(req.auth.id) || []).filter(
+    (timestamp) => now - timestamp < windowMs,
+  );
+  if (previousRequests.length >= 15) {
+    chatbotRequests.set(req.auth.id, previousRequests);
+    return res.status(429).json({
+      code: "CHAT_RATE_LIMITED",
+      error: "Please wait a moment before sending another message.",
+    });
+  }
+  previousRequests.push(now);
+  chatbotRequests.set(req.auth.id, previousRequests);
+  if (chatbotRequests.size > 1000) {
+    for (const [userId, timestamps] of chatbotRequests) {
+      if (!timestamps.some((timestamp) => now - timestamp < windowMs)) {
+        chatbotRequests.delete(userId);
+      }
+    }
+  }
+
+  try {
+    const reply = await generateChatReply({ messages });
+    res.json({ reply });
+  } catch (error) {
+    if (error instanceof ChatProviderError) {
+      if (error.status >= 500) {
+        console.error("Chatbot provider request failed:", error.message);
+      }
+      return res.status(error.status).json({
+        code: error.code,
+        error:
+          error.code === "CHAT_NOT_CONFIGURED"
+            ? "The AI assistant is not configured. Please contact support."
+            : error.code === "INVALID_CHAT_MESSAGE"
+              ? error.message
+              : "The AI assistant is temporarily unavailable. Please try again shortly.",
+      });
+    }
+    console.error("Unexpected chatbot request failure:", error);
+    return res.status(500).json({
+      code: "CHAT_REQUEST_FAILED",
+      error: "The assistant could not process your message. Please try again.",
+    });
+  }
 });
 app.post("/api/mobile/auth/logout", async (req, res) => {
   await pool.query("DELETE FROM admin_sessions WHERE token_hash = ?", [hashSessionToken(req.authToken)]);
