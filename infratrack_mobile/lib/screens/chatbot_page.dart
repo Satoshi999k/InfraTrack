@@ -110,10 +110,10 @@ class _ChatbotPageState extends State<ChatbotPage> {
               SizedBox(height: 2),
               Row(
                 children: [
-                  Icon(Icons.circle, color: Color(0xFF5FD9C7), size: 8),
+                  Icon(Icons.info_outline, color: Color(0xFFB9CBD1), size: 10),
                   SizedBox(width: 5),
                   Text(
-                    'Online · replies in seconds',
+                    'Infrastructure help',
                     style: TextStyle(color: Color(0xFFB9CBD1), fontSize: 10),
                   ),
                 ],

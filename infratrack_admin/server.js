@@ -1024,6 +1024,22 @@ app.post("/api/mobile/chat", async (req, res) => {
         .map(({ provider, status }) =>
             `${provider}: ${status == null ? "network error" : `HTTP ${status}`}`)
         .join("; ");
+      const hasModelNotFound = error.providers.some(
+        ({ status }) => status === 404,
+      );
+      const hasProviderAuthError = error.providers.some(
+        ({ status }) => status === 401 || status === 403,
+      );
+      const hasProviderRateLimit = error.providers.some(
+        ({ status }) => status === 429,
+      );
+      const providerGuidance = hasModelNotFound
+        ? "Check GEMINI_MODEL and GROQ_LLAMA_MODEL in the API environment; the configured model ID may not be available."
+        : hasProviderAuthError
+          ? "Check the provider API keys and their access permissions in the API environment."
+          : hasProviderRateLimit
+            ? "A provider rate limit or quota was reached. Check provider usage and quotas."
+            : "Check provider keys, quotas, model IDs, and API network access.";
       return res.status(error.status).json({
         code: error.code,
         error:
@@ -1031,7 +1047,7 @@ app.post("/api/mobile/chat", async (req, res) => {
               ? "The AI assistant is not configured. Add provider keys to the production API environment."
             : error.code === "INVALID_CHAT_MESSAGE"
                 ? error.message
-                : `AI providers are unavailable (${providerFailureDetails}). Check provider keys, quotas, and model IDs in the API environment.`,
+                : `AI providers are unavailable (${providerFailureDetails}). ${providerGuidance}`,
       });
     }
     console.error("Unexpected chatbot request failure:", error);

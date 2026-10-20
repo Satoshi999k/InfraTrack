@@ -42,6 +42,38 @@ function normalizeMessages(messages) {
     .filter(({ content }) => content.length > 0);
 }
 
+function configuredModel(value, fallback) {
+  return String(value ?? "")
+    .trim()
+    .replace(/^(['"])(.*)\1$/, "$2")
+    .trim() || fallback;
+}
+
+function geminiModelId(value) {
+  const model = configuredModel(value, "gemini-2.5-flash").replace(
+    /^models\//i,
+    "",
+  );
+  return model.toLowerCase().replace(/\s+/g, "-") === "gemini-2.5-flash"
+    ? "gemini-2.5-flash"
+    : model;
+}
+
+function groqModelId(value) {
+  const model = configuredModel(value, "llama-3.3-70b-versatile");
+  const normalized = model.toLowerCase().replace(/\s+/g, "-");
+  if (
+    [
+      "llama-3.3-70b",
+      "llama-3.3-70b-enterprise",
+      "llama-3.3-70b-versatile",
+    ].includes(normalized)
+  ) {
+    return "llama-3.3-70b-versatile";
+  }
+  return model;
+}
+
 async function requestGemini({ apiKey, model, messages, fetchImpl }) {
   const response = await fetchImpl(
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
@@ -116,7 +148,7 @@ export async function generateChatReply({
       request: () =>
         requestGemini({
           apiKey: env.GEMINI_API_KEY,
-          model: env.GEMINI_MODEL || "gemini-2.5-flash",
+          model: geminiModelId(env.GEMINI_MODEL),
           messages: normalizedMessages,
           fetchImpl,
         }),
@@ -128,7 +160,7 @@ export async function generateChatReply({
       request: () =>
         requestGroqLlama({
           apiKey: env.GROQ_API_KEY,
-          model: env.GROQ_LLAMA_MODEL || "llama-3.3-70b-versatile",
+          model: groqModelId(env.GROQ_LLAMA_MODEL),
           messages: normalizedMessages,
           fetchImpl,
         }),

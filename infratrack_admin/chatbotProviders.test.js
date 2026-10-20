@@ -25,6 +25,25 @@ test("uses Gemini as the primary chatbot provider", async () => {
   assert.match(requests[0].url, /generativelanguage\.googleapis\.com/);
 });
 
+test("normalizes the Gemini display name to its API model ID", async () => {
+  let requestUrl;
+  await generateChatReply({
+    messages,
+    env: { GEMINI_API_KEY: "gemini-test", GEMINI_MODEL: '"Gemini 2.5 Flash"' },
+    fetchImpl: async (url) => {
+      requestUrl = url;
+      return {
+        ok: true,
+        json: async () => ({
+          candidates: [{ content: { parts: [{ text: "Hello." }] } }],
+        }),
+      };
+    },
+  });
+
+  assert.match(requestUrl, /models\/gemini-2\.5-flash:generateContent/);
+});
+
 test("falls back to a Llama model on Groq when Gemini is unavailable", async () => {
   const requests = [];
   const reply = await generateChatReply({
@@ -49,6 +68,28 @@ test("falls back to a Llama model on Groq when Gemini is unavailable", async () 
     JSON.parse(requests[1].options.body).model,
     "llama-3.3-70b-versatile",
   );
+});
+
+test("normalizes the Groq display name to its API model ID", async () => {
+  let requestBody;
+  await generateChatReply({
+    messages,
+    env: {
+      GROQ_API_KEY: "groq-test",
+      GROQ_LLAMA_MODEL: "Llama 3.3 70B Enterprise",
+    },
+    fetchImpl: async (_url, options) => {
+      requestBody = JSON.parse(options.body);
+      return {
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: "Hello." } }],
+        }),
+      };
+    },
+  });
+
+  assert.equal(requestBody.model, "llama-3.3-70b-versatile");
 });
 
 test("reports an explicit configuration error when no provider key is set", async () => {
