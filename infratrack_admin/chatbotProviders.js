@@ -25,10 +25,11 @@ export class ChatProviderError extends Error {
 }
 
 class ChatUpstreamError extends Error {
-  constructor(provider, status) {
+  constructor(provider, status, model) {
     super(`${provider} returned HTTP ${status}`);
     this.provider = provider;
     this.status = status;
+    this.model = model;
   }
 }
 
@@ -92,7 +93,9 @@ async function requestGemini({ apiKey, model, messages, fetchImpl }) {
     },
   );
 
-  if (!response.ok) throw new ChatUpstreamError("Gemini", response.status);
+  if (!response.ok) {
+    throw new ChatUpstreamError("Gemini", response.status, model);
+  }
   const data = await response.json();
   const reply = data.candidates?.[0]?.content?.parts
     ?.map((part) => part.text || "")
@@ -100,6 +103,58 @@ async function requestGemini({ apiKey, model, messages, fetchImpl }) {
     .trim();
   if (!reply) throw new Error("Gemini returned an empty response");
   return reply;
+}
+
+async function listGeminiModels(apiKey, fetchImpl) {
+  const response = await fetchImpl(
+    `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`,
+    { signal: AbortSignal.timeout(15_000) },
+  );
+  if (!response.ok) return [];
+  const data = await response.json();
+  return (Array.isArray(data.models) ? data.models : [])
+    .filter((item) =>
+      Array.isArray(item.supportedGenerationMethods)
+        ? item.supportedGenerationMethods.includes("generateContent")
+        : false,
+    )
+    .map((item) => String(item.name || "").replace(/^models\//, ""))
+    .filter(Boolean);
+}
+
+async function requestGeminiWithFallback(options) {
+  try {
+    return await requestGemini(options);
+  } catch (error) {
+    if (!(error instanceof ChatUpstreamError) || error.status !== 404) {
+      throw error;
+    }
+    const availableModels = await listGeminiModels(
+      options.apiKey,
+      options.fetchImpl,
+    );
+    const candidates = [
+      options.model,
+      "gemini-2.5-flash",
+      "gemini-2.5-flash-lite",
+      ...availableModels,
+    ].filter((model, index, all) => model && all.indexOf(model) === index);
+    let lastError = error;
+    for (const model of candidates.slice(1)) {
+      try {
+        return await requestGemini({ ...options, model });
+      } catch (candidateError) {
+        if (
+          !(candidateError instanceof ChatUpstreamError) ||
+          candidateError.status !== 404
+        ) {
+          throw candidateError;
+        }
+        lastError = candidateError;
+      }
+    }
+    throw lastError;
+  }
 }
 
 async function requestGroqLlama({ apiKey, model, messages, fetchImpl }) {
@@ -121,11 +176,61 @@ async function requestGroqLlama({ apiKey, model, messages, fetchImpl }) {
     }),
   });
 
-  if (!response.ok) throw new ChatUpstreamError("Groq", response.status);
+  if (!response.ok) {
+    throw new ChatUpstreamError("Groq", response.status, model);
+  }
   const data = await response.json();
   const reply = data.choices?.[0]?.message?.content?.trim();
   if (!reply) throw new Error("Groq returned an empty response");
   return reply;
+}
+
+async function listGroqModels(apiKey, fetchImpl) {
+  const response = await fetchImpl("https://api.groq.com/openai/v1/models", {
+    headers: { Authorization: `Bearer ${apiKey}` },
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!response.ok) return [];
+  const data = await response.json();
+  return (Array.isArray(data.data) ? data.data : [])
+    .filter((item) => item.active !== false)
+    .map((item) => String(item.id || ""))
+    .filter((id) => id.toLowerCase().includes("llama"));
+}
+
+async function requestGroqWithFallback(options) {
+  try {
+    return await requestGroqLlama(options);
+  } catch (error) {
+    if (!(error instanceof ChatUpstreamError) || error.status !== 404) {
+      throw error;
+    }
+    const availableModels = await listGroqModels(
+      options.apiKey,
+      options.fetchImpl,
+    );
+    const candidates = [
+      options.model,
+      "llama-3.3-70b-versatile",
+      "llama-3.1-8b-instant",
+      ...availableModels,
+    ].filter((model, index, all) => model && all.indexOf(model) === index);
+    let lastError = error;
+    for (const model of candidates.slice(1)) {
+      try {
+        return await requestGroqLlama({ ...options, model });
+      } catch (candidateError) {
+        if (
+          !(candidateError instanceof ChatUpstreamError) ||
+          candidateError.status !== 404
+        ) {
+          throw candidateError;
+        }
+        lastError = candidateError;
+      }
+    }
+    throw lastError;
+  }
 }
 
 export async function generateChatReply({
@@ -146,7 +251,7 @@ export async function generateChatReply({
     providers.push({
       name: "Gemini",
       request: () =>
-        requestGemini({
+        requestGeminiWithFallback({
           apiKey: env.GEMINI_API_KEY,
           model: geminiModelId(env.GEMINI_MODEL),
           messages: normalizedMessages,
@@ -158,7 +263,7 @@ export async function generateChatReply({
     providers.push({
       name: "Groq/Llama",
       request: () =>
-        requestGroqLlama({
+        requestGroqWithFallback({
           apiKey: env.GROQ_API_KEY,
           model: groqModelId(env.GROQ_LLAMA_MODEL),
           messages: normalizedMessages,
@@ -181,8 +286,12 @@ export async function generateChatReply({
     } catch (error) {
       failures.push(
         error instanceof ChatUpstreamError
-          ? { provider: error.provider, status: error.status }
-          : { provider: provider.name, status: null },
+          ? {
+              provider: error.provider,
+              status: error.status,
+              model: error.model,
+            }
+          : { provider: provider.name, status: null, model: null },
       );
     }
   }

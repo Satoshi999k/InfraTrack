@@ -1021,8 +1021,8 @@ app.post("/api/mobile/chat", async (req, res) => {
         console.error("Chatbot provider request failed:", error.message);
       }
       const providerFailureDetails = error.providers
-        .map(({ provider, status }) =>
-            `${provider}: ${status == null ? "network error" : `HTTP ${status}`}`)
+        .map(({ provider, status, model }) =>
+            `${provider}${model ? ` (${model})` : ""}: ${status == null ? "network error" : `HTTP ${status}`}`)
         .join("; ");
       const hasModelNotFound = error.providers.some(
         ({ status }) => status === 404,

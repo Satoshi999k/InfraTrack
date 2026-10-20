@@ -44,6 +44,46 @@ test("normalizes the Gemini display name to its API model ID", async () => {
   assert.match(requestUrl, /models\/gemini-2\.5-flash:generateContent/);
 });
 
+test("discovers an available Gemini model after a configured model returns 404", async () => {
+  const requests = [];
+  const reply = await generateChatReply({
+    messages,
+    env: { GEMINI_API_KEY: "gemini-test", GEMINI_MODEL: "retired-model" },
+    fetchImpl: async (url, options) => {
+      requests.push({ url, options });
+      if (url.includes("/v1beta/models?")) {
+        return {
+          ok: true,
+          json: async () => ({
+            models: [
+              {
+                name: "models/gemini-2.5-flash-lite",
+                supportedGenerationMethods: ["generateContent"],
+              },
+            ],
+          }),
+        };
+      }
+      if (url.includes("models/gemini-2.5-flash-lite:generateContent")) {
+        return {
+          ok: true,
+          json: async () => ({
+            candidates: [{ content: { parts: [{ text: "Try the app report form." }] } }],
+          }),
+        };
+      }
+      return { ok: false, status: 404 };
+    },
+  });
+
+  assert.equal(reply, "Try the app report form.");
+  assert.ok(
+    requests.some(({ url }) =>
+      url.includes("models/gemini-2.5-flash-lite:generateContent"),
+    ),
+  );
+});
+
 test("falls back to a Llama model on Groq when Gemini is unavailable", async () => {
   const requests = [];
   const reply = await generateChatReply({
@@ -90,6 +130,49 @@ test("normalizes the Groq display name to its API model ID", async () => {
   });
 
   assert.equal(requestBody.model, "llama-3.3-70b-versatile");
+});
+
+test("discovers an available Groq model after configured models return 404", async () => {
+  const requests = [];
+  const reply = await generateChatReply({
+    messages,
+    env: { GROQ_API_KEY: "groq-test", GROQ_LLAMA_MODEL: "retired-model" },
+    fetchImpl: async (url, options) => {
+      requests.push({ url, options });
+      if (url.endsWith("/models")) {
+        return {
+          ok: true,
+          json: async () => ({
+            data: [{ id: "llama-custom-model", active: true }],
+          }),
+        };
+      }
+      const model = JSON.parse(options.body).model;
+      if (model === "llama-custom-model") {
+        return {
+          ok: true,
+          json: async () => ({
+            choices: [{ message: { content: "Use the report form in InfraTrack." } }],
+          }),
+        };
+      }
+      return { ok: false, status: 404 };
+    },
+  });
+
+  assert.equal(reply, "Use the report form in InfraTrack.");
+  const discoveryRequest = requests.find(({ url }) => url.endsWith("/models"));
+  assert.equal(
+    discoveryRequest.options.headers.Authorization,
+    "Bearer groq-test",
+  );
+  assert.ok(
+    requests.some(
+      ({ options }) =>
+        options.body &&
+        JSON.parse(options.body).model === "llama-custom-model",
+    ),
+  );
 });
 
 test("reports an explicit configuration error when no provider key is set", async () => {
