@@ -55,6 +55,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   List<_NotificationItem> get notifications => _serverNotifications.map((item) {
     final rawType = (item['type'] as String? ?? 'system').toLowerCase();
+    final title = item['title'] as String? ?? 'InfraTrack update';
     final type = switch (rawType) {
       'report' ||
       'duplicate_issue' ||
@@ -78,21 +79,45 @@ class _NotificationsPageState extends State<NotificationsPage> {
         : daysAgo == 1
         ? 'YESTERDAY'
         : 'EARLIER';
+    final accountActionColor = switch (title.toLowerCase()) {
+      final value when value.contains('warn') => amber,
+      final value when value.contains('suspend') => clay,
+      final value when value.contains('ban') => red,
+      final value when value.contains('restor') => green,
+      _ => clay,
+    };
     return _NotificationItem(
       group: group,
-      title: item['title'] as String? ?? 'InfraTrack update',
+      title: title,
       message: item['message'] as String? ?? '',
       time: createdAt?.toLocal().toString().split('.').first ?? '',
-      label: rawType.replaceAll('_', ' ').toUpperCase(),
+      label: type == 'Account'
+          ? switch (title.toLowerCase()) {
+              final value when value.contains('warn') => 'WARNING',
+              final value when value.contains('suspend') => 'SUSPENSION',
+              final value when value.contains('ban') => 'ACCOUNT BANNED',
+              final value when value.contains('restor') => 'RESTORED',
+              _ => 'ACCOUNT',
+            }
+          : rawType.replaceAll('_', ' ').toUpperCase(),
       color: type == 'Report updates'
           ? teal
           : type == 'Account'
-          ? clay
+          ? accountActionColor
           : amber,
-      icon: type == 'Report updates'
+      icon: type == 'Account'
+          ? switch (title.toLowerCase()) {
+              final value when value.contains('warn') =>
+                Icons.warning_amber_rounded,
+              final value when value.contains('suspend') =>
+                Icons.hourglass_top_rounded,
+              final value when value.contains('ban') => Icons.gpp_bad_outlined,
+              final value when value.contains('restor') =>
+                Icons.verified_outlined,
+              _ => Icons.person_outline,
+            }
+          : type == 'Report updates'
           ? Icons.sync
-          : type == 'Account'
-          ? Icons.person_outline
           : Icons.notifications_active_outlined,
       type: type,
       unread: item['read_at'] == null,
@@ -314,11 +339,11 @@ class _NotificationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Card(
     margin: const EdgeInsets.only(bottom: 10),
-    color: Colors.white.withValues(alpha: .86),
+    color: Color.lerp(Colors.white.withValues(alpha: .92), item.color, .045),
     elevation: 0,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(18),
-      side: BorderSide(color: Colors.white.withValues(alpha: .9)),
+      side: BorderSide(color: item.color.withValues(alpha: .22)),
     ),
     child: Padding(
       padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
@@ -358,8 +383,8 @@ class _NotificationCard extends StatelessWidget {
                       Container(
                         width: 7,
                         height: 7,
-                        decoration: const BoxDecoration(
-                          color: clay,
+                        decoration: BoxDecoration(
+                          color: item.color,
                           shape: BoxShape.circle,
                         ),
                       ),
