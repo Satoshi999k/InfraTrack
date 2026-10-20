@@ -204,48 +204,57 @@ class _MyReportsPageState extends State<MyReportsPage> {
                     ),
                   ),
                 ),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children:
-                      [
-                            'All',
-                            'Reported',
-                            'Verified by inspector',
-                            'In progress',
-                            'Scheduled for repair',
-                            'Resolved',
-                          ]
-                          .map(
-                            (item) => FilterChip(
-                              label: Text(item),
-                              selected: filter == item,
-                              showCheckmark: false,
-                              onSelected: (_) => setState(() => filter = item),
-                              selectedColor: navy.withValues(alpha: .94),
-                              backgroundColor: Colors.transparent,
-                              side: BorderSide(
-                                color: filter == item ? navy : line,
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  clipBehavior: Clip.none,
+                  child: Row(
+                    children:
+                        [
+                              'All',
+                              'Reported',
+                              'Verified by inspector',
+                              'In progress',
+                              'Scheduled for repair',
+                              'Resolved',
+                            ]
+                            .map(
+                              (item) => Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: FilterChip(
+                                  label: Text(item),
+                                  selected: filter == item,
+                                  showCheckmark: false,
+                                  onSelected: (_) =>
+                                      setState(() => filter = item),
+                                  selectedColor: navy.withValues(alpha: .94),
+                                  backgroundColor: Colors.transparent,
+                                  side: BorderSide(
+                                    color: filter == item ? navy : line,
+                                  ),
+                                  shape: const StadiumBorder(),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 5,
+                                    vertical: 2,
+                                  ),
+                                  materialTapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  visualDensity: const VisualDensity(
+                                    horizontal: -2,
+                                    vertical: -2,
+                                  ),
+                                  labelStyle: TextStyle(
+                                    color: filter == item
+                                        ? Colors.white
+                                        : inkSoft,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
                               ),
-                              shape: const StadiumBorder(),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 5,
-                                vertical: 2,
-                              ),
-                              materialTapTargetSize:
-                                  MaterialTapTargetSize.shrinkWrap,
-                              visualDensity: const VisualDensity(
-                                horizontal: -2,
-                                vertical: -2,
-                              ),
-                              labelStyle: TextStyle(
-                                color: filter == item ? Colors.white : inkSoft,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          )
-                          .toList(),
+                            )
+                            .toList(),
+                  ),
                 ),
                 const SizedBox(height: 16),
                 Row(

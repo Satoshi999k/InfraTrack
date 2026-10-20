@@ -51,4 +51,31 @@ void main() {
     expect(find.text('City updates'), findsOneWidget);
     expect(find.text('Account'), findsOneWidget);
   });
+
+  testWidgets('my report filters stay in one horizontally scrollable row', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: MyReportsPage()));
+    await tester.pumpAndSettle();
+
+    final horizontalScroll = find.byWidgetPredicate(
+      (widget) =>
+          widget is SingleChildScrollView &&
+          widget.scrollDirection == Axis.horizontal,
+    );
+    expect(horizontalScroll, findsOneWidget);
+
+    final allFilter = find.widgetWithText(FilterChip, 'All');
+    final resolvedFilter = find.widgetWithText(FilterChip, 'Resolved');
+    expect(
+      tester.getTopLeft(allFilter).dy,
+      tester.getTopLeft(resolvedFilter).dy,
+    );
+
+    await tester.drag(horizontalScroll, const Offset(-500, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(resolvedFilter);
+    await tester.pumpAndSettle();
+    expect(tester.widget<FilterChip>(resolvedFilter).selected, isTrue);
+  });
 }
