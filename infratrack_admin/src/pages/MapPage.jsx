@@ -90,9 +90,9 @@ function issuePinIcon(issue) {
   }`;
   return divIcon({
     className: "leaflet-issue-icon",
-    iconSize: [64, 58],
-    iconAnchor: [32, 29],
-    popupAnchor: [0, -30],
+    iconSize: [40, 48],
+    iconAnchor: [20, 44],
+    popupAnchor: [0, -42],
     html: `
       <div class="leaflet-pin ${severity}">
         <span class="leaflet-pin-ring">
