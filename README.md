@@ -234,7 +234,7 @@ Gemini, Groq, and Llama should not be described as guaranteed-free. Providers ma
 - Keep regular database backups. The server also has a local `backups/` directory; generated backups are deliberately excluded from Git.
 - Uploaded files are stored under `infratrack_admin/uploads/` when local disk storage is used. That directory is generated and excluded from Git.
 - Local disk is not durable storage on many hosted/serverless platforms. Configure Cloudinary (or another persistent storage service integrated by your deployment) before relying on uploaded advisory media in such an environment.
-- Profile photos on Render/Vercel also require Cloudinary configuration; the API rejects the upload rather than reporting success when durable photo storage is unavailable.
+- For durable profile-photo storage on hosted services, configure Cloudinary. Render local-disk fallback is temporary and can be lost on restart; Vercel requires persistent Cloudinary storage.
 - Database rows and uploaded files are separate. Include both in a backup/restore plan if local media storage is in use.
 - Never check real resident reports, identity documents, selfies, private uploads, or production database backups into the repository.
 

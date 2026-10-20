@@ -65,6 +65,7 @@ class _HomePageState extends State<HomePage> {
         _overview = results[2] as Map<String, dynamic>;
         _notifications = results[3] as List<Map<String, dynamic>>;
         _loadingIssues = false;
+        _loadError = null;
       });
     } catch (_) {
       if (mounted) {

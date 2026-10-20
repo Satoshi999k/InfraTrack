@@ -57,6 +57,7 @@ class _NewsPageState extends State<NewsPage> {
         _issues = results[1];
         _currentPage = 0;
         _loading = false;
+        _loadError = null;
       });
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_pageController.hasClients) _pageController.jumpToPage(0);

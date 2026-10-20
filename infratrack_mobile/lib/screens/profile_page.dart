@@ -35,6 +35,7 @@ class _ProfilePageState extends State<ProfilePage> {
           _profile = results[0] as Map<String, dynamic>;
           _reports = results[1] as List<Map<String, dynamic>>;
           _notifications = results[2] as List<Map<String, dynamic>>;
+          _loadError = null;
         });
       }
     } catch (error) {
@@ -60,6 +61,7 @@ class _ProfilePageState extends State<ProfilePage> {
       return;
     }
     XFile? selectedImage;
+    String? selectionError;
     final result = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -125,13 +127,24 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   );
                   if (source == null) return;
-                  final image = await ImagePicker().pickImage(
-                    source: source,
-                    imageQuality: 85,
-                  );
-                  if (image != null) {
-                    selectedImage = image;
-                    setDialogState(() {});
+                  try {
+                    final image = await ImagePicker().pickImage(
+                      source: source,
+                      imageQuality: 85,
+                    );
+                    if (image != null) {
+                      setDialogState(() {
+                        selectedImage = image;
+                        selectionError = null;
+                      });
+                    }
+                  } catch (error) {
+                    setDialogState(() {
+                      selectionError = error.toString().replaceFirst(
+                        'Exception: ',
+                        '',
+                      );
+                    });
                   }
                 },
                 child: Stack(
@@ -178,6 +191,14 @@ class _ProfilePageState extends State<ProfilePage> {
                         size: 16,
                       ),
                     ),
+                    if (selectionError != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        selectionError!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: clay, fontSize: 11),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -235,9 +256,17 @@ class _ProfilePageState extends State<ProfilePage> {
             child: const Text('Cancel', style: TextStyle(color: teal)),
           ),
           FilledButton(
-            onPressed: selectedImage == null
-                ? null
-                : () => Navigator.pop(dialogContext, true),
+            onPressed: () {
+              if (selectedImage == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Choose a new photo before saving.'),
+                  ),
+                );
+                return;
+              }
+              Navigator.pop(dialogContext, true);
+            },
             style: FilledButton.styleFrom(backgroundColor: clay),
             child: const Text('Save changes'),
           ),

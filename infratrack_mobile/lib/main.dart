@@ -132,6 +132,21 @@ class _ConnectionUnavailablePage extends StatefulWidget {
 class _ConnectionUnavailablePageState
     extends State<_ConnectionUnavailablePage> {
   bool _checking = false;
+  Timer? _retryTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _retryTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+      _retry();
+    });
+  }
+
+  @override
+  void dispose() {
+    _retryTimer?.cancel();
+    super.dispose();
+  }
 
   Future<void> _retry() async {
     if (_checking) return;
@@ -1715,6 +1730,13 @@ class _MainShellState extends State<MainShell> {
     super.initState();
     ApiService.sessionExpired.addListener(_handleExpiredSession);
     ApiService.accountBanned.addListener(_handleAccountBanned);
+    ApiService.connectionRestored.addListener(_handleConnectionRestored);
+  }
+
+  void _handleConnectionRestored() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_refreshPage(index));
+    });
   }
 
   void _handleAccountBanned() {
@@ -1767,6 +1789,7 @@ class _MainShellState extends State<MainShell> {
   void dispose() {
     ApiService.sessionExpired.removeListener(_handleExpiredSession);
     ApiService.accountBanned.removeListener(_handleAccountBanned);
+    ApiService.connectionRestored.removeListener(_handleConnectionRestored);
     super.dispose();
   }
 

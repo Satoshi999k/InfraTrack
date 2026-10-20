@@ -1014,14 +1014,18 @@ app.post("/api/mobile/chat", async (req, res) => {
       if (error.status >= 500) {
         console.error("Chatbot provider request failed:", error.message);
       }
+      const providerFailureDetails = error.providers
+        .map(({ provider, status }) =>
+            `${provider}: ${status == null ? "network error" : `HTTP ${status}`}`)
+        .join("; ");
       return res.status(error.status).json({
         code: error.code,
         error:
-          error.code === "CHAT_NOT_CONFIGURED"
-            ? "The AI assistant is not configured. Please contact support."
+            error.code === "CHAT_NOT_CONFIGURED"
+              ? "The AI assistant is not configured. Add provider keys to the production API environment."
             : error.code === "INVALID_CHAT_MESSAGE"
-              ? error.message
-              : "The AI assistant is temporarily unavailable. Please try again shortly.",
+                ? error.message
+                : `AI providers are unavailable (${providerFailureDetails}). Check provider keys, quotas, and model IDs in the API environment.`,
       });
     }
     console.error("Unexpected chatbot request failure:", error);
@@ -1101,7 +1105,7 @@ app.post(
         req.file,
         "infratrack/profile-photos",
       );
-      if ((process.env.VERCEL || process.env.RENDER) && !cloudinaryUrl) {
+      if (process.env.VERCEL && !cloudinaryUrl) {
         await removeTemporaryUpload(req.file);
         return res.status(503).json({
           error:
@@ -1126,7 +1130,7 @@ app.post(
       await removeTemporaryUpload(req.file);
       console.error("Unable to save profile photo:", error.message);
       res.status(502).json({
-        error: "Could not save the profile photo. Please try again.",
+        error: `Could not save the profile photo: ${error.message}`,
       });
     }
   },

@@ -53,9 +53,16 @@ class ApiService {
   static final ValueNotifier<String?> connectionIssue = ValueNotifier<String?>(
     null,
   );
+  static final ValueNotifier<int> connectionRestored = ValueNotifier<int>(0);
   static String? _sessionNotice;
 
   static bool get isSignedIn => _sessionToken != null;
+
+  static void _markConnected() {
+    if (connectionIssue.value == null) return;
+    connectionIssue.value = null;
+    connectionRestored.value++;
+  }
 
   static Future<void> restoreSession() async {
     final preferences = await SharedPreferences.getInstance();
@@ -149,7 +156,7 @@ class ApiService {
           .timeout(const Duration(seconds: 30));
       final response = await http.Response.fromStream(streamedResponse)
           .timeout(const Duration(seconds: 30));
-      connectionIssue.value = null;
+      _markConnected();
       return _decodeResponse(response);
     } on SocketException {
       connectionIssue.value = 'Could not connect to InfraTrack. Check your internet connection and try again.';
@@ -453,7 +460,7 @@ class ApiService {
           .timeout(const Duration(seconds: 60));
       final response = await http.Response.fromStream(streamedResponse)
           .timeout(const Duration(seconds: 60));
-      connectionIssue.value = null;
+      _markConnected();
       final body = _decodeResponse(response);
       currentUser = Map<String, dynamic>.from(body['user'] as Map);
       await _persistSession();
@@ -566,7 +573,7 @@ class ApiService {
           .timeout(const Duration(seconds: 60));
       final response = await http.Response.fromStream(streamedResponse)
           .timeout(const Duration(seconds: 60));
-      connectionIssue.value = null;
+      _markConnected();
       return _decodeResponse(response)['url'] as String;
     } on SocketException {
       connectionIssue.value = 'Could not connect to InfraTrack. Check your internet connection and try again.';

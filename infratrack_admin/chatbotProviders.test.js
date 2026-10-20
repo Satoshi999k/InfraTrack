@@ -71,8 +71,9 @@ test("does not hide failure when every configured provider is unavailable", asyn
     (error) =>
       error instanceof ChatProviderError &&
       error.status === 502 &&
-      error.message.includes("Gemini returned HTTP 503") &&
-      error.message.includes("Groq returned HTTP 503"),
+      error.message.includes("Gemini: HTTP 503") &&
+      error.message.includes("Groq: HTTP 503") &&
+      error.providers.length === 2,
   );
 });
 

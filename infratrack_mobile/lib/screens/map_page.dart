@@ -89,6 +89,7 @@ class _MapPageState extends State<MapPage> {
             .map(_mapReportFromIssue)
             .toList();
         _loadingReports = false;
+        _loadError = null;
       });
     } catch (error) {
       if (mounted) {
@@ -670,7 +671,8 @@ class _ReportMarker extends StatelessWidget {
                 border: Border.all(color: color, width: 2),
               ),
               clipBehavior: Clip.antiAlias,
-              child: mediaUrl == null || mediaUrl!.isEmpty || mediaKind == 'video'
+              child:
+                  mediaUrl == null || mediaUrl!.isEmpty || mediaKind == 'video'
                   ? Icon(Icons.warning_amber_rounded, color: color, size: 15)
                   : Image.network(
                       mediaUrl!,
@@ -736,9 +738,8 @@ class _ReportDetailsSheet extends StatelessWidget {
                           width: double.infinity,
                           height: 210,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => _ReportImageFallback(
-                            color: report.color,
-                          ),
+                          errorBuilder: (_, _, _) =>
+                              _ReportImageFallback(color: report.color),
                         ),
                 )
               else
@@ -832,10 +833,7 @@ class _ReportImageFallback extends StatelessWidget {
 }
 
 class _ReportVideoFallback extends StatelessWidget {
-  const _ReportVideoFallback({
-    required this.color,
-    required this.mediaUrl,
-  });
+  const _ReportVideoFallback({required this.color, required this.mediaUrl});
 
   final Color color;
   final String mediaUrl;
@@ -874,9 +872,8 @@ class _MapVideoPage extends StatefulWidget {
 }
 
 class _MapVideoPageState extends State<_MapVideoPage> {
-  late final VideoPlayerController _controller = VideoPlayerController.networkUrl(
-    Uri.parse(widget.mediaUrl),
-  );
+  late final VideoPlayerController _controller =
+      VideoPlayerController.networkUrl(Uri.parse(widget.mediaUrl));
 
   @override
   void initState() {
@@ -962,7 +959,9 @@ class _MapDetailLine extends StatelessWidget {
       children: [
         Icon(icon, color: teal, size: 18),
         const SizedBox(width: 8),
-        Expanded(child: Text(text, style: const TextStyle(color: inkSoft))),
+        Expanded(
+          child: Text(text, style: const TextStyle(color: inkSoft)),
+        ),
       ],
     ),
   );

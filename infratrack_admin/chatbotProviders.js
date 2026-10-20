@@ -8,11 +8,27 @@ const systemInstruction = [
 ].join(" ");
 
 export class ChatProviderError extends Error {
-  constructor(message, { status = 502, code = "CHAT_PROVIDER_UNAVAILABLE" } = {}) {
+  constructor(
+    message,
+    {
+      status = 502,
+      code = "CHAT_PROVIDER_UNAVAILABLE",
+      providers = [],
+    } = {},
+  ) {
     super(message);
     this.name = "ChatProviderError";
     this.status = status;
     this.code = code;
+    this.providers = providers;
+  }
+}
+
+class ChatUpstreamError extends Error {
+  constructor(provider, status) {
+    super(`${provider} returned HTTP ${status}`);
+    this.provider = provider;
+    this.status = status;
   }
 }
 
@@ -32,7 +48,7 @@ async function requestGemini({ apiKey, model, messages, fetchImpl }) {
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      signal: AbortSignal.timeout(12_000),
+      signal: AbortSignal.timeout(25_000),
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: systemInstruction }] },
         contents: messages.map(({ role, content }) => ({
@@ -44,7 +60,7 @@ async function requestGemini({ apiKey, model, messages, fetchImpl }) {
     },
   );
 
-  if (!response.ok) throw new Error(`Gemini returned HTTP ${response.status}`);
+  if (!response.ok) throw new ChatUpstreamError("Gemini", response.status);
   const data = await response.json();
   const reply = data.candidates?.[0]?.content?.parts
     ?.map((part) => part.text || "")
@@ -61,7 +77,7 @@ async function requestGroqLlama({ apiKey, model, messages, fetchImpl }) {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
-    signal: AbortSignal.timeout(12_000),
+    signal: AbortSignal.timeout(25_000),
     body: JSON.stringify({
       model,
       messages: [
@@ -73,7 +89,7 @@ async function requestGroqLlama({ apiKey, model, messages, fetchImpl }) {
     }),
   });
 
-  if (!response.ok) throw new Error(`Groq returned HTTP ${response.status}`);
+  if (!response.ok) throw new ChatUpstreamError("Groq", response.status);
   const data = await response.json();
   const reply = data.choices?.[0]?.message?.content?.trim();
   if (!reply) throw new Error("Groq returned an empty response");
@@ -131,11 +147,16 @@ export async function generateChatReply({
     try {
       return await provider.request();
     } catch (error) {
-      failures.push(`${provider.name}: ${error.message}`);
+      failures.push(
+        error instanceof ChatUpstreamError
+          ? { provider: error.provider, status: error.status }
+          : { provider: provider.name, status: null },
+      );
     }
   }
 
   throw new ChatProviderError(
-    `All configured AI providers failed (${failures.join("; ")})`,
+    `All configured AI providers failed (${failures.map(({ provider, status }) => `${provider}: ${status == null ? "network or response error" : `HTTP ${status}`}`).join("; ")})`,
+    { providers: failures },
   );
 }
