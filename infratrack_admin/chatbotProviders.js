@@ -111,11 +111,14 @@ function isGeminiChatModel(model) {
 
 function isGroqChatModel(model) {
   return (
-    model.toLowerCase().includes("llama") &&
-    !/(?:3\.1|prompt.?guard|guard|safety|whisper|speech|audio|embedding|vision)/i.test(
+    !/(?:3\.1|prompt.?guard|guard|safety|whisper|speech|audio|embedding|tts|transcri)/i.test(
       model,
     )
   );
+}
+
+function isRetryableModelStatus(status) {
+  return [400, 404, 429, 500, 502, 503].includes(status);
 }
 
 async function requestGemini({ apiKey, model, messages, fetchImpl }) {
@@ -178,7 +181,10 @@ async function requestGeminiWithFallback(options) {
   try {
     return await requestGemini(options);
   } catch (error) {
-    if (!(error instanceof ChatUpstreamError) || error.status !== 404) {
+    if (
+      !(error instanceof ChatUpstreamError) ||
+      !isRetryableModelStatus(error.status)
+    ) {
       throw error;
     }
     const availableModels = await listGeminiModels(
@@ -198,7 +204,7 @@ async function requestGeminiWithFallback(options) {
       } catch (candidateError) {
         if (
           !(candidateError instanceof ChatUpstreamError) ||
-          candidateError.status !== 404
+          !isRetryableModelStatus(candidateError.status)
         ) {
           throw candidateError;
         }
@@ -254,7 +260,10 @@ async function requestGroqWithFallback(options) {
   try {
     return await requestGroqLlama(options);
   } catch (error) {
-    if (!(error instanceof ChatUpstreamError) || error.status !== 404) {
+    if (
+      !(error instanceof ChatUpstreamError) ||
+      !isRetryableModelStatus(error.status)
+    ) {
       throw error;
     }
     const availableModels = await listGroqModels(
@@ -263,8 +272,10 @@ async function requestGroqWithFallback(options) {
     );
     const candidates = [
       options.model,
-      "llama-3.3-70b-versatile",
       ...availableModels,
+      "openai/gpt-oss-20b",
+      "openai/gpt-oss-120b",
+      "llama-3.3-70b-versatile",
     ].filter((model, index, all) => model && all.indexOf(model) === index);
     let lastError = error;
     for (const model of candidates.slice(1)) {
@@ -273,7 +284,7 @@ async function requestGroqWithFallback(options) {
       } catch (candidateError) {
         if (
           !(candidateError instanceof ChatUpstreamError) ||
-          candidateError.status !== 404
+          !isRetryableModelStatus(candidateError.status)
         ) {
           throw candidateError;
         }

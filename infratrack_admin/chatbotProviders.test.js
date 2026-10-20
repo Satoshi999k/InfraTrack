@@ -166,6 +166,45 @@ test("discovers an available Gemini model after a configured model returns 404",
   );
 });
 
+test("discovers another Gemini model when the default model is temporarily unavailable", async () => {
+  const requestedModels = [];
+  const reply = await generateChatReply({
+    messages,
+    env: { GEMINI_API_KEY: "gemini-test" },
+    fetchImpl: async (url) => {
+      const generationMatch = url.match(/models\/([^/:?]+):generateContent/);
+      if (generationMatch) {
+        requestedModels.push(decodeURIComponent(generationMatch[1]));
+        return requestedModels.length === 1
+          ? { ok: false, status: 503 }
+          : {
+              ok: true,
+              json: async () => ({
+                candidates: [{ content: { parts: [{ text: "Use the report form." }] } }],
+              }),
+            };
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          models: [
+            {
+              name: "models/gemini-2.5-flash-lite",
+              supportedGenerationMethods: ["generateContent"],
+            },
+          ],
+        }),
+      };
+    },
+  });
+
+  assert.equal(reply, "Use the report form.");
+  assert.deepEqual(requestedModels, [
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+  ]);
+});
+
 test("falls back to a Llama model on Groq when Gemini is unavailable", async () => {
   const requests = [];
   const reply = await generateChatReply({
@@ -173,7 +212,9 @@ test("falls back to a Llama model on Groq when Gemini is unavailable", async () 
     env: { GEMINI_API_KEY: "gemini-test", GROQ_API_KEY: "groq-test" },
     fetchImpl: async (url, options) => {
       requests.push({ url, options });
-      if (requests.length === 1) return { ok: false, status: 429 };
+      if (url.includes("generativelanguage.googleapis.com")) {
+        return { ok: false, status: 429 };
+      }
       return {
         ok: true,
         json: async () => ({
@@ -184,10 +225,15 @@ test("falls back to a Llama model on Groq when Gemini is unavailable", async () 
   });
 
   assert.equal(reply, "Select Report an issue in the app.");
-  assert.equal(requests.length, 2);
-  assert.match(requests[1].url, /api\.groq\.com/);
+  assert.equal(requests.filter(({ url }) => url.includes("chat/completions")).length, 1);
+  assert.match(
+    requests.find(({ url }) => url.includes("chat/completions")).url,
+    /api\.groq\.com/,
+  );
   assert.equal(
-    JSON.parse(requests[1].options.body).model,
+    JSON.parse(
+      requests.find(({ url }) => url.includes("chat/completions")).options.body,
+    ).model,
     "llama-3.3-70b-versatile",
   );
 });
@@ -298,6 +344,42 @@ test("discovers an available Groq model after configured models return 404", asy
         JSON.parse(options.body).model.startsWith("llama-3.1"),
     ),
   );
+});
+
+test("uses an available Groq GPT chat model when configured Llama models return 404", async () => {
+  const requestedModels = [];
+  const reply = await generateChatReply({
+    messages,
+    env: { GROQ_API_KEY: "groq-test", GROQ_LLAMA_MODEL: "llama-3.3-70b-versatile" },
+    fetchImpl: async (url, options) => {
+      if (url.endsWith("/models")) {
+        return {
+          ok: true,
+          json: async () => ({
+            data: [
+              { id: "meta-llama/llama-prompt-guard-2-86m", active: true },
+              { id: "openai/gpt-oss-20b", active: true },
+            ],
+          }),
+        };
+      }
+      const model = JSON.parse(options.body).model;
+      requestedModels.push(model);
+      if (model === "openai/gpt-oss-20b") {
+        return {
+          ok: true,
+          json: async () => ({
+            choices: [{ message: { content: "Use the InfraTrack report button." } }],
+          }),
+        };
+      }
+      return { ok: false, status: 404 };
+    },
+  });
+
+  assert.equal(reply, "Use the InfraTrack report button.");
+  assert.equal(requestedModels.at(-1), "openai/gpt-oss-20b");
+  assert.ok(!requestedModels.some((model) => model.includes("prompt-guard")));
 });
 
 test("reports an explicit configuration error when no provider key is set", async () => {
