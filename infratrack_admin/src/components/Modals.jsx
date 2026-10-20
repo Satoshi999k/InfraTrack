@@ -27,8 +27,8 @@ import {
 } from "lucide-react";
 import { apiFetch } from "../api";
 
-export function Modal({ data, onClose, onSave, onUserSave, onUserVerification }) {
-  if (data.type === "user") return <UserModal user={data.user} onClose={onClose} onSave={onUserSave} onVerification={onUserVerification} />;
+export function Modal({ data, onClose, onSave, onUserSave, onUserVerification, onFetchUserReports }) {
+  if (data.type === "user") return <UserModal user={data.user} onClose={onClose} onSave={onUserSave} onVerification={onUserVerification} onFetchReports={onFetchUserReports} />;
   if (data.type === "walkin") return <WalkInModal onClose={onClose} onSave={onSave} />;
   if (data.type === "help") return <HelpModal onClose={onClose} />;
   return <IssueModal data={data} onClose={onClose} onSave={onSave} />;
@@ -508,7 +508,7 @@ export function IssueModal({ data, onClose, onSave }) {
   );
 }
 
-export function UserModal({ user, onClose, onSave, onVerification }) {
+export function UserModal({ user, onClose, onSave, onVerification, onFetchReports }) {
   const [standing, setStanding] = useState(user.standing);
   const [selectedAction, setSelectedAction] = useState(null);
   const [reason, setReason] = useState("Spam or duplicate reports");
@@ -518,6 +518,37 @@ export function UserModal({ user, onClose, onSave, onVerification }) {
   const [error, setError] = useState("");
   const [verificationSaving, setVerificationSaving] = useState(false);
   const [verificationError, setVerificationError] = useState("");
+  const [recentReports, setRecentReports] = useState([]);
+  const [reportsLoading, setReportsLoading] = useState(true);
+  const [reportsError, setReportsError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    setReportsLoading(true);
+    setReportsError("");
+    onFetchReports(user.id)
+      .then((reports) => {
+        if (active) setRecentReports(reports);
+      })
+      .catch((loadError) => {
+        if (active) setReportsError(loadError.message || "Could not load recent reports.");
+      })
+      .finally(() => {
+        if (active) setReportsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [user.id, onFetchReports]);
+
+  const retryLoadReports = () => {
+    setReportsLoading(true);
+    setReportsError("");
+    onFetchReports(user.id)
+      .then(setRecentReports)
+      .catch((loadError) => setReportsError(loadError.message || "Could not load recent reports."))
+      .finally(() => setReportsLoading(false));
+  };
 
   const chooseAction = (action) => {
     if (selectedAction === action) {
@@ -600,9 +631,14 @@ export function UserModal({ user, onClose, onSave, onVerification }) {
           </div>
           <div className="verification-image-grid">
             <VerificationImage
-              label={user.id_type || "Government ID"}
-              src={user.id_url}
-              empty="No ID image submitted"
+              label={`${user.id_type || "Government ID"} · front`}
+              src={user.id_front_url}
+              empty="No ID front submitted"
+            />
+            <VerificationImage
+              label={`${user.id_type || "Government ID"} · back`}
+              src={user.id_back_url}
+              empty="No ID back submitted"
             />
             <VerificationImage
               label="Live selfie"
@@ -642,25 +678,27 @@ export function UserModal({ user, onClose, onSave, onVerification }) {
             <h3 className="report-section-title">Recent reports by this resident</h3>
 
             <div className="report-list">
-              <div className="mini-report">
-                <span className="report-icon">
-                  <FileText size={13} />
-                </span>
-                <div>
-                  <b>Deep pothole along Rizal St.</b>
-                  <small>#MT-2026-881 · Aug 2, 2026</small>
+              {reportsLoading ? (
+                <p className="recent-reports-message">Loading recent reports...</p>
+              ) : reportsError ? (
+                <p className="recent-reports-message error" role="alert">
+                  {reportsError} <button type="button" onClick={retryLoadReports}>Retry</button>
+                </p>
+              ) : recentReports.length === 0 ? (
+                <p className="recent-reports-message">This resident has not filed any reports.</p>
+              ) : recentReports.map((report) => (
+                <div className="mini-report" key={report.public_id}>
+                  <span className="report-icon">
+                    <FileText size={13} />
+                  </span>
+                  <div>
+                    <b>{report.title}</b>
+                    <small>
+                      #{report.public_id} · {report.category} · {new Date(report.created_at).toLocaleDateString()}
+                    </small>
+                  </div>
                 </div>
-              </div>
-
-              <div className="mini-report">
-                <span className="report-icon">
-                  <FileText size={13} />
-                </span>
-                <div>
-                  <b>Cracked pavement, Chapel St.</b>
-                  <small>#MT-2026-842 · Jul 15, 2026</small>
-                </div>
-              </div>
+              ))}
             </div>
 
             <div className="moderation-box">

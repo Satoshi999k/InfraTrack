@@ -92,6 +92,15 @@ function getAdminBadge(userName, role) {
   return words.slice(0, 2).map((word) => word[0]).join("").toUpperCase();
 }
 
+async function fetchUserReports(residentId) {
+  const response = await apiFetch(`/users/${residentId}/reports`);
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "Could not load recent reports.");
+  }
+  return data.reports ?? [];
+}
+
 function Dashboard({ user, onLogout }) {
   const userName = user.name || "Operations Team";
   const isBarangayStaff = user.role === "barangay_staff";
@@ -425,6 +434,7 @@ function Dashboard({ user, onLogout }) {
             setUsers((await usersResponse.json()).users ?? []);
             setModal(null);
           }}
+          onFetchUserReports={fetchUserReports}
           onUserSave={async (changes) => {
             const response = await apiFetch(`/users/${modal.user.id}/moderation`, {
               method: "PATCH",

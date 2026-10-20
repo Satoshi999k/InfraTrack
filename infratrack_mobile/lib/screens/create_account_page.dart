@@ -550,6 +550,16 @@ class _VerifyIdPageState extends State<VerifyIdPage> {
       );
       return;
     }
+    if (_backImage == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please upload the back side of your ID.'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: navy,
+        ),
+      );
+      return;
+    }
 
     setState(() => _isProcessing = true);
     if (!mounted) return;
@@ -558,6 +568,7 @@ class _VerifyIdPageState extends State<VerifyIdPage> {
       MaterialPageRoute(
         builder: (_) => SelfieVerificationPage(
           idImage: _frontImage!,
+          idBackImage: _backImage!,
           documentType: _idTypes[_selectedId].$1,
           idFace: null,
           name: widget.name,
@@ -687,7 +698,7 @@ class _VerifyIdPageState extends State<VerifyIdPage> {
                           Expanded(
                             child: _IdUploadBox(
                               label: 'Back side',
-                              sublabel: 'If applicable',
+                              sublabel: 'Required, no glare',
                               image: _backImage,
                               onTap: () => _pickImage(front: false),
                             ),
@@ -915,6 +926,7 @@ class SelfieVerificationPage extends StatefulWidget {
   const SelfieVerificationPage({
     super.key,
     required this.idImage,
+    required this.idBackImage,
     this.documentType = 'identity_document',
     this.idFace,
     this.name,
@@ -927,6 +939,7 @@ class SelfieVerificationPage extends StatefulWidget {
   static const double previewHeight = 620.0;
 
   final XFile idImage;
+  final XFile idBackImage;
   final String documentType;
   final Face? idFace;
   final String? name;
@@ -1397,7 +1410,8 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
           () => _status = 'Account created. Uploading verification securely…',
         );
         await ApiService.submitVerificationDocuments(
-          idImage: widget.idImage,
+          idFrontImage: widget.idImage,
+          idBackImage: widget.idBackImage,
           selfieImage: image,
           documentType: widget.documentType,
         );

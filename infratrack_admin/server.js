@@ -521,10 +521,12 @@ async function initializeDatabase() {
   ) ENGINE=InnoDB`);
   await pool.query(`CREATE TABLE IF NOT EXISTS verification_documents (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, user_id INT UNSIGNED NOT NULL, document_type VARCHAR(60) NOT NULL,
+    document_side VARCHAR(20) NULL,
     file_path VARCHAR(500), status ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending', reviewed_by INT UNSIGNED NULL,
     reviewed_at TIMESTAMP NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT verification_user_fk FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     CONSTRAINT verification_reviewer_fk FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL
   ) ENGINE=InnoDB`);
+  await pool.query("ALTER TABLE verification_documents ADD COLUMN IF NOT EXISTS document_side VARCHAR(20) NULL AFTER document_type");
   await pool.query(`CREATE TABLE IF NOT EXISTS moderation_actions (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, user_id INT UNSIGNED NOT NULL, admin_id INT UNSIGNED NULL,
     action ENUM('warn','suspend','ban','restore') NOT NULL, reason VARCHAR(160) NOT NULL,
@@ -1230,8 +1232,10 @@ app.get("/api/users", async (req, res) => {
   const [users] = await pool.query(`SELECT u.id, u.name, u.email, u.barangay, u.standing, u.verification,
     DATE_FORMAT(u.created_at, '%b %Y') AS joined, COUNT(DISTINCT r.id) AS reports,
     MAX(CASE WHEN vd.document_type = 'selfie' THEN vd.file_path END) AS selfie_path,
-    MAX(CASE WHEN vd.document_type <> 'selfie' THEN vd.file_path END) AS id_path,
-    MAX(CASE WHEN vd.document_type <> 'selfie' THEN vd.document_type END) AS id_type
+    MAX(CASE WHEN vd.document_side = 'front' THEN vd.file_path END) AS id_front_path,
+    MAX(CASE WHEN vd.document_side = 'back' THEN vd.file_path END) AS id_back_path,
+    MAX(CASE WHEN vd.document_side IS NULL AND vd.document_type <> 'selfie' THEN vd.file_path END) AS legacy_id_path,
+    MAX(CASE WHEN vd.document_side = 'front' OR (vd.document_side IS NULL AND vd.document_type <> 'selfie') THEN vd.document_type END) AS id_type
     FROM users u
     LEFT JOIN reports r ON r.reporter_id = u.id
     LEFT JOIN verification_documents vd ON vd.user_id = u.id
@@ -1239,42 +1243,72 @@ app.get("/api/users", async (req, res) => {
     GROUP BY u.id ORDER BY u.created_at DESC`, barangayFilter ? [viewer.barangay] : []);
   for (const user of users) {
     user.selfie_url = publicMediaUrl(req, user.selfie_path);
-    user.id_url = publicMediaUrl(req, user.id_path);
+    user.id_front_url = publicMediaUrl(req, user.id_front_path || user.legacy_id_path);
+    user.id_back_url = publicMediaUrl(req, user.id_back_path);
     delete user.selfie_path;
-    delete user.id_path;
+    delete user.id_front_path;
+    delete user.id_back_path;
+    delete user.legacy_id_path;
   }
   res.json({ users });
 });
 
+app.get("/api/users/:id/reports", async (req, res) => {
+  const userId = Number(req.params.id);
+  if (!Number.isInteger(userId) || userId < 1) {
+    return res.status(400).json({ error: "A valid resident account is required." });
+  }
+  const [[resident]] = await pool.query(
+    "SELECT id, barangay FROM users WHERE id = ? AND role = 'resident'",
+    [userId],
+  );
+  if (!resident) return res.status(404).json({ error: "Resident account not found." });
+  if (req.auth?.role === "barangay_staff" && req.auth.barangay !== resident.barangay) {
+    return res.status(403).json({ error: "You can only view residents in your barangay." });
+  }
+
+  const [reports] = await pool.query(
+    `SELECT public_id, title, category, location, status, created_at
+      FROM reports WHERE reporter_id = ? ORDER BY created_at DESC LIMIT 5`,
+    [resident.id],
+  );
+  res.json({ reports });
+});
+
 app.post("/api/mobile/verification-documents", (req, res, next) => {
   upload.fields([
-    { name: "idImage", maxCount: 1 },
+    { name: "idFrontImage", maxCount: 1 },
+    { name: "idBackImage", maxCount: 1 },
     { name: "selfieImage", maxCount: 1 },
   ])(req, res, async (error) => {
     if (error) {
       return res.status(400).json({ error: error.message || "Could not upload verification images." });
     }
     try {
-      const idFile = req.files?.idImage?.[0];
+      const idFrontFile = req.files?.idFrontImage?.[0];
+      const idBackFile = req.files?.idBackImage?.[0];
       const selfieFile = req.files?.selfieImage?.[0];
-      if (!idFile || !selfieFile) {
-        return res.status(400).json({ error: "Both the ID image and selfie are required." });
+      if (!idFrontFile || !idBackFile || !selfieFile) {
+        return res.status(400).json({ error: "Both sides of the government ID and the live selfie are required." });
       }
       if (process.env.VERCEL && !hasCloudinaryStorage && !hasSignedCloudinaryStorage) {
         return res.status(503).json({
           error: "Media storage is not configured. Set Cloudinary storage variables before submitting verification documents.",
         });
       }
-      const idUrl = await uploadToCloudinary(idFile);
+      const idFrontUrl = await uploadToCloudinary(idFrontFile);
+      const idBackUrl = await uploadToCloudinary(idBackFile);
       const selfieUrl = await uploadToCloudinary(selfieFile);
-      if (idUrl) await removeTemporaryUpload(idFile);
+      if (idFrontUrl) await removeTemporaryUpload(idFrontFile);
+      if (idBackUrl) await removeTemporaryUpload(idBackFile);
       if (selfieUrl) await removeTemporaryUpload(selfieFile);
-      const storedIdUrl = idUrl || `/uploads/${idFile.filename}`;
+      const storedIdFrontUrl = idFrontUrl || `/uploads/${idFrontFile.filename}`;
+      const storedIdBackUrl = idBackUrl || `/uploads/${idBackFile.filename}`;
       const storedSelfieUrl = selfieUrl || `/uploads/${selfieFile.filename}`;
       const documentType = String(req.body?.documentType || "identity_document").trim().slice(0, 60);
       await pool.query(
-        "INSERT INTO verification_documents (user_id, document_type, file_path) VALUES (?, ?, ?), (?, 'selfie', ?)",
-        [req.auth.id, documentType, storedIdUrl, req.auth.id, storedSelfieUrl],
+        "INSERT INTO verification_documents (user_id, document_type, document_side, file_path) VALUES (?, ?, 'front', ?), (?, ?, 'back', ?), (?, 'selfie', 'selfie', ?)",
+        [req.auth.id, documentType, storedIdFrontUrl, req.auth.id, documentType, storedIdBackUrl, req.auth.id, storedSelfieUrl],
       );
       await pool.query("UPDATE users SET verification = 'Pending ID match' WHERE id = ?", [req.auth.id]);
       res.status(201).json({ ok: true });

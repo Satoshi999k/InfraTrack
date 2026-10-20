@@ -28,7 +28,12 @@ void main() {
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
-      MaterialApp(home: SelfieVerificationPage(idImage: XFile('test.jpg'))),
+      MaterialApp(
+        home: SelfieVerificationPage(
+          idImage: XFile('test-front.jpg'),
+          idBackImage: XFile('test-back.jpg'),
+        ),
+      ),
     );
 
     await tester.pumpAndSettle();

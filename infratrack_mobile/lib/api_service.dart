@@ -239,7 +239,8 @@ class ApiService {
   }
 
   static Future<void> submitVerificationDocuments({
-    required XFile idImage,
+    required XFile idFrontImage,
+    required XFile idBackImage,
     required XFile selfieImage,
     required String documentType,
   }) async {
@@ -258,9 +259,22 @@ class ApiService {
           ..fields['documentType'] = documentType
           ..files.add(
             await http.MultipartFile.fromPath(
-              'idImage',
-              idImage.path,
-              contentType: MediaType('image', _imageExtension(idImage.path)),
+              'idFrontImage',
+              idFrontImage.path,
+              contentType: MediaType(
+                'image',
+                _imageExtension(idFrontImage.path),
+              ),
+            ),
+          )
+          ..files.add(
+            await http.MultipartFile.fromPath(
+              'idBackImage',
+              idBackImage.path,
+              contentType: MediaType(
+                'image',
+                _imageExtension(idBackImage.path),
+              ),
             ),
           )
           ..files.add(
