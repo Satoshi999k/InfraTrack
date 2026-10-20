@@ -96,9 +96,117 @@ class InfraTrackApp extends StatelessWidget {
           ),
         ),
       ),
+      builder: (context, child) => ValueListenableBuilder<String?>(
+        valueListenable: ApiService.connectionIssue,
+        builder: (context, issue, _) => Stack(
+          fit: StackFit.expand,
+          children: [
+            ?child,
+            if (issue != null)
+              _ConnectionUnavailablePage(
+                message: issue,
+                onRetry: ApiService.checkServerConnection,
+              ),
+          ],
+        ),
+      ),
       home: const AppLoadingPage(),
     );
   }
+}
+
+class _ConnectionUnavailablePage extends StatefulWidget {
+  const _ConnectionUnavailablePage({
+    required this.message,
+    required this.onRetry,
+  });
+
+  final String message;
+  final Future<void> Function() onRetry;
+
+  @override
+  State<_ConnectionUnavailablePage> createState() =>
+      _ConnectionUnavailablePageState();
+}
+
+class _ConnectionUnavailablePageState
+    extends State<_ConnectionUnavailablePage> {
+  bool _checking = false;
+
+  Future<void> _retry() async {
+    if (_checking) return;
+    setState(() => _checking = true);
+    try {
+      await widget.onRetry();
+    } on Exception {
+      // The API service keeps the connection message visible when retry fails.
+    } finally {
+      if (mounted) setState(() => _checking = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: sand,
+    body: SafeArea(
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 34, vertical: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Image.asset(
+                'assets/chatbot_character/chatbot_face/profile.png',
+                width: 190,
+                height: 190,
+                fit: BoxFit.contain,
+                semanticLabel: 'InfraTrack mascot',
+              ),
+              const SizedBox(height: 18),
+              Text(
+                'We can’t reach InfraTrack',
+                textAlign: TextAlign.center,
+                style: infraHeading(
+                  color: navy,
+                  fontSize: 23,
+                  weight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                widget.message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: inkSoft,
+                  fontSize: 14,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 20),
+              TextButton.icon(
+                onPressed: _checking ? null : _retry,
+                icon: _checking
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: teal,
+                        ),
+                      )
+                    : const Icon(Icons.refresh_rounded),
+                label: Text(_checking ? 'Checking connection…' : 'Try again'),
+                style: TextButton.styleFrom(
+                  foregroundColor: teal,
+                  textStyle: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class AppLoadingPage extends StatefulWidget {

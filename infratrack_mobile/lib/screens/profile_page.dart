@@ -59,11 +59,8 @@ class _ProfilePageState extends State<ProfilePage> {
       );
       return;
     }
-    final nameController = TextEditingController(
-      text: _profile['name'] as String? ?? '',
-    );
-    XFile? selectedImage = _profileImage;
-    final result = await showDialog<(String, XFile?)>(
+    XFile? selectedImage;
+    final result = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: sand,
@@ -143,18 +140,30 @@ class _ProfilePageState extends State<ProfilePage> {
                     CircleAvatar(
                       radius: 38,
                       backgroundColor: const Color(0xFF2A6C7C),
-                      backgroundImage: selectedImage == null
+                      backgroundImage: selectedImage != null
+                          ? FileImage(File(selectedImage!.path))
+                          : publicMediaUrl(_profile['avatar_url'] as String?) ==
+                                null
                           ? null
-                          : FileImage(File(selectedImage!.path)),
+                          : NetworkImage(
+                              publicMediaUrl(
+                                _profile['avatar_url'] as String?,
+                              )!,
+                            ),
                       child: selectedImage == null
-                          ? Text(
-                              _initialsFor(_profile['name']?.toString() ?? ''),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 22,
-                              ),
-                            )
+                          ? publicMediaUrl(_profile['avatar_url'] as String?) !=
+                                    null
+                                ? null
+                                : Text(
+                                    _initialsFor(
+                                      _profile['name']?.toString() ?? '',
+                                    ),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 22,
+                                    ),
+                                  )
                           : null,
                     ),
                     Container(
@@ -178,12 +187,43 @@ class _ProfilePageState extends State<ProfilePage> {
                 style: TextStyle(color: inkSoft, fontSize: 11),
               ),
               const SizedBox(height: 14),
-              TextField(
-                controller: nameController,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(
-                  labelText: 'Display name',
-                  prefixIcon: Icon(Icons.person_outline),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 14,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: line),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.person_outline, color: inkSoft),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Display name',
+                            style: TextStyle(color: inkSoft, fontSize: 10),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            _profile['name']?.toString() ?? '',
+                            style: const TextStyle(
+                              color: ink,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.lock_outline, color: inkSoft, size: 17),
+                  ],
                 ),
               ),
             ],
@@ -195,34 +235,26 @@ class _ProfilePageState extends State<ProfilePage> {
             child: const Text('Cancel', style: TextStyle(color: teal)),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, (
-              nameController.text.trim(),
-              selectedImage,
-            )),
+            onPressed: selectedImage == null
+                ? null
+                : () => Navigator.pop(dialogContext, true),
             style: FilledButton.styleFrom(backgroundColor: clay),
             child: const Text('Save changes'),
           ),
         ],
       ),
     );
-    nameController.dispose();
-    if (result != null && result.$1.isNotEmpty && context.mounted) {
+    if (result == true && selectedImage != null && context.mounted) {
       try {
-        final updated = await ApiService.updateProfile(
-          name: result.$1,
-          mobile: _profile['mobile'] as String? ?? '',
-          barangay: _profile['barangay'] as String? ?? 'Mati City',
-        );
+        final updated = await ApiService.uploadProfilePhoto(selectedImage!);
         if (context.mounted) {
           setState(() {
             _profile = updated;
-            _profileImage = result.$2;
+            _profileImage = null;
           });
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text(
-                'Your name was saved. Your photo remains on this device.',
-              ),
+              content: Text('Your profile photo was saved to your account.'),
             ),
           );
         }
@@ -746,6 +778,7 @@ class _ProfileHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = profile['name']?.toString() ?? 'Guest';
+    final avatarUrl = publicMediaUrl(profile['avatar_url']?.toString());
     final barangay = profile['barangay']?.toString() ?? 'Mati City';
     final createdAt = DateTime.tryParse(
       profile['created_at']?.toString() ?? '',
@@ -811,7 +844,11 @@ class _ProfileHeader extends StatelessWidget {
               SizedBox(height: 14),
               Row(
                 children: [
-                  _ProfileAvatar(image: profileImage, name: name),
+                  _ProfileAvatar(
+                    image: profileImage,
+                    avatarUrl: avatarUrl,
+                    name: name,
+                  ),
                   SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -866,9 +903,10 @@ class _ProfileHeader extends StatelessWidget {
 }
 
 class _ProfileAvatar extends StatelessWidget {
-  const _ProfileAvatar({required this.name, this.image});
+  const _ProfileAvatar({required this.name, this.image, this.avatarUrl});
   final String name;
   final XFile? image;
+  final String? avatarUrl;
   @override
   Widget build(BuildContext context) => SizedBox(
     width: 62,
@@ -884,10 +922,12 @@ class _ProfileAvatar extends StatelessWidget {
           child: CircleAvatar(
             radius: 29,
             backgroundColor: Color(0xFF2A6C7C),
-            backgroundImage: image == null
-                ? null
-                : FileImage(File(image!.path)),
-            child: image == null
+            backgroundImage: image != null
+                ? FileImage(File(image!.path))
+                : avatarUrl != null
+                ? NetworkImage(avatarUrl!)
+                : null,
+            child: image == null && avatarUrl == null
                 ? Text(
                     _initialsFor(name),
                     style: const TextStyle(

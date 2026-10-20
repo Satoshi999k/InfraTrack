@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:infatrack/api_service.dart';
 import 'package:infatrack/main.dart';
 
 void main() {
@@ -77,5 +78,20 @@ void main() {
     await tester.tap(resolvedFilter);
     await tester.pumpAndSettle();
     expect(tester.widget<FilterChip>(resolvedFilter).selected, isTrue);
+  });
+
+  testWidgets('connection failure replaces app content with the mascot state', (
+    WidgetTester tester,
+  ) async {
+    ApiService.connectionIssue.value = 'Could not connect to InfraTrack. Check your internet connection and try again.';
+    await tester.pumpWidget(const InfraTrackApp());
+    await tester.pump();
+
+    expect(find.text('We can’t reach InfraTrack'), findsOneWidget);
+    expect(find.text('Try again'), findsOneWidget);
+    expect(find.byType(NavigationBar), findsNothing);
+
+    ApiService.connectionIssue.value = null;
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 }

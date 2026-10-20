@@ -50,6 +50,9 @@ class ApiService {
   static String? _sessionToken;
   static final ValueNotifier<int> sessionExpired = ValueNotifier<int>(0);
   static final ValueNotifier<int> accountBanned = ValueNotifier<int>(0);
+  static final ValueNotifier<String?> connectionIssue = ValueNotifier<String?>(
+    null,
+  );
   static String? _sessionNotice;
 
   static bool get isSignedIn => _sessionToken != null;
@@ -146,16 +149,20 @@ class ApiService {
           .timeout(const Duration(seconds: 30));
       final response = await http.Response.fromStream(streamedResponse)
           .timeout(const Duration(seconds: 30));
+      connectionIssue.value = null;
       return _decodeResponse(response);
     } on SocketException {
+      connectionIssue.value = 'Could not connect to InfraTrack. Check your internet connection and try again.';
       throw Exception(
         'Unable to reach the backend server. Check your internet connection and API server status.',
       );
     } on http.ClientException {
+      connectionIssue.value = 'Could not connect to InfraTrack. Check your internet connection and try again.';
       throw Exception(
         'Unable to reach the backend server. Check your internet connection and API server status.',
       );
     } on TimeoutException {
+      connectionIssue.value = 'The server took too long to respond. Check your connection and try again.';
       throw Exception('The server took too long to respond. Please try again.');
     } finally {
       client.close();
@@ -354,6 +361,14 @@ class ApiService {
   static Future<Map<String, dynamic>> overview() =>
       _request('GET', '/mobile/overview');
 
+  static Future<void> checkServerConnection() async {
+    try {
+      await _request('GET', '/health');
+    } on Exception {
+      if (connectionIssue.value == null) rethrow;
+    }
+  }
+
   static Future<List<Map<String, dynamic>>> advisories() async =>
       _readList(await _request('GET', '/mobile/advisories'), 'advisories');
 
@@ -410,6 +425,55 @@ class ApiService {
     currentUser = Map<String, dynamic>.from(body['user'] as Map);
     await _persistSession();
     return currentUser!;
+  }
+
+  static Future<Map<String, dynamic>> uploadProfilePhoto(XFile photo) async {
+    if (_sessionToken == null) {
+      throw Exception('Please sign in before changing your profile photo.');
+    }
+    final request =
+        http.MultipartRequest(
+            'POST',
+            Uri.parse('$apiBaseUrl/mobile/profile/photo'),
+          )
+          ..headers['Accept'] = 'application/json'
+          ..headers['Authorization'] = '******'
+          ..files.add(
+            await http.MultipartFile.fromPath(
+              'photo',
+              photo.path,
+              filename: 'profile-photo.jpg',
+              contentType: MediaType('image', 'jpeg'),
+            ),
+          );
+    final client = http.Client();
+    try {
+      final streamedResponse = await client
+          .send(request)
+          .timeout(const Duration(seconds: 60));
+      final response = await http.Response.fromStream(streamedResponse)
+          .timeout(const Duration(seconds: 60));
+      connectionIssue.value = null;
+      final body = _decodeResponse(response);
+      currentUser = Map<String, dynamic>.from(body['user'] as Map);
+      await _persistSession();
+      return currentUser!;
+    } on SocketException {
+      connectionIssue.value = 'Could not connect to InfraTrack. Check your internet connection and try again.';
+      throw Exception(
+        'Unable to reach the backend server. Check your internet connection and API server status.',
+      );
+    } on http.ClientException {
+      connectionIssue.value = 'Could not connect to InfraTrack. Check your internet connection and try again.';
+      throw Exception(
+        'Unable to reach the backend server. Check your internet connection and API server status.',
+      );
+    } on TimeoutException {
+      connectionIssue.value = 'The server took too long to respond. Check your connection and try again.';
+      throw Exception('The upload took too long. Please try again.');
+    } finally {
+      client.close();
+    }
   }
 
   static Future<Map<String, dynamic>> preferences() async {
@@ -502,16 +566,20 @@ class ApiService {
           .timeout(const Duration(seconds: 60));
       final response = await http.Response.fromStream(streamedResponse)
           .timeout(const Duration(seconds: 60));
+      connectionIssue.value = null;
       return _decodeResponse(response)['url'] as String;
     } on SocketException {
+      connectionIssue.value = 'Could not connect to InfraTrack. Check your internet connection and try again.';
       throw Exception(
         'Unable to reach the backend server. Check your internet connection and API server status.',
       );
     } on http.ClientException {
+      connectionIssue.value = 'Could not connect to InfraTrack. Check your internet connection and try again.';
       throw Exception(
         'Unable to reach the backend server. Check your internet connection and API server status.',
       );
     } on TimeoutException {
+      connectionIssue.value = 'The server took too long to respond. Check your connection and try again.';
       throw Exception('The upload took too long. Please try again.');
     } finally {
       client.close();

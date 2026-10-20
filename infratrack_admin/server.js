@@ -82,6 +82,16 @@ const upload = multer({
     callback(new Error("Unsupported file type. Please upload an image or video."));
   },
 });
+const profilePhotoUpload = multer({
+  storage: uploadStorage,
+  limits: { fileSize: 8 * 1024 * 1024 },
+  fileFilter: (_req, file, callback) => {
+    if (["image/jpeg", "image/png", "image/webp"].includes(file.mimetype)) {
+      return callback(null, true);
+    }
+    callback(new Error("Choose a JPG, PNG, or WebP profile photo."));
+  },
+});
 const cloudinaryCloudName = String(process.env.CLOUDINARY_CLOUD_NAME || "").trim();
 const cloudinaryUploadPreset = String(process.env.CLOUDINARY_UPLOAD_PRESET || "").trim();
 const cloudinaryApiKey = String(process.env.CLOUDINARY_API_KEY || "").trim();
@@ -92,12 +102,12 @@ const cloudinaryMediaHost = cloudinaryCloudName
   ? `res.cloudinary.com`
   : "";
 
-async function uploadToCloudinary(file) {
+async function uploadToCloudinary(file, folder = "infratrack/advisories") {
   const form = new FormData();
   form.append("file", new Blob([await fs.promises.readFile(file.path)], { type: file.mimetype }), file.originalname);
   form.append("resource_type", "auto");
   const uploadParameters = {
-    folder: "infratrack/advisories",
+    folder,
     timestamp: Math.floor(Date.now() / 1000).toString(),
   };
 
@@ -445,11 +455,13 @@ async function initializeDatabase() {
   await pool.query(`CREATE TABLE IF NOT EXISTS users (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, name VARCHAR(160) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE, mobile VARCHAR(40), barangay VARCHAR(120),
+    avatar_url VARCHAR(500) NULL,
     password_hash VARCHAR(255) NOT NULL, role ENUM('resident','admin','lgu','barangay_staff') NOT NULL DEFAULT 'resident',
     standing VARCHAR(30) NOT NULL DEFAULT 'Active', verification VARCHAR(40) NOT NULL DEFAULT 'Pending ID match',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
   ) ENGINE=InnoDB`);
   await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS suspended_until DATETIME NULL");
+  await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(500) NULL");
   await pool.query("UPDATE users SET standing = 'Active' WHERE standing = 'Warned'");
   await pool.query("ALTER TABLE users MODIFY COLUMN password_hash VARCHAR(255) NOT NULL");
   await pool.query(`CREATE TABLE IF NOT EXISTS reports (
@@ -1041,10 +1053,11 @@ app.patch("/api/mobile/notifications/:id/read", async (req, res) => {
 });
 app.get("/api/mobile/profile", async (req, res) => {
   const [users] = await pool.query(
-    "SELECT id, name, email, mobile, barangay, role, standing, suspended_until, verification, created_at FROM users WHERE id = ?",
+    "SELECT id, name, email, mobile, barangay, avatar_url, role, standing, suspended_until, verification, created_at FROM users WHERE id = ?",
     [req.auth.id],
   );
   if (!users[0]) return res.status(404).json({ error: "Account not found" });
+  users[0].avatar_url = publicMediaUrl(req, users[0].avatar_url);
   res.json({ user: users[0] });
 });
 app.patch("/api/mobile/profile", async (req, res) => {
@@ -1055,12 +1068,69 @@ app.patch("/api/mobile/profile", async (req, res) => {
     [String(name).trim(), String(mobile ?? "").trim(), String(barangay ?? "").trim(), req.auth.id],
   );
   const [users] = await pool.query(
-    "SELECT id, name, email, mobile, barangay, role, standing, suspended_until, verification, created_at FROM users WHERE id = ?",
+    "SELECT id, name, email, mobile, barangay, avatar_url, role, standing, suspended_until, verification, created_at FROM users WHERE id = ?",
     [req.auth.id],
   );
+  users[0].avatar_url = publicMediaUrl(req, users[0].avatar_url);
   req.auth = { ...req.auth, ...users[0] };
   res.json({ user: users[0] });
 });
+app.post(
+  "/api/mobile/profile/photo",
+  (req, res, next) => {
+    profilePhotoUpload.single("photo")(req, res, (error) => {
+      if (error) {
+        const status = error.code === "LIMIT_FILE_SIZE" ? 413 : 400;
+        return res.status(status).json({
+          error:
+            error.code === "LIMIT_FILE_SIZE"
+              ? "Profile photos must be 8 MB or smaller."
+              : error.message,
+        });
+      }
+      next();
+    });
+  },
+  async (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({ error: "Choose a profile photo to upload." });
+    }
+
+    try {
+      const cloudinaryUrl = await uploadToCloudinary(
+        req.file,
+        "infratrack/profile-photos",
+      );
+      if ((process.env.VERCEL || process.env.RENDER) && !cloudinaryUrl) {
+        await removeTemporaryUpload(req.file);
+        return res.status(503).json({
+          error:
+            "Persistent profile-photo storage is not configured for this deployment.",
+        });
+      }
+      const avatarUrl =
+        cloudinaryUrl || `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
+      if (cloudinaryUrl) await removeTemporaryUpload(req.file);
+      await pool.query("UPDATE users SET avatar_url = ? WHERE id = ?", [
+        avatarUrl,
+        req.auth.id,
+      ]);
+      const [users] = await pool.query(
+        "SELECT id, name, email, mobile, barangay, avatar_url, role, standing, suspended_until, verification, created_at FROM users WHERE id = ?",
+        [req.auth.id],
+      );
+      users[0].avatar_url = publicMediaUrl(req, users[0].avatar_url);
+      req.auth = { ...req.auth, ...users[0] };
+      res.json({ user: users[0] });
+    } catch (error) {
+      await removeTemporaryUpload(req.file);
+      console.error("Unable to save profile photo:", error.message);
+      res.status(502).json({
+        error: "Could not save the profile photo. Please try again.",
+      });
+    }
+  },
+);
 app.get("/api/mobile/preferences", async (req, res) => {
   await pool.query("INSERT IGNORE INTO user_preferences (user_id) VALUES (?)", [req.auth.id]);
   const [preferences] = await pool.query(
