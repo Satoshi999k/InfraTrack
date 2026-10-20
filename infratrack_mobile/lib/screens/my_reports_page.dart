@@ -114,184 +114,59 @@ class _MyReportsPageState extends State<MyReportsPage> {
       backgroundColor: sand,
       body: SafeArea(
         child: PageEntrance(
-          child: AppScroll(
+          child: RefreshIndicator(
+            color: teal,
+            backgroundColor: Colors.white,
             onRefresh: _loadReports,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Material(
-                      color: Colors.white.withValues(alpha: .72),
-                      shape: const CircleBorder(),
-                      child: IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        tooltip: 'Back',
-                        icon: const Icon(Icons.arrow_back, color: navy),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'ACTIVITY CENTER',
-                            style: TextStyle(
-                              color: teal,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.1,
-                            ),
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
+              ),
+              slivers: [
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: _MyReportsHeaderDelegate(
+                    filter: filter,
+                    totalCount: _serverReports.length,
+                    openCount: openCount,
+                    resolvedCount: resolvedCount,
+                    visibleCount: visible.length,
+                    onBack: () => Navigator.pop(context),
+                    onFilterChanged: (value) => setState(() => filter = value),
+                  ),
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate([
+                      if (_loading)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 24),
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      else if (_loadError != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 24),
+                          child: Text(
+                            _loadError!,
+                            style: const TextStyle(color: clay),
                           ),
-                          Text(
-                            'My reports',
-                            style: infraHeading(
-                              color: navy,
-                              fontSize: 24,
-                              weight: FontWeight.w800,
-                            ),
+                        )
+                      else if (visible.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 24),
+                          child: Text(
+                            ApiService.isSignedIn
+                                ? 'You have not submitted any reports yet.'
+                                : 'Sign in to see your reports.',
+                            style: const TextStyle(color: inkSoft),
                           ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const Padding(
-                  padding: EdgeInsets.only(left: 4, top: 2, bottom: 18),
-                  child: Text(
-                    'Your contribution to a safer, better Mati City.',
-                    style: TextStyle(color: inkSoft, fontSize: 12, height: 1.3),
+                        )
+                      else
+                        ...visible.map((item) => _MyReportCard(report: item)),
+                    ]),
                   ),
                 ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _ReportSummary(
-                        number: '${_serverReports.length}',
-                        label: 'Total',
-                        color: navy,
-                      ),
-                    ),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: _ReportSummary(
-                        number: '$openCount',
-                        label: 'Open',
-                        color: clay,
-                      ),
-                    ),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: _ReportSummary(
-                        number: '$resolvedCount',
-                        label: 'Resolved',
-                        color: green,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                const Padding(
-                  padding: EdgeInsets.only(left: 4, bottom: 9),
-                  child: Text(
-                    'FILTER BY STATUS',
-                    style: TextStyle(
-                      color: inkSoft,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                ),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  clipBehavior: Clip.none,
-                  child: Row(
-                    children:
-                        [
-                              'All',
-                              'Reported',
-                              'Verified by inspector',
-                              'In progress',
-                              'Scheduled for repair',
-                              'Resolved',
-                            ]
-                            .map(
-                              (item) => Padding(
-                                padding: const EdgeInsets.only(right: 8),
-                                child: FilterChip(
-                                  label: Text(item),
-                                  selected: filter == item,
-                                  showCheckmark: false,
-                                  onSelected: (_) =>
-                                      setState(() => filter = item),
-                                  selectedColor: navy.withValues(alpha: .94),
-                                  backgroundColor: Colors.transparent,
-                                  side: BorderSide(
-                                    color: filter == item ? navy : line,
-                                  ),
-                                  shape: const StadiumBorder(),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 5,
-                                    vertical: 2,
-                                  ),
-                                  materialTapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                  visualDensity: const VisualDensity(
-                                    horizontal: -2,
-                                    vertical: -2,
-                                  ),
-                                  labelStyle: TextStyle(
-                                    color: filter == item
-                                        ? Colors.white
-                                        : inkSoft,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      'RECENT REPORTS',
-                      style: infraHeading(
-                        color: navy,
-                        fontSize: 13,
-                        weight: FontWeight.w800,
-                      ),
-                    ),
-                    Text(
-                      '${visible.length} shown',
-                      style: const TextStyle(color: inkSoft, fontSize: 10),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                if (_loading)
-                  const Center(child: CircularProgressIndicator())
-                else if (_loadError != null)
-                  Text(_loadError!, style: const TextStyle(color: clay))
-                else if (visible.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 24),
-                    child: Text(
-                      ApiService.isSignedIn
-                          ? 'You have not submitted any reports yet.'
-                          : 'Sign in to see your reports.',
-                      style: const TextStyle(color: inkSoft),
-                    ),
-                  )
-                else
-                  ...visible.map((item) => _MyReportCard(report: item)),
               ],
             ),
           ),
@@ -299,6 +174,219 @@ class _MyReportsPageState extends State<MyReportsPage> {
       ),
     );
   }
+}
+
+class _MyReportsHeaderDelegate extends SliverPersistentHeaderDelegate {
+  const _MyReportsHeaderDelegate({
+    required this.filter,
+    required this.totalCount,
+    required this.openCount,
+    required this.resolvedCount,
+    required this.visibleCount,
+    required this.onBack,
+    required this.onFilterChanged,
+  });
+
+  static const double _extent = 300;
+
+  final String filter;
+  final int totalCount;
+  final int openCount;
+  final int resolvedCount;
+  final int visibleCount;
+  final VoidCallback onBack;
+  final ValueChanged<String> onFilterChanged;
+
+  static const _filters = [
+    ('All', Icons.filter_list_rounded),
+    ('Reported', Icons.assignment_outlined),
+    ('Verified by inspector', Icons.verified_outlined),
+    ('In progress', Icons.autorenew_rounded),
+    ('Scheduled for repair', Icons.calendar_month_outlined),
+    ('Resolved', Icons.check_circle_outline_rounded),
+  ];
+
+  @override
+  double get minExtent => _extent;
+
+  @override
+  double get maxExtent => _extent;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) => Material(
+    color: sand,
+    elevation: overlapsContent ? 3 : 0,
+    shadowColor: navy.withValues(alpha: .12),
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Material(
+                color: Colors.white.withValues(alpha: .72),
+                shape: const CircleBorder(),
+                child: IconButton(
+                  onPressed: onBack,
+                  tooltip: 'Back',
+                  icon: const Icon(Icons.arrow_back, color: navy),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'ACTIVITY CENTER',
+                      style: TextStyle(
+                        color: teal,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+                    Text(
+                      'My reports',
+                      style: infraHeading(
+                        color: navy,
+                        fontSize: 24,
+                        weight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const Padding(
+            padding: EdgeInsets.only(left: 4, top: 2, bottom: 18),
+            child: Text(
+              'Your contribution to a safer, better Mati City.',
+              style: TextStyle(color: inkSoft, fontSize: 12, height: 1.3),
+            ),
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: _ReportSummary(
+                  number: '$totalCount',
+                  label: 'Total',
+                  color: navy,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ReportSummary(
+                  number: '$openCount',
+                  label: 'Open',
+                  color: clay,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ReportSummary(
+                  number: '$resolvedCount',
+                  label: 'Resolved',
+                  color: green,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          const Padding(
+            padding: EdgeInsets.only(left: 4, bottom: 9),
+            child: Text(
+              'FILTER BY STATUS',
+              style: TextStyle(
+                color: inkSoft,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1,
+              ),
+            ),
+          ),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            clipBehavior: Clip.none,
+            child: Row(
+              children: _filters
+                  .map(
+                    (item) => Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: FilterChip(
+                        avatar: Icon(
+                          item.$2,
+                          size: 16,
+                          color: filter == item.$1 ? Colors.white : inkSoft,
+                        ),
+                        label: Text(item.$1),
+                        selected: filter == item.$1,
+                        showCheckmark: false,
+                        onSelected: (_) => onFilterChanged(item.$1),
+                        selectedColor: navy.withValues(alpha: .94),
+                        backgroundColor: Colors.transparent,
+                        side: BorderSide(
+                          color: filter == item.$1 ? navy : line,
+                        ),
+                        shape: const StadiumBorder(),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 2,
+                        ),
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: const VisualDensity(
+                          horizontal: -2,
+                          vertical: -2,
+                        ),
+                        labelStyle: TextStyle(
+                          color: filter == item.$1 ? Colors.white : inkSoft,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                'RECENT REPORTS',
+                style: infraHeading(
+                  color: navy,
+                  fontSize: 13,
+                  weight: FontWeight.w800,
+                ),
+              ),
+              Text(
+                '$visibleCount shown',
+                style: const TextStyle(color: inkSoft, fontSize: 10),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
+
+  @override
+  bool shouldRebuild(covariant _MyReportsHeaderDelegate oldDelegate) =>
+      filter != oldDelegate.filter ||
+      totalCount != oldDelegate.totalCount ||
+      openCount != oldDelegate.openCount ||
+      resolvedCount != oldDelegate.resolvedCount ||
+      visibleCount != oldDelegate.visibleCount;
 }
 
 class _ReportSummary extends StatelessWidget {

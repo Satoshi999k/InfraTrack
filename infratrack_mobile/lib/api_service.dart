@@ -50,10 +50,16 @@ class ApiService {
   static String? _sessionToken;
   static final ValueNotifier<int> sessionExpired = ValueNotifier<int>(0);
   static final ValueNotifier<int> accountBanned = ValueNotifier<int>(0);
+  static final ValueNotifier<int> notificationReadRevision = ValueNotifier<int>(
+    0,
+  );
+  static int? lastReadNotificationId;
   static final ValueNotifier<String?> connectionIssue = ValueNotifier<String?>(
     null,
   );
   static final ValueNotifier<int> connectionRestored = ValueNotifier<int>(0);
+  @visibleForTesting
+  static http.Client Function() httpClientFactory = http.Client.new;
   static String? _sessionNotice;
 
   static bool get isSignedIn => _sessionToken != null;
@@ -152,7 +158,7 @@ class ApiService {
     }
 
     final requestToken = authenticated ? _sessionToken : null;
-    final client = http.Client();
+    final client = httpClientFactory();
     try {
       final request = http.Request(method, Uri.parse('$apiBaseUrl$path'))
         ..headers['Accept'] = 'application/json';
@@ -427,6 +433,8 @@ class ApiService {
       '/mobile/notifications/$notificationId/read',
       authenticated: true,
     );
+    lastReadNotificationId = notificationId;
+    notificationReadRevision.value++;
   }
 
   static Future<Map<String, dynamic>> profile() async {
@@ -486,7 +494,8 @@ class ApiService {
               contentType: MediaType('image', subtype),
             ),
           );
-    final client = http.Client();
+    request.headers['Authorization'] = 'Bearer $requestToken';
+    final client = httpClientFactory();
     try {
       final streamedResponse = await client
           .send(request)
@@ -602,7 +611,7 @@ class ApiService {
                   : MediaType('image', 'jpeg'),
             ),
           );
-    final client = http.Client();
+    final client = httpClientFactory();
     try {
       final streamedResponse = await client
           .send(request)

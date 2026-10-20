@@ -72,11 +72,16 @@ void main() {
     expect(find.text('Account'), findsOneWidget);
   });
 
-  testWidgets('my report filters stay in one horizontally scrollable row', (
+  testWidgets('my reports header stays pinned and filters show status icons', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const MaterialApp(home: MyReportsPage()));
     await tester.pumpAndSettle();
+
+    final stickyHeader = tester.widget<SliverPersistentHeader>(
+      find.byType(SliverPersistentHeader),
+    );
+    expect(stickyHeader.pinned, isTrue);
 
     final horizontalScroll = find.byWidgetPredicate(
       (widget) =>
@@ -84,6 +89,10 @@ void main() {
           widget.scrollDirection == Axis.horizontal,
     );
     expect(horizontalScroll, findsOneWidget);
+
+    final filterChips = tester.widgetList<FilterChip>(find.byType(FilterChip));
+    expect(filterChips, hasLength(6));
+    expect(filterChips.every((chip) => chip.avatar is Icon), isTrue);
 
     final allFilter = find.widgetWithText(FilterChip, 'All');
     final resolvedFilter = find.widgetWithText(FilterChip, 'Resolved');
@@ -114,6 +123,33 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets('chat intro keeps its thumbs-up mascot pose', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: ChatbotPage()));
+
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is AssetImage &&
+            (widget.image as AssetImage).assetName ==
+                'assets/chatbot_character/chatbot_face/thumbs_up.png',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is AssetImage &&
+            (widget.image as AssetImage).assetName ==
+                'assets/chatbot_character/chatbot_face/profile.png',
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('chat composer grows to multiple lines for longer messages', (
     WidgetTester tester,
   ) async {
@@ -129,26 +165,6 @@ void main() {
     expect(composer.maxLines, 5);
     expect(composer.keyboardType, TextInputType.multiline);
     expect(find.byTooltip('Send message'), findsOneWidget);
-    expect(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is Image &&
-            widget.image is AssetImage &&
-            (widget.image as AssetImage).assetName ==
-                'assets/chatbot_character/chatbot_face/profile.png',
-      ),
-      findsWidgets,
-    );
-    expect(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is Image &&
-            widget.image is AssetImage &&
-            (widget.image as AssetImage).assetName ==
-                'assets/chatbot_character/chatbot_face/thumbs_up.png',
-      ),
-      findsNothing,
-    );
 
     final initialHeight = tester.getSize(composerFinder).height;
     await tester.enterText(composerFinder, 'One line\nTwo lines\nThree lines');

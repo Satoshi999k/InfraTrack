@@ -11,7 +11,6 @@ class _ChatbotPageState extends State<ChatbotPage> {
   final _composer = TextEditingController();
   final _scrollController = ScrollController();
   bool _isThinking = false;
-  bool _hasAssistantReply = false;
   final _messages = <_ChatMessage>[
     _ChatMessage(
       text:
@@ -44,7 +43,6 @@ class _ChatbotPageState extends State<ChatbotPage> {
       if (!mounted) return;
       setState(() {
         _messages.add(_ChatMessage(text: reply, fromUser: false, time: 'Now'));
-        _hasAssistantReply = true;
       });
     } catch (error) {
       if (!mounted) return;
@@ -137,7 +135,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: const EdgeInsets.fromLTRB(20, 22, 20, 12),
               children: [
-                _ChatIntro(hasAssistantReply: _hasAssistantReply),
+                const _ChatIntro(),
                 const SizedBox(height: 18),
                 const Text(
                   'SUGGESTED QUESTIONS',
@@ -254,14 +252,13 @@ class _BotAvatar extends StatelessWidget {
 }
 
 class _ChatIntro extends StatelessWidget {
-  const _ChatIntro({required this.hasAssistantReply});
-  final bool hasAssistantReply;
+  const _ChatIntro();
 
   @override
   Widget build(BuildContext context) => Row(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      _BotAvatar(size: 104, welcome: hasAssistantReply),
+      _BotAvatar(size: 104, welcome: true),
       const SizedBox(width: 11),
       Expanded(
         child: Container(

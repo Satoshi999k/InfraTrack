@@ -7,23 +7,54 @@ class ProfilePage extends StatefulWidget {
   State<ProfilePage> createState() => _ProfilePageState();
 }
 
-class _ProfilePageState extends State<ProfilePage> {
+class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
   XFile? _profileImage;
   Map<String, dynamic> _profile = ApiService.currentUser ?? {};
   List<Map<String, dynamic>> _reports = [];
   List<Map<String, dynamic>> _notifications = [];
   String? _loadError;
+  Timer? _notificationRefreshTimer;
+  bool _refreshingNotifications = false;
 
   Future<void> refresh() => _loadProfile();
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    ApiService.notificationReadRevision.addListener(_handleNotificationRead);
     _loadProfile();
+    _notificationRefreshTimer = Timer.periodic(const Duration(seconds: 30), (
+      _,
+    ) {
+      if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+        _refreshNotifications();
+      }
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refreshNotifications();
+  }
+
+  void _handleNotificationRead() {
+    final notificationId = ApiService.lastReadNotificationId?.toString();
+    if (notificationId == null || !mounted) return;
+    setState(() {
+      _notifications = _notifications.map((item) {
+        if (item['id'].toString() != notificationId ||
+            item['read_at'] != null) {
+          return item;
+        }
+        return {...item, 'read_at': DateTime.now().toIso8601String()};
+      }).toList();
+    });
   }
 
   Future<void> _loadProfile() async {
     if (!ApiService.isSignedIn) return;
+    final notificationRevision = ApiService.notificationReadRevision.value;
     try {
       final results = await Future.wait([
         ApiService.profile(),
@@ -34,7 +65,10 @@ class _ProfilePageState extends State<ProfilePage> {
         setState(() {
           _profile = results[0] as Map<String, dynamic>;
           _reports = results[1] as List<Map<String, dynamic>>;
-          _notifications = results[2] as List<Map<String, dynamic>>;
+          _notifications = _notificationsAfterRead(
+            results[2] as List<Map<String, dynamic>>,
+            notificationRevision,
+          );
           _loadError = null;
         });
       }
@@ -47,10 +81,57 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  List<Map<String, dynamic>> _notificationsAfterRead(
+    List<Map<String, dynamic>> notifications,
+    int startingRevision,
+  ) {
+    if (startingRevision == ApiService.notificationReadRevision.value) {
+      return notifications;
+    }
+    final notificationId = ApiService.lastReadNotificationId?.toString();
+    if (notificationId == null) return notifications;
+    return notifications.map((item) {
+      if (item['id'].toString() != notificationId || item['read_at'] != null) {
+        return item;
+      }
+      return {...item, 'read_at': DateTime.now().toIso8601String()};
+    }).toList();
+  }
+
+  Future<void> _refreshNotifications() async {
+    if (!ApiService.isSignedIn || _refreshingNotifications) return;
+    _refreshingNotifications = true;
+    final notificationRevision = ApiService.notificationReadRevision.value;
+    try {
+      final notifications = await ApiService.notifications();
+      if (!mounted) return;
+      setState(() {
+        _notifications = _notificationsAfterRead(
+          notifications,
+          notificationRevision,
+        );
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = error.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      _refreshingNotifications = false;
+    }
+  }
+
   Future<void> _openNotifications() async {
     await Navigator.of(context)
         .push(MaterialPageRoute(builder: (_) => const NotificationsPage()));
-    if (mounted) await _loadProfile();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    ApiService.notificationReadRevision.removeListener(_handleNotificationRead);
+    _notificationRefreshTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _editProfile(BuildContext context) async {
@@ -1205,12 +1286,12 @@ class _SettingsGroup extends StatelessWidget {
   final int openReportCount;
   final int unreadNotificationCount;
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) => Material(
     clipBehavior: Clip.antiAlias,
-    decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: .58),
+    color: Colors.white.withValues(alpha: .58),
+    shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(22),
-      border: Border.all(color: Colors.white.withValues(alpha: .86)),
+      side: BorderSide(color: Colors.white.withValues(alpha: .86)),
     ),
     child: Column(
       children: [
@@ -1260,12 +1341,12 @@ class _TrustSettingsGroup extends StatelessWidget {
   final VoidCallback onPrivacyTap;
 
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) => Material(
     clipBehavior: Clip.antiAlias,
-    decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: .58),
+    color: Colors.white.withValues(alpha: .58),
+    shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(22),
-      border: Border.all(color: Colors.white.withValues(alpha: .86)),
+      side: BorderSide(color: Colors.white.withValues(alpha: .86)),
     ),
     child: Column(
       children: [

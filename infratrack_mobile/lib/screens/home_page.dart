@@ -21,6 +21,20 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> refresh() => _loadDashboardData();
 
+  void _handleNotificationRead() {
+    final notificationId = ApiService.lastReadNotificationId?.toString();
+    if (notificationId == null || !mounted) return;
+    setState(() {
+      _notifications = _notifications.map((item) {
+        if (item['id'].toString() != notificationId ||
+            item['read_at'] != null) {
+          return item;
+        }
+        return {...item, 'read_at': DateTime.now().toIso8601String()};
+      }).toList();
+    });
+  }
+
   List<({String image, String title, String subtitle})>
   get _featuredStories => _issues.take(5).map((issue) {
     final mediaUrl = publicMediaUrl(issue['media_url'] as String?);
@@ -35,6 +49,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    ApiService.notificationReadRevision.addListener(_handleNotificationRead);
     _loadDashboardData();
     _featuredTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (!mounted ||
@@ -51,6 +66,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _loadDashboardData() async {
+    final notificationRevision = ApiService.notificationReadRevision.value;
     try {
       final results = await Future.wait([
         ApiService.issues(),
@@ -63,7 +79,9 @@ class _HomePageState extends State<HomePage> {
         _issues = results[0] as List<Map<String, dynamic>>;
         _myReports = results[1] as List<Map<String, dynamic>>;
         _overview = results[2] as Map<String, dynamic>;
-        _notifications = results[3] as List<Map<String, dynamic>>;
+        if (notificationRevision == ApiService.notificationReadRevision.value) {
+          _notifications = results[3] as List<Map<String, dynamic>>;
+        }
         _loadingIssues = false;
         _loadError = null;
       });
@@ -79,6 +97,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    ApiService.notificationReadRevision.removeListener(_handleNotificationRead);
     _featuredTimer?.cancel();
     _featuredController.dispose();
     super.dispose();
