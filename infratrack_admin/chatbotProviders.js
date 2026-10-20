@@ -4,8 +4,31 @@ const systemInstruction = [
   "Do not claim to know a user's report status, account data, live city conditions, or current advisories unless that information is included in the conversation.",
   "Never ask for passwords, verification codes, identity-document images, or other sensitive credentials.",
   "For emergencies or immediate danger, tell the user to contact local emergency services and not rely on this chatbot.",
-  "Be concise, respectful, and clear. When unsure, say so and direct the user to the appropriate city office.",
+  "Give only the final answer. Never show internal reasoning, analysis, drafts, monologues, or multiple candidate answers.",
+  "Be concise, respectful, and clear. Answer in at most 3 short sentences. When unsure, say so and direct the user to the appropriate city office.",
 ].join(" ");
+
+export function normalizeChatRequestMessages(messages) {
+  if (!Array.isArray(messages) || messages.length === 0) return null;
+  const recentMessages = messages.slice(-12);
+  if (
+    recentMessages.some(
+      (message) =>
+        !message ||
+        !["user", "assistant"].includes(message.role) ||
+        typeof message.content !== "string" ||
+        !message.content.trim() ||
+        (message.role === "user" && message.content.length > 2000),
+    ) ||
+    !recentMessages.some((message) => message.role === "user")
+  ) {
+    return null;
+  }
+  return recentMessages.map(({ role, content }) => ({
+    role,
+    content: content.trim().slice(0, role === "assistant" ? 1200 : 2000),
+  }));
+}
 
 export class ChatProviderError extends Error {
   constructor(
@@ -103,7 +126,11 @@ async function requestGemini({ apiKey, model, messages, fetchImpl }) {
           role: role === "assistant" ? "model" : "user",
           parts: [{ text: content }],
         })),
-        generationConfig: { maxOutputTokens: 512, temperature: 0.5 },
+        generationConfig: {
+          maxOutputTokens: 256,
+          temperature: 0.5,
+          thinkingConfig: { thinkingBudget: 0 },
+        },
       }),
     },
   );
@@ -186,7 +213,7 @@ async function requestGroqLlama({ apiKey, model, messages, fetchImpl }) {
         { role: "system", content: systemInstruction },
         ...messages,
       ],
-      max_tokens: 512,
+      max_tokens: 256,
       temperature: 0.5,
     }),
   });

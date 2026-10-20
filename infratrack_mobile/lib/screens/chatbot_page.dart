@@ -38,15 +38,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
     _scrollToBottom();
     try {
       final reply = await ApiService.chatbotReply(
-        _messages
-            .skip((_messages.length - 12).clamp(0, _messages.length).toInt())
-            .map(
-              (message) => {
-                'role': message.fromUser ? 'user' : 'assistant',
-                'content': message.text,
-              },
-            )
-            .toList(),
+        _chatHistoryForRequest(_messages),
       );
       if (!mounted) return;
       setState(() {
@@ -60,6 +52,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
             text: error.toString().replaceFirst('Exception: ', ''),
             fromUser: false,
             time: 'Now',
+            isError: true,
           ),
         );
       });
@@ -201,14 +194,36 @@ class _ChatbotPageState extends State<ChatbotPage> {
   );
 }
 
+List<Map<String, String>> _chatHistoryForRequest(List<_ChatMessage> messages) {
+  final conversation = messages
+      .where((message) => !message.isError)
+      .skip(1)
+      .toList();
+  final recentMessages = conversation.skip(
+    (conversation.length - 12).clamp(0, conversation.length).toInt(),
+  );
+  return recentMessages
+      .map(
+        (message) => {
+          'role': message.fromUser ? 'user' : 'assistant',
+          'content': message.text.length > 2000
+              ? message.text.substring(0, 2000)
+              : message.text,
+        },
+      )
+      .toList();
+}
+
 class _ChatMessage {
   const _ChatMessage({
     required this.text,
     required this.fromUser,
     required this.time,
+    this.isError = false,
   });
   final String text, time;
   final bool fromUser;
+  final bool isError;
 }
 
 class _BotAvatar extends StatefulWidget {
@@ -404,8 +419,10 @@ class _Composer extends StatelessWidget {
           child: TextField(
             controller: controller,
             onSubmitted: (_) => onSend(),
+            maxLength: 2000,
             textInputAction: TextInputAction.send,
             decoration: const InputDecoration(
+              counterText: '',
               hintText: 'Ask the assistant...',
               prefixIcon: Icon(Icons.edit_outlined, size: 18, color: inkSoft),
               contentPadding: EdgeInsets.symmetric(

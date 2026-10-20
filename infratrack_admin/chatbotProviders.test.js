@@ -1,8 +1,47 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ChatProviderError, generateChatReply } from "./chatbotProviders.js";
+import {
+  ChatProviderError,
+  generateChatReply,
+  normalizeChatRequestMessages,
+} from "./chatbotProviders.js";
 
 const messages = [{ role: "user", content: "How do I report a pothole?" }];
+
+test("keeps chat history within message and assistant-context limits", () => {
+  const history = [
+    { role: "user", content: "Old question" },
+    ...Array.from({ length: 12 }, (_, index) => ({
+      role: index % 2 === 0 ? "assistant" : "user",
+      content: index % 2 === 0 ? "A".repeat(1800) : `Question ${index}`,
+    })),
+  ];
+
+  const normalized = normalizeChatRequestMessages(history);
+
+  assert.equal(normalized.length, 12);
+  assert.ok(normalized.every((message) => message.content.length <= 1200));
+  assert.equal(normalized.at(-1).content, "Question 11");
+});
+
+test("rejects oversized user messages but safely truncates assistant context", () => {
+  assert.deepEqual(
+    normalizeChatRequestMessages([
+      { role: "assistant", content: "A".repeat(3000) },
+      { role: "user", content: "Next question" },
+    ]),
+    [
+      { role: "assistant", content: "A".repeat(1200) },
+      { role: "user", content: "Next question" },
+    ],
+  );
+  assert.equal(
+    normalizeChatRequestMessages([
+      { role: "user", content: "U".repeat(2001) },
+    ]),
+    null,
+  );
+});
 
 test("uses Gemini as the primary chatbot provider", async () => {
   const requests = [];

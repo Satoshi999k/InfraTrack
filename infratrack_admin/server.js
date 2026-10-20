@@ -19,7 +19,11 @@ import {
 import { canManageSystemSettings } from "./permissions.js";
 import { sendEmailNotification } from "./emailNotifications.js";
 import { analyzeReportThemes } from "./thematicAnalysis.js";
-import { ChatProviderError, generateChatReply } from "./chatbotProviders.js";
+import {
+  ChatProviderError,
+  generateChatReply,
+  normalizeChatRequestMessages,
+} from "./chatbotProviders.js";
 import {
   moderationNotification,
   standingAfterModeration,
@@ -970,23 +974,12 @@ app.get("/api/mobile/notifications", async (req, res) => {
   res.json({ notifications });
 });
 app.post("/api/mobile/chat", async (req, res) => {
-  const messages = req.body?.messages;
-  if (
-    !Array.isArray(messages) ||
-    messages.length === 0 ||
-    messages.length > 12 ||
-    messages.some(
-      (message) =>
-        !message ||
-        !["user", "assistant"].includes(message.role) ||
-        typeof message.content !== "string" ||
-        !message.content.trim() ||
-        message.content.length > 2000,
-    )
-  ) {
+  const messages = normalizeChatRequestMessages(req.body?.messages);
+  if (!messages) {
     return res.status(400).json({
       code: "INVALID_CHAT_MESSAGES",
-      error: "Send between 1 and 12 valid messages, each up to 2,000 characters.",
+      error:
+        "Chat history must include a user message and no user message may exceed 2,000 characters.",
     });
   }
 
