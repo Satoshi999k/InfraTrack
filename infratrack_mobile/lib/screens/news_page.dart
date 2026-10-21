@@ -140,7 +140,7 @@ class _NewsPageState extends State<NewsPage> {
       .toList();
 
   String _advisoryType(String? type) => switch (type?.toLowerCase()) {
-    'alert' => 'Emergency alert',
+    'alert' => 'Advertisement',
     'maint' => 'Maintenance advisory',
     _ => 'City announcement',
   };
@@ -162,7 +162,7 @@ class _NewsPageState extends State<NewsPage> {
       _advisories.where((advisory) {
         final type = (advisory['type'] as String? ?? '').toLowerCase();
         return switch (_selectedAdvisoryCategory) {
-          'Emergency' => type == 'alert',
+          'Advertisement' => type == 'alert' || type == 'advertisement',
           'Maintenance' => type == 'maint',
           'Announcements' => type != 'alert' && type != 'maint',
           _ => true,
@@ -255,7 +255,7 @@ class _NewsPageState extends State<NewsPage> {
               selectedCategory: _selectedAdvisoryCategory,
               categories: const [
                 'All',
-                'Emergency',
+                'Advertisement',
                 'Maintenance',
                 'Announcements',
               ],
@@ -668,17 +668,17 @@ class _PublicAdvisoryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final type = (advisory['type'] as String? ?? 'gen').toLowerCase();
     final color = switch (type) {
-      'alert' => red,
+      'alert' || 'advertisement' => clay,
       'maint' => teal,
       _ => navy,
     };
     final label = switch (type) {
-      'alert' => 'EMERGENCY ALERT',
+      'alert' || 'advertisement' => 'ADVERTISEMENT',
       'maint' => 'MAINTENANCE',
       _ => 'CITY ANNOUNCEMENT',
     };
     final icon = switch (type) {
-      'alert' => Icons.warning_amber_rounded,
+      'alert' || 'advertisement' => Icons.local_offer_outlined,
       'maint' => Icons.build_outlined,
       _ => Icons.campaign_outlined,
     };
@@ -968,7 +968,7 @@ class _NewsFilterBar extends StatelessWidget {
                 'Drainage' => Icons.water_damage_outlined,
                 'Lighting' => Icons.lightbulb_outline_rounded,
                 'Resolved' => Icons.task_alt_rounded,
-                'Emergency' => Icons.warning_amber_rounded,
+                'Advertisement' => Icons.local_offer_outlined,
                 'Maintenance' => Icons.build_outlined,
                 'Announcements' => Icons.campaign_outlined,
                 _ => Icons.apps_rounded,

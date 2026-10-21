@@ -730,7 +730,9 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
   Widget build(BuildContext context) => PageEntrance(
     child: AppScroll(
       paddingTop: 0,
+      onRefresh: _loadProfile,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _ProfileHeader(
             onEdit: () => _editProfile(context),
@@ -739,9 +741,13 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
           ),
           if (_loadError != null)
             Padding(
-              padding: const EdgeInsets.all(14),
-              child: Text(_loadError!, style: const TextStyle(color: clay)),
+              padding: const EdgeInsets.only(top: 14),
+              child: _ProfileLoadError(
+                message: _loadError!,
+                onRetry: _loadProfile,
+              ),
             ),
+          const SizedBox(height: 16),
           Builder(
             builder: (context) {
               final resolved = _reports
@@ -756,57 +762,54 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
                     ].contains(report['status']),
                   )
                   .length;
-              return Transform.translate(
-                offset: const Offset(0, -21),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _ProfileStat(
-                          number: '${_reports.length}',
-                          label: 'Reports filed',
-                          icon: Icons.description_outlined,
-                          color: teal,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _ProfileStat(
-                          number: '$resolved',
-                          label: 'Resolved',
-                          icon: Icons.check_circle_outline,
-                          color: green,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _ProfileStat(
-                          number: '$open',
-                          label: 'Open',
-                          icon: Icons.pending_actions_outlined,
-                          color: amber,
-                        ),
-                      ),
-                    ],
+              return Row(
+                children: [
+                  Expanded(
+                    child: _ProfileStat(
+                      number: '${_reports.length}',
+                      label: 'Filed',
+                      icon: Icons.description_outlined,
+                      color: teal,
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: _ProfileStat(
+                      number: '$resolved',
+                      label: 'Resolved',
+                      icon: Icons.check_circle_outline,
+                      color: green,
+                    ),
+                  ),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: _ProfileStat(
+                      number: '$open',
+                      label: 'Open',
+                      icon: Icons.pending_actions_outlined,
+                      color: amber,
+                    ),
+                  ),
+                ],
               );
             },
           ),
-          const _ProfileSectionTitle(title: 'YOUR ACTIVITY'),
-          _ImpactCard(
-            resolvedCount: _reports
-                .where((report) => report['status'] == 'Resolved')
-                .length,
-          ),
-          const SizedBox(height: 12),
-          _ProfileCompletionCard(
+          const SizedBox(height: 24),
+          const _ProfileSectionTitle(title: 'ACCOUNT STATUS'),
+          _VerificationCard(
             verification:
-                _profile['verification']?.toString() ?? 'Guest access',
+                _profile['verification']?.toString() ?? 'Not submitted',
+            onTap: () async {
+              await Navigator.of(context).push<void>(
+                MaterialPageRoute(
+                  builder: (_) => const IdentityVerificationPage(),
+                ),
+              );
+              if (mounted) await _loadProfile();
+            },
           ),
           const SizedBox(height: 20),
-          const _ProfileSectionTitle(title: 'ACTIVITY & TOOLS'),
+          const _ProfileSectionTitle(title: 'YOUR ACTIVITY'),
           _SettingsGroup(
             reportCount: _reports.length,
             openReportCount: _reports
@@ -828,18 +831,8 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
                 .push(MaterialPageRoute(builder: (_) => const ChatbotPage())),
           ),
           const SizedBox(height: 20),
-          const _ProfileSectionTitle(title: 'TRUST & SECURITY'),
+          const _ProfileSectionTitle(title: 'ACCOUNT SETTINGS'),
           _TrustSettingsGroup(
-            verification:
-                _profile['verification']?.toString() ?? 'Not submitted',
-            onIdentityTap: () async {
-              await Navigator.of(context).push<void>(
-                MaterialPageRoute(
-                  builder: (_) => const IdentityVerificationPage(),
-                ),
-              );
-              if (mounted) await _loadProfile();
-            },
             onPrivacyTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const PrivacySecurityPage()),
             ),
@@ -855,6 +848,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
             centered: true,
             onTap: () => _confirmLogout(context),
           ),
+          const SizedBox(height: 4),
         ],
       ),
     ),
@@ -890,117 +884,155 @@ class _ProfileHeader extends StatelessWidget {
     final name = profile['name']?.toString() ?? 'Guest';
     final avatarUrl = publicMediaUrl(profile['avatar_url']?.toString());
     final barangay = profile['barangay']?.toString() ?? 'Mati City';
+    final email = profile['email']?.toString() ?? '';
     final createdAt = DateTime.tryParse(
       profile['created_at']?.toString() ?? '',
     );
     final membership = createdAt == null
         ? 'Browsing without an account'
-        : 'Member since ${createdAt.month}/${createdAt.year}';
+        : 'Member since ${_profileMonth(createdAt.month)} ${createdAt.year}';
     final standing = profile['standing']?.toString();
-    final accountStatus = standing != null && standing != 'Active'
-        ? standing
-        : profile['verification']?.toString() ?? standing ?? 'Guest access';
+    final accountStatus = standing == null
+        ? 'Guest access'
+        : standing == 'Active'
+        ? 'Active account'
+        : standing;
+    final standingColor = standing == null
+        ? amber
+        : standing == 'Active'
+        ? green
+        : clay;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 46),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           colors: [deepNavy, navy, Color(0xFF155B66)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+        borderRadius: BorderRadius.all(Radius.circular(25)),
       ),
       child: Stack(
         children: [
           Positioned(
-            right: -35,
-            top: -45,
+            right: -50,
+            top: -65,
             child: Container(
-              width: 180,
-              height: 180,
+              width: 190,
+              height: 190,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.white12),
+                border: Border.all(color: Colors.white.withValues(alpha: .08)),
               ),
-            ),
-          ),
-          Positioned(
-            top: -4,
-            right: -4,
-            child: IconButton(
-              onPressed: onEdit,
-              style: IconButton.styleFrom(
-                minimumSize: const Size(34, 34),
-                padding: EdgeInsets.zero,
-                backgroundColor: Colors.white12,
-                foregroundColor: Colors.white,
-              ),
-              icon: const Icon(Icons.edit_outlined, size: 18),
             ),
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'MY PROFILE',
-                style: TextStyle(
-                  color: Color(0xFF9FC2C9),
-                  fontSize: 10,
-                  letterSpacing: 1.3,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              SizedBox(height: 14),
               Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'YOUR ACCOUNT',
+                      style: TextStyle(
+                        color: Color(0xFF9FC2C9),
+                        fontSize: 10,
+                        letterSpacing: 1.3,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: onEdit,
+                    icon: const Icon(Icons.edit_outlined, size: 15),
+                    label: const Text('Edit profile'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      backgroundColor: Colors.white.withValues(alpha: .12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 11,
+                        vertical: 7,
+                      ),
+                      minimumSize: const Size(0, 36),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: const BorderSide(color: Colors.white24),
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   _ProfileAvatar(
                     image: profileImage,
                     avatarUrl: avatarUrl,
                     name: name,
                   ),
-                  SizedBox(width: 10),
+                  const SizedBox(width: 13),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 16,
+                            fontSize: 19,
                             fontWeight: FontWeight.w800,
+                            height: 1.1,
                           ),
                         ),
-                        SizedBox(height: 2),
+                        if (email.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            email,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Color(0xFFC5D8DB),
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 5),
                         Text(
                           membership,
-                          style: TextStyle(color: Color(0xFFB9CBD1)),
+                          style: const TextStyle(
+                            color: Color(0xFFB9CBD1),
+                            fontSize: 10,
+                          ),
                         ),
                       ],
                     ),
                   ),
                 ],
               ),
-              SizedBox(height: 11),
-              Row(
+              const SizedBox(height: 17),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
-                  Icon(
-                    Icons.location_on_outlined,
-                    color: Color(0xFF8FD6CE),
-                    size: 14,
+                  _ProfileMetaChip(
+                    icon: Icons.location_on_outlined,
+                    label: barangay,
+                    color: const Color(0xFF8FD6CE),
                   ),
-                  SizedBox(width: 3),
-                  Text(
-                    barangay,
-                    style: TextStyle(color: Color(0xFFD9E7E9), fontSize: 11),
-                  ),
-                  SizedBox(width: 9),
-                  Icon(Icons.verified_user_outlined, color: amber, size: 14),
-                  SizedBox(width: 3),
-                  Text(
-                    accountStatus,
-                    style: TextStyle(color: Color(0xFFD9E7E9), fontSize: 11),
+                  _ProfileMetaChip(
+                    icon: standing == 'Active'
+                        ? Icons.check_circle_outline
+                        : Icons.shield_outlined,
+                    label: accountStatus,
+                    color: standingColor,
                   ),
                 ],
               ),
@@ -1012,6 +1044,63 @@ class _ProfileHeader extends StatelessWidget {
   }
 }
 
+String _profileMonth(int month) => const [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+][month - 1];
+
+class _ProfileMetaChip extends StatelessWidget {
+  const _ProfileMetaChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    constraints: const BoxConstraints(maxWidth: 220),
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: .10),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: Colors.white.withValues(alpha: .17)),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: color, size: 14),
+        const SizedBox(width: 5),
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 class _ProfileAvatar extends StatelessWidget {
   const _ProfileAvatar({required this.name, this.image, this.avatarUrl});
   final String name;
@@ -1019,50 +1108,33 @@ class _ProfileAvatar extends StatelessWidget {
   final String? avatarUrl;
   @override
   Widget build(BuildContext context) => SizedBox(
-    width: 62,
-    height: 62,
-    child: Stack(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(2),
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            color: Color(0x442A6C7C),
-          ),
-          child: CircleAvatar(
-            radius: 29,
-            backgroundColor: Color(0xFF2A6C7C),
-            backgroundImage: image != null
-                ? FileImage(File(image!.path))
-                : avatarUrl != null
-                ? NetworkImage(avatarUrl!)
-                : null,
-            child: image == null && avatarUrl == null
-                ? Text(
-                    _initialsFor(name),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 18,
-                    ),
-                  )
-                : null,
-          ),
-        ),
-        Positioned(
-          right: 0,
-          bottom: 0,
-          child: Container(
-            width: 15,
-            height: 15,
-            decoration: BoxDecoration(
-              color: green,
-              shape: BoxShape.circle,
-              border: Border.all(color: deepNavy, width: 2),
-            ),
-          ),
-        ),
-      ],
+    width: 72,
+    height: 72,
+    child: Container(
+      padding: const EdgeInsets.all(3),
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        color: Color(0x668FD6CE),
+      ),
+      child: CircleAvatar(
+        radius: 33,
+        backgroundColor: const Color(0xFF2A6C7C),
+        backgroundImage: image != null
+            ? FileImage(File(image!.path))
+            : avatarUrl != null
+            ? NetworkImage(avatarUrl!)
+            : null,
+        child: image == null && avatarUrl == null
+            ? Text(
+                _initialsFor(name),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 20,
+                ),
+              )
+            : null,
+      ),
     ),
   );
 }
@@ -1100,174 +1172,252 @@ class _ProfileStat extends StatelessWidget {
   final Color color;
   @override
   Widget build(BuildContext context) => Container(
-    height: 72,
-    padding: const EdgeInsets.all(10),
+    constraints: const BoxConstraints(minHeight: 78),
+    padding: const EdgeInsets.fromLTRB(12, 11, 12, 10),
     decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: .76),
-      borderRadius: BorderRadius.circular(18),
-      border: Border.all(color: Colors.white.withValues(alpha: .9)),
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(17),
+      border: Border.all(color: line.withValues(alpha: .8)),
       boxShadow: [
         BoxShadow(
-          color: navy.withValues(alpha: .08),
-          blurRadius: 16,
-          offset: const Offset(0, 7),
+          color: navy.withValues(alpha: .035),
+          blurRadius: 10,
+          offset: const Offset(0, 3),
         ),
       ],
     ),
     child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              number,
-              style: infraHeading(
-                color: navy,
-                fontSize: 22,
-                weight: FontWeight.w800,
+            Expanded(
+              child: Text(
+                number,
+                style: infraHeading(
+                  color: navy,
+                  fontSize: 22,
+                  weight: FontWeight.w800,
+                ),
               ),
             ),
-            Icon(icon, color: color, size: 16),
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: .11),
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Icon(icon, color: color, size: 16),
+            ),
           ],
         ),
-        const Spacer(),
+        const SizedBox(height: 5),
         Text(
           label,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(color: inkSoft, fontSize: 9),
+          style: const TextStyle(
+            color: inkSoft,
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ],
     ),
   );
 }
 
-class _ImpactCard extends StatelessWidget {
-  const _ImpactCard({required this.resolvedCount});
-  final int resolvedCount;
+class _VerificationCard extends StatelessWidget {
+  const _VerificationCard({required this.verification, required this.onTap});
+
+  final String verification;
+  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(18),
-    decoration: BoxDecoration(
-      gradient: const LinearGradient(
-        colors: [teal, navy],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
+  Widget build(BuildContext context) {
+    final status = verification.toLowerCase();
+    final verified = status == 'verified';
+    final pending = status.contains('pending');
+    final rejected = status.contains('mismatch') || status.contains('rejected');
+    final accent = verified
+        ? green
+        : rejected
+        ? clay
+        : amber;
+    final icon = verified
+        ? Icons.verified_user_rounded
+        : pending
+        ? Icons.hourglass_top_rounded
+        : rejected
+        ? Icons.fact_check_outlined
+        : Icons.shield_outlined;
+    final title = verified
+        ? 'Identity verified'
+        : pending
+        ? 'Verification in review'
+        : rejected
+        ? 'Update your verification'
+        : 'Verify your identity';
+    final detail = verified
+        ? 'You’re ready to submit trusted community reports.'
+        : pending
+        ? 'Your documents are being reviewed. We’ll update you when there’s a decision.'
+        : rejected
+        ? 'Review your identity status and submit clear documents to continue.'
+        : 'Complete a quick identity check to unlock community reporting.';
+    final action = verified
+        ? 'View status'
+        : pending
+        ? 'Check status'
+        : rejected
+        ? 'Review and update'
+        : 'Start verification';
+    final badge = verified
+        ? 'VERIFIED'
+        : pending
+        ? 'IN REVIEW'
+        : rejected
+        ? 'ACTION NEEDED'
+        : 'NOT VERIFIED';
+
+    return Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: accent.withValues(alpha: .25)),
       ),
-      borderRadius: BorderRadius.circular(22),
-      boxShadow: [
-        BoxShadow(
-          color: navy.withValues(alpha: .18),
-          blurRadius: 18,
-          offset: const Offset(0, 8),
-        ),
-      ],
-    ),
-    child: Row(
-      children: [
-        Expanded(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(15),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'YOUR COMMUNITY IMPACT',
-                style: TextStyle(
-                  color: Color(0xFFB8E4DE),
-                  fontSize: 9,
-                  fontWeight: FontWeight.w800,
-                ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: .11),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(icon, color: accent, size: 23),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: infraHeading(
+                            color: navy,
+                            fontSize: 14,
+                            weight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          detail,
+                          style: const TextStyle(
+                            color: inkSoft,
+                            fontSize: 11,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              SizedBox(height: 7),
-              Text(
-                '$resolvedCount reports resolved',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                ),
+              const SizedBox(height: 13),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: .10),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      badge,
+                      style: TextStyle(
+                        color: accent,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: .55,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      action,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.end,
+                      style: const TextStyle(
+                        color: teal,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 5),
+                  const Icon(
+                    Icons.arrow_forward_rounded,
+                    color: teal,
+                    size: 16,
+                  ),
+                ],
               ),
             ],
           ),
         ),
-        const CircleAvatar(
-          radius: 27,
-          backgroundColor: Colors.white24,
-          child: Icon(Icons.volunteer_activism_outlined, color: Colors.white),
+      ),
+    );
+  }
+}
+
+class _ProfileLoadError extends StatelessWidget {
+  const _ProfileLoadError({required this.message, required this.onRetry});
+
+  final String message;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(13),
+    decoration: BoxDecoration(
+      color: const Color(0xFFFFF5F0),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: clay.withValues(alpha: .22)),
+    ),
+    child: Row(
+      children: [
+        const Icon(Icons.cloud_off_outlined, color: clay, size: 20),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            message,
+            style: const TextStyle(color: ink, fontSize: 11, height: 1.35),
+          ),
+        ),
+        IconButton(
+          tooltip: 'Retry loading profile',
+          onPressed: onRetry,
+          icon: const Icon(Icons.refresh_rounded, color: clay),
         ),
       ],
     ),
   );
-}
-
-class _ProfileCompletionCard extends StatelessWidget {
-  const _ProfileCompletionCard({required this.verification});
-
-  final String verification;
-
-  @override
-  Widget build(BuildContext context) {
-    final isVerified = verification.toLowerCase() == 'verified';
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 15),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .72),
-        borderRadius: BorderRadius.circular(19),
-        border: Border.all(color: Colors.white.withValues(alpha: .92)),
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 48,
-            height: 48,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                CircularProgressIndicator(
-                  value: isVerified ? 1 : .5,
-                  strokeWidth: 4,
-                  color: isVerified ? green : amber,
-                ),
-                Icon(
-                  isVerified ? Icons.check : Icons.hourglass_top,
-                  color: isVerified ? green : amber,
-                  size: 20,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isVerified ? 'Identity verified' : 'Verification status',
-                  style: const TextStyle(
-                    color: navy,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  verification,
-                  style: const TextStyle(color: inkSoft, fontSize: 10.5),
-                ),
-              ],
-            ),
-          ),
-          Icon(
-            isVerified ? Icons.verified_user_outlined : Icons.info_outline,
-            color: isVerified ? green : amber,
-            size: 20,
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _SettingsGroup extends StatelessWidget {
@@ -1330,14 +1480,8 @@ class _SettingsGroup extends StatelessWidget {
 }
 
 class _TrustSettingsGroup extends StatelessWidget {
-  const _TrustSettingsGroup({
-    required this.verification,
-    required this.onIdentityTap,
-    required this.onPrivacyTap,
-  });
+  const _TrustSettingsGroup({required this.onPrivacyTap});
 
-  final String verification;
-  final VoidCallback onIdentityTap;
   final VoidCallback onPrivacyTap;
 
   @override
@@ -1350,17 +1494,6 @@ class _TrustSettingsGroup extends StatelessWidget {
     ),
     child: Column(
       children: [
-        MenuRow(
-          icon: verification.toLowerCase() == 'verified'
-              ? Icons.verified_user_outlined
-              : Icons.hourglass_top,
-          title: 'Identity verification',
-          subtitle: verification,
-          badge: verification,
-          accentColor: verification.toLowerCase() == 'verified' ? green : amber,
-          inGroup: true,
-          onTap: onIdentityTap,
-        ),
         MenuRow(
           icon: Icons.lock_outline,
           title: 'Privacy & security',

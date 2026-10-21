@@ -11,6 +11,71 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  testWidgets('report card prioritizes location and opens GPS in details', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final originalClientFactory = ApiService.httpClientFactory;
+    ApiService.httpClientFactory = () => MockClient((request) async {
+      if (request.url.path.endsWith('/mobile/auth/login')) {
+        return http.Response(
+          jsonEncode({
+            'token': 'my-reports-test-token',
+            'user': {'id': 42, 'name': 'Test Resident'},
+          }),
+          200,
+        );
+      }
+
+      if (request.url.path.endsWith('/mobile/reports')) {
+        return http.Response(
+          jsonEncode({
+            'reports': [
+              {
+                'id': 7,
+                'title': 'Damaged road near the public market',
+                'description': 'The road surface is broken.',
+                'category': 'Roads',
+                'status': 'Reported',
+                'location': 'Central Mati, near the public market',
+                'latitude': 6.9542,
+                'longitude': 126.2167,
+                'created_at': '2026-10-20T10:00:00.000Z',
+              },
+            ],
+          }),
+          200,
+        );
+      }
+
+      return http.Response('Not found', 404);
+    });
+
+    try {
+      await ApiService.login('resident@example.test', 'test-password');
+      await tester.pumpWidget(const MaterialApp(home: MyReportsPage()));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Central Mati, near the public market'), findsOneWidget);
+      expect(find.text('Report activity'), findsNothing);
+      expect(find.textContaining('Lat 6.9542'), findsNothing);
+      expect(find.byType(Image), findsNothing);
+
+      await tester.ensureVisible(
+        find.text('Damaged road near the public market'),
+      );
+      await tester.tap(find.text('Damaged road near the public market'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Issue details'), findsOneWidget);
+      expect(find.textContaining('GPS coordinates'), findsOneWidget);
+      expect(find.textContaining('Lat 6.9542, Lon 126.2167'), findsOneWidget);
+    } finally {
+      ApiService.httpClientFactory = originalClientFactory;
+      await ApiService.signOutForExpiredSession();
+    }
+  });
+
   testWidgets('my reports summary and filters remain pinned while scrolling', (
     WidgetTester tester,
   ) async {

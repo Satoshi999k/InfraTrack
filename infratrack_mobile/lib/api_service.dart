@@ -64,6 +64,18 @@ class ApiService {
 
   static bool get isSignedIn => _sessionToken != null;
 
+  static bool get isCurrentUserVerified =>
+      currentUser?['verification']?.toString().toLowerCase() == 'verified';
+
+  static void _requireVerifiedAccount() {
+    if (!isCurrentUserVerified) {
+      throw const ApiException(
+        'Your account must be verified before you can submit a report.',
+        code: 'ACCOUNT_NOT_VERIFIED',
+      );
+    }
+  }
+
   static void _markConnected() {
     if (connectionIssue.value == null) return;
     connectionIssue.value = null;
@@ -217,6 +229,12 @@ class ApiService {
           ...currentUser!,
           'standing': 'Suspended',
           'suspended_until': body['suspendedUntil'],
+        };
+        unawaited(_persistSession());
+      } else if (code == 'ACCOUNT_NOT_VERIFIED' && currentUser != null) {
+        currentUser = {
+          ...currentUser!,
+          'verification': body['verification']?.toString() ?? 'Not verified',
         };
         unawaited(_persistSession());
       }
@@ -575,6 +593,7 @@ class ApiService {
     String? mediaUrl,
     String? mediaType,
   }) async {
+    _requireVerifiedAccount();
     final body = await _request(
       'POST',
       '/mobile/reports',
@@ -597,6 +616,7 @@ class ApiService {
     if (_sessionToken == null) {
       throw Exception('Please sign in before uploading report media.');
     }
+    _requireVerifiedAccount();
     final request =
         http.MultipartRequest('POST', Uri.parse('$apiBaseUrl/uploads'))
           ..headers['Accept'] = 'application/json'

@@ -28,6 +28,7 @@ class _MapPageState extends State<MapPage> {
   bool _showLegend = false;
   bool _satelliteView = false;
   Position? _userPosition;
+  bool _locatingMe = false;
   List<_MapReport> _reports = [];
   bool _loadingReports = true;
   String? _loadError;
@@ -48,19 +49,19 @@ class _MapPageState extends State<MapPage> {
   void initState() {
     super.initState();
     _loadReports();
-    _locateMe();
+    unawaited(_locateMe());
   }
 
-  Future<void> _locateMe() async {
+  Future<bool> _locateMe() async {
     try {
-      if (!await Geolocator.isLocationServiceEnabled()) return;
+      if (!await Geolocator.isLocationServiceEnabled()) return false;
       var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
-        return;
+        return false;
       }
       final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
@@ -68,14 +69,44 @@ class _MapPageState extends State<MapPage> {
           timeLimit: Duration(seconds: 15),
         ),
       );
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() => _userPosition = position);
+      return true;
     } catch (_) {
-      // The map remains usable when location is unavailable.
+      return false;
     }
   }
 
+  Future<void> _centerOnCurrentLocation() async {
+    if (_locatingMe) return;
+    setState(() => _locatingMe = true);
+    final located = await _locateMe();
+    if (!mounted) return;
+    setState(() => _locatingMe = false);
+    if (!located || _userPosition == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not get your location. Check location services and app permissions.',
+          ),
+        ),
+      );
+      return;
+    }
+    _mapController.move(
+      LatLng(_userPosition!.latitude, _userPosition!.longitude),
+      15,
+    );
+    setState(() => _zoom = 15);
+  }
+
   Future<void> _loadReports() async {
+    if (mounted) {
+      setState(() {
+        _loadingReports = true;
+        _loadError = null;
+      });
+    }
     try {
       final issues = await ApiService.issues();
       if (!mounted) return;
@@ -166,6 +197,13 @@ class _MapPageState extends State<MapPage> {
     }).toList();
   }
 
+  String get _reportCountLabel {
+    if (_loadingReports) return 'Finding community reports';
+    if (_visibleReports.isEmpty) return 'No matching reports';
+    final count = _visibleReports.length;
+    return '$count matching ${count == 1 ? 'report' : 'reports'}';
+  }
+
   void _changeZoom(double amount) {
     _zoom = (_zoom + amount).clamp(12, 19);
     _mapController.move(_mapCenter, _zoom);
@@ -205,13 +243,9 @@ class _MapPageState extends State<MapPage> {
                       _userPosition!.latitude,
                       _userPosition!.longitude,
                     ),
-                    width: 30,
-                    height: 30,
-                    child: const Icon(
-                      Icons.my_location,
-                      color: Colors.blue,
-                      size: 25,
-                    ),
+                    width: 40,
+                    height: 40,
+                    child: const _UserLocationMarker(),
                   ),
                 for (final report in _visibleReports)
                   Marker(
@@ -246,19 +280,22 @@ class _MapPageState extends State<MapPage> {
           left: 16,
           right: 16,
           child: Material(
-            elevation: 5,
-            shadowColor: navy.withValues(alpha: .24),
-            borderRadius: BorderRadius.circular(16),
+            elevation: 3,
+            shadowColor: navy.withValues(alpha: .14),
             color: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+              side: BorderSide(color: navy.withValues(alpha: .06)),
+            ),
             child: TextField(
               controller: _searchController,
               onChanged: (_) => setState(() => _selectedReport = null),
               textInputAction: TextInputAction.search,
               decoration: InputDecoration(
-                hintText: 'Search street or barangay',
-                prefixIcon: const Icon(Icons.search, color: inkSoft),
+                hintText: 'Search reports by title or category',
+                prefixIcon: const Icon(Icons.search_rounded, color: teal),
                 suffixIcon: _searchController.text.isEmpty
-                    ? const Icon(Icons.tune, color: inkSoft)
+                    ? null
                     : IconButton(
                         tooltip: 'Clear search',
                         onPressed: () {
@@ -270,9 +307,9 @@ class _MapPageState extends State<MapPage> {
                 filled: true,
                 fillColor: Colors.white,
                 isDense: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 15),
+                contentPadding: const EdgeInsets.symmetric(vertical: 16),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(18),
                   borderSide: BorderSide.none,
                 ),
               ),
@@ -284,7 +321,7 @@ class _MapPageState extends State<MapPage> {
           left: 16,
           right: 16,
           child: SizedBox(
-            height: 38,
+            height: 42,
             child: ListView(
               scrollDirection: Axis.horizontal,
               children: [
@@ -299,6 +336,7 @@ class _MapPageState extends State<MapPage> {
                     padding: const EdgeInsets.only(right: 8),
                     child: _MapFilterChip(
                       label: category,
+                      icon: _categoryIcon(category),
                       selected: _activeCategory == category,
                       onTap: () => setState(() {
                         _activeCategory = category;
@@ -306,71 +344,77 @@ class _MapPageState extends State<MapPage> {
                       }),
                     ),
                   ),
-                if (_loadError != null)
-                  Positioned(
-                    top: 122,
-                    left: 16,
-                    right: 16,
-                    child: Material(
-                      color: Colors.white.withValues(alpha: .94),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Padding(
-                        padding: const EdgeInsets.all(10),
-                        child: Text(
-                          _loadError!,
-                          style: const TextStyle(color: clay, fontSize: 11),
-                        ),
-                      ),
-                    ),
-                  ),
               ],
             ),
           ),
         ),
+        if (_loadError != null)
+          Positioned(
+            top: 128,
+            left: 16,
+            right: 16,
+            child: _MapLoadError(message: _loadError!, onRetry: _loadReports),
+          )
+        else if (_loadingReports)
+          Positioned(
+            top: 130,
+            left: 16,
+            child: _MapStatusPill(label: 'Loading reports'),
+          ),
         Positioned(
           right: 16,
-          top: 132,
-          child: Column(
-            children: [
-              _MapControlButton(
-                icon: Icons.add,
-                tooltip: 'Zoom in',
-                onPressed: () => _changeZoom(1),
+          top: _loadError == null ? 132 : 204,
+          child: Material(
+            color: Colors.white.withValues(alpha: .96),
+            elevation: 3,
+            shadowColor: navy.withValues(alpha: .15),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(17),
+              side: BorderSide(color: navy.withValues(alpha: .07)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(5),
+              child: Column(
+                children: [
+                  _MapControlButton(
+                    icon: Icons.add,
+                    tooltip: 'Zoom in',
+                    onPressed: () => _changeZoom(1),
+                  ),
+                  const SizedBox(height: 4),
+                  _MapControlButton(
+                    icon: Icons.remove,
+                    tooltip: 'Zoom out',
+                    onPressed: () => _changeZoom(-1),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 5),
+                    child: Divider(
+                      height: 9,
+                      color: navy.withValues(alpha: .10),
+                    ),
+                  ),
+                  _MapControlButton(
+                    icon: _locatingMe
+                        ? Icons.location_searching
+                        : Icons.my_location,
+                    tooltip: 'Locate me',
+                    onPressed: _centerOnCurrentLocation,
+                  ),
+                  const SizedBox(height: 4),
+                  _MapControlButton(
+                    icon: Icons.satellite_alt,
+                    tooltip: _satelliteView
+                        ? 'Switch to street view'
+                        : 'Switch to satellite view',
+                    selected: _satelliteView,
+                    onPressed: () => setState(() {
+                      _satelliteView = !_satelliteView;
+                    }),
+                  ),
+                ],
               ),
-              const SizedBox(height: 6),
-              _MapControlButton(
-                icon: Icons.remove,
-                tooltip: 'Zoom out',
-                onPressed: () => _changeZoom(-1),
-              ),
-              const SizedBox(height: 12),
-              _MapControlButton(
-                icon: Icons.my_location,
-                tooltip: 'Locate me',
-                onPressed: () {
-                  _locateMe().then((_) {
-                    if (!mounted) return;
-                    final position = _userPosition;
-                    final center = position == null
-                        ? _mapCenter
-                        : LatLng(position.latitude, position.longitude);
-                    _mapController.move(center, 15);
-                    setState(() => _zoom = 15);
-                  });
-                },
-              ),
-              const SizedBox(height: 12),
-              _MapControlButton(
-                icon: Icons.satellite_alt,
-                tooltip: _satelliteView
-                    ? 'Switch to street view'
-                    : 'Switch to satellite view',
-                selected: _satelliteView,
-                onPressed: () => setState(() {
-                  _satelliteView = !_satelliteView;
-                }),
-              ),
-            ],
+            ),
           ),
         ),
         Positioned(
@@ -378,30 +422,35 @@ class _MapPageState extends State<MapPage> {
           left: 16,
           right: 16,
           child: Material(
-            elevation: 5,
+            elevation: 4,
+            shadowColor: navy.withValues(alpha: .16),
             color: Colors.white,
-            borderRadius: BorderRadius.circular(17),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(color: navy.withValues(alpha: .07)),
+            ),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
+              borderRadius: BorderRadius.circular(20),
               onTap: () => setState(() => _showLegend = !_showLegend),
               child: AnimatedSize(
                 duration: const Duration(milliseconds: 220),
                 curve: Curves.easeOutCubic,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 13, 16, 12),
+                  padding: const EdgeInsets.fromLTRB(15, 13, 14, 12),
                   child: Column(
                     children: [
                       Row(
                         children: [
                           Container(
-                            width: 38,
-                            height: 38,
+                            width: 40,
+                            height: 40,
                             decoration: BoxDecoration(
-                              color: teal.withValues(alpha: .12),
-                              shape: BoxShape.circle,
+                              color: teal.withValues(alpha: .10),
+                              borderRadius: BorderRadius.circular(13),
                             ),
                             child: const Icon(
-                              Icons.layers_outlined,
+                              Icons.layers_rounded,
                               color: teal,
                             ),
                           ),
@@ -411,12 +460,12 @@ class _MapPageState extends State<MapPage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  _loadingReports
-                                      ? 'Loading reports…'
-                                      : '${_visibleReports.length} reports in this area',
+                                  _reportCountLabel,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                   style: infraHeading(
                                     color: navy,
-                                    fontSize: 13,
+                                    fontSize: 12.5,
                                     weight: FontWeight.w800,
                                   ),
                                 ),
@@ -424,10 +473,14 @@ class _MapPageState extends State<MapPage> {
                                 Text(
                                   _showLegend
                                       ? 'Tap a category to filter the map'
-                                      : 'Tap to view map legend',
+                                      : _visibleReports.isEmpty
+                                      ? 'Try a different search or category'
+                                      : 'Tap a marker or open the legend',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
                                     color: inkSoft,
-                                    fontSize: 11,
+                                    fontSize: 10.5,
                                   ),
                                 ),
                               ],
@@ -479,6 +532,14 @@ class _MapPageState extends State<MapPage> {
           _reports.where((report) => report.category == category).length,
         ),
   ];
+
+  IconData _categoryIcon(String category) => switch (category) {
+    'Roads' => Icons.add_road_rounded,
+    'Water' => Icons.water_drop_outlined,
+    'Drainage' => Icons.water_damage_outlined,
+    'Lighting' => Icons.lightbulb_outline_rounded,
+    _ => Icons.map_outlined,
+  };
 }
 
 class _MapReport {
@@ -512,32 +573,44 @@ class _MapReport {
 class _MapFilterChip extends StatelessWidget {
   const _MapFilterChip({
     required this.label,
+    required this.icon,
     required this.selected,
     required this.onTap,
   });
 
   final String label;
+  final IconData icon;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) => Material(
-    color: selected ? navy : Colors.white,
-    elevation: selected ? 3 : 2,
-    shadowColor: navy.withValues(alpha: .18),
-    borderRadius: BorderRadius.circular(20),
+    color: selected ? navy : Colors.white.withValues(alpha: .96),
+    elevation: selected ? 3 : 1,
+    shadowColor: navy.withValues(alpha: .12),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(20),
+      side: BorderSide(color: selected ? navy : navy.withValues(alpha: .08)),
+    ),
     child: InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 9),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? Colors.white : navy,
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-          ),
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 15, color: selected ? Colors.white : teal),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: selected ? Colors.white : navy,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ),
       ),
     ),
@@ -559,16 +632,129 @@ class _MapControlButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-    color: selected ? teal : Colors.white,
-    elevation: 4,
-    shadowColor: navy.withValues(alpha: .22),
-    borderRadius: BorderRadius.circular(12),
+    color: selected ? teal : Colors.transparent,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     child: IconButton(
       tooltip: tooltip,
       onPressed: onPressed,
       color: selected ? Colors.white : navy,
       icon: Icon(icon, size: 21),
-      constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+      constraints: const BoxConstraints.tightFor(width: 46, height: 46),
+    ),
+  );
+}
+
+class _MapLoadError extends StatelessWidget {
+  const _MapLoadError({required this.message, required this.onRetry});
+
+  final String message;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Colors.white,
+    elevation: 3,
+    shadowColor: navy.withValues(alpha: .12),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+      side: BorderSide(color: clay.withValues(alpha: .22)),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(12, 10, 7, 10),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: clay.withValues(alpha: .10),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: const Icon(Icons.cloud_off_outlined, color: clay, size: 18),
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Reports unavailable',
+                  style: TextStyle(
+                    color: navy,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  message,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: inkSoft,
+                    fontSize: 9.5,
+                    height: 1.25,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 4),
+          TextButton(
+            onPressed: onRetry,
+            style: TextButton.styleFrom(
+              foregroundColor: teal,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              minimumSize: const Size(48, 40),
+              textStyle: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _MapStatusPill extends StatelessWidget {
+  const _MapStatusPill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Colors.white.withValues(alpha: .95),
+    elevation: 2,
+    borderRadius: BorderRadius.circular(20),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: teal,
+              semanticsLabel: label,
+            ),
+          ),
+          const SizedBox(width: 7),
+          Text(
+            label,
+            style: const TextStyle(
+              color: navy,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
     ),
   );
 }
@@ -615,7 +801,7 @@ class _MapLegendRow extends StatelessWidget {
               ),
             ),
             Text(
-              '$count open',
+              '$count ${count == 1 ? 'report' : 'reports'}',
               style: TextStyle(
                 color: selected ? color : inkSoft,
                 fontSize: 10.5,
@@ -627,6 +813,41 @@ class _MapLegendRow extends StatelessWidget {
               Icon(Icons.check_circle, color: color, size: 16),
             ],
           ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _UserLocationMarker extends StatelessWidget {
+  const _UserLocationMarker();
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Container(
+      width: 30,
+      height: 30,
+      decoration: BoxDecoration(
+        color: const Color(0x332D7FF9),
+        shape: BoxShape.circle,
+        border: Border.all(color: const Color(0x442D7FF9)),
+      ),
+      child: Center(
+        child: Container(
+          width: 14,
+          height: 14,
+          decoration: BoxDecoration(
+            color: const Color(0xFF2D7FF9),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2.5),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x332D7FF9),
+                blurRadius: 5,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
         ),
       ),
     ),

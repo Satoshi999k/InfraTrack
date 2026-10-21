@@ -722,7 +722,7 @@ app.use(async (req, res, next) => {
   let user;
   try {
     [[user]] = await pool.query(
-      "SELECT u.id, u.name, u.email, u.mobile, u.barangay, u.role, u.standing, u.suspended_until, u.created_at FROM admin_sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > CURRENT_TIMESTAMP",
+      "SELECT u.id, u.name, u.email, u.mobile, u.barangay, u.role, u.standing, u.suspended_until, u.verification, u.created_at FROM admin_sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > CURRENT_TIMESTAMP",
       [hashSessionToken(token)],
     );
   } catch (error) {
@@ -760,6 +760,19 @@ app.use(async (req, res, next) => {
       code: "REPORTING_SUSPENDED",
       error: "Your account is temporarily suspended from submitting reports. You can continue using other parts of InfraTrack.",
       suspendedUntil: user.suspended_until,
+    });
+  }
+  if (
+    isMobileClient &&
+    user.role === "resident" &&
+    user.verification !== "Verified" &&
+    (req.method === "POST" && req.path === "/api/mobile/reports" ||
+      req.method === "POST" && req.path === "/api/uploads")
+  ) {
+    return res.status(403).json({
+      code: "ACCOUNT_NOT_VERIFIED",
+      error: "Your account must be verified before you can submit a report.",
+      verification: user.verification,
     });
   }
   req.auth = user;

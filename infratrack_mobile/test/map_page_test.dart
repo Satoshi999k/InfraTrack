@@ -1,6 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:infatrack/api_service.dart';
 import 'package:infatrack/main.dart';
 import 'package:latlong2/latlong.dart';
@@ -29,4 +33,108 @@ void main() {
     final map = tester.widget<FlutterMap>(find.byType(FlutterMap));
     expect(map.options.initialCenter, const LatLng(6.8993278, 126.1510600));
   });
+
+  testWidgets('map category filters update the matching report count', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final originalClientFactory = ApiService.httpClientFactory;
+    ApiService.httpClientFactory = () => MockClient((request) async {
+      if (request.url.path.endsWith('/mobile/issues')) {
+        return http.Response(
+          jsonEncode({
+            'issues': [
+              _issue(id: 1, title: 'Road damage', category: 'Roads'),
+              _issue(id: 2, title: 'Broken water pipe', category: 'Water'),
+            ],
+          }),
+          200,
+        );
+      }
+      return http.Response('Not found', 404);
+    });
+
+    try {
+      await tester.pumpWidget(const MaterialApp(home: MapPage()));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.text('2 matching reports'), findsOneWidget);
+      expect(find.byIcon(Icons.add_road_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.water_drop_outlined), findsOneWidget);
+
+      await tester.tap(find.text('Water'));
+      await tester.pump();
+
+      expect(find.text('1 matching report'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    } finally {
+      ApiService.httpClientFactory = originalClientFactory;
+    }
+  });
+
+  testWidgets('map report loading error offers retry', (tester) async {
+    final originalClientFactory = ApiService.httpClientFactory;
+    var issueRequests = 0;
+    ApiService.httpClientFactory = () => MockClient((request) async {
+      if (request.url.path.endsWith('/mobile/issues')) {
+        issueRequests++;
+        if (issueRequests == 1) {
+          return http.Response(
+            jsonEncode({'error': 'Reports could not be loaded.'}),
+            503,
+          );
+        }
+        return http.Response(
+          jsonEncode({
+            'issues': [_issue(id: 1, title: 'Road damage', category: 'Roads')],
+          }),
+          200,
+        );
+      }
+      return http.Response('Not found', 404);
+    });
+
+    try {
+      await tester.pumpWidget(const MaterialApp(home: MapPage()));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.text('Reports unavailable'), findsOneWidget);
+      expect(find.text('Retry'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      await tester.tap(find.text('Retry'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(issueRequests, 2);
+      expect(find.text('1 matching report'), findsOneWidget);
+      expect(find.text('Reports unavailable'), findsNothing);
+      expect(tester.takeException(), isNull);
+    } finally {
+      ApiService.httpClientFactory = originalClientFactory;
+    }
+  });
 }
+
+Map<String, dynamic> _issue({
+  required int id,
+  required String title,
+  required String category,
+}) => {
+  'id': id,
+  'title': title,
+  'description': 'A community-reported infrastructure issue.',
+  'category': category,
+  'location': 'Barangay Central',
+  'status': 'Reported',
+  'severity': 'Medium',
+  'latitude': 6.9612515,
+  'longitude': 126.2069944,
+  'created_at': '2026-10-20T10:00:00.000Z',
+};

@@ -33,7 +33,7 @@ void main() {
         return http.Response(
           jsonEncode({
             'advisories': [
-              _advisory(1, 'Flood warning', 'alert'),
+              _advisory(1, 'Community equipment showcase', 'alert'),
               _advisory(2, 'Water service schedule', 'maint'),
               _advisory(3, 'Roadworks update', 'gen'),
             ],
@@ -51,8 +51,9 @@ void main() {
       expect(find.text('Report updates'), findsOneWidget);
       expect(find.text('City advisories'), findsOneWidget);
       expect(find.text('Road repair on Rizal Street'), findsOneWidget);
-      expect(find.text('Flood warning'), findsOneWidget);
-      expect(find.text('EMERGENCY ALERT'), findsOneWidget);
+      expect(find.text('Community equipment showcase'), findsOneWidget);
+      expect(find.text('ADVERTISEMENT'), findsOneWidget);
+      expect(find.text('Emergency'), findsNothing);
       expect(find.text('MAINTENANCE'), findsOneWidget);
       expect(find.text('CITY ANNOUNCEMENT'), findsOneWidget);
       expect(find.text('3'), findsNWidgets(2));
@@ -70,15 +71,15 @@ void main() {
 
       expect(find.text('Water supply restored'), findsOneWidget);
       expect(find.text('Road repair on Rizal Street'), findsNothing);
-      expect(find.text('Flood warning'), findsOneWidget);
+      expect(find.text('Community equipment showcase'), findsOneWidget);
       expect(find.text('Roadworks update'), findsOneWidget);
 
-      await tester.ensureVisible(find.text('Emergency'));
-      await tester.tap(find.text('Emergency'));
+      await tester.ensureVisible(find.text('Advertisement'));
+      await tester.tap(find.text('Advertisement'));
       await tester.pumpAndSettle();
 
       expect(find.text('Water supply restored'), findsOneWidget);
-      expect(find.text('Flood warning'), findsOneWidget);
+      expect(find.text('Community equipment showcase'), findsOneWidget);
       expect(find.text('Water service schedule'), findsNothing);
       expect(find.text('Roadworks update'), findsNothing);
     } finally {

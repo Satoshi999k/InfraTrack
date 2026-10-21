@@ -84,9 +84,8 @@ class _MyReportsPageState extends State<MyReportsPage> {
         assignedTeam: item['assigned_team']?.toString() ?? '',
         resolutionNote: item['resolution_note']?.toString() ?? '',
         coordinates: item['latitude'] == null || item['longitude'] == null
-            ? item['location']?.toString() ?? 'Mati City'
+            ? ''
             : 'Lat ${item['latitude']}, Lon ${item['longitude']}',
-        watchers: 'Report activity',
         age: item['created_at']?.toString() ?? '',
         image: publicMediaUrl(item['media_url'] as String?) ?? '',
         status: status,
@@ -435,7 +434,6 @@ class _MyReportCard extends StatelessWidget {
     String assignedTeam,
     String resolutionNote,
     String coordinates,
-    String watchers,
     String age,
     String image,
     String status,
@@ -443,99 +441,128 @@ class _MyReportCard extends StatelessWidget {
     IconData icon,
   })
   report;
+
   @override
   Widget build(BuildContext context) => Card(
     margin: const EdgeInsets.only(bottom: 12),
-    color: Colors.white.withValues(alpha: .88),
+    color: Colors.white,
     elevation: 0,
     shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(20),
-      side: BorderSide(color: Colors.white.withValues(alpha: .95)),
+      borderRadius: BorderRadius.circular(18),
+      side: const BorderSide(color: line),
     ),
     child: InkWell(
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(18),
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => MyReportDetailsPage(report: report)),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(11),
+        padding: const EdgeInsets.all(13),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Container(
-              width: 4,
-              height: 66,
-              decoration: BoxDecoration(
-                color: report.color,
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-            const SizedBox(width: 8),
             ClipRRect(
-              borderRadius: BorderRadius.circular(13),
+              borderRadius: BorderRadius.circular(14),
               child: SizedBox(
-                width: 66,
-                height: 66,
-                child: Image.network(
-                  report.image,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => Container(
-                    color: report.color.withValues(alpha: .12),
-                    child: Icon(report.icon, color: report.color, size: 25),
-                  ),
-                ),
+                width: 72,
+                height: 82,
+                child: report.image.isEmpty
+                    ? _ReportThumbnailPlaceholder(report: report)
+                    : Image.network(
+                        report.image,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) =>
+                            _ReportThumbnailPlaceholder(report: report),
+                      ),
               ),
             ),
-            const SizedBox(width: 11),
+            const SizedBox(width: 13),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: Text(
-                          report.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: infraHeading(
-                            color: ink,
-                            fontSize: 12.5,
-                            weight: FontWeight.w800,
-                          ),
+                        child: Row(
+                          children: [
+                            Icon(report.icon, color: teal, size: 14),
+                            const SizedBox(width: 5),
+                            Expanded(
+                              child: Text(
+                                report.category,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: teal,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 8),
                       StatusPill(label: report.status, color: report.color),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 7),
                   Text(
-                    report.coordinates,
-                    style: infraMono(fontSize: 9, color: inkSoft),
+                    report.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: infraHeading(
+                      color: ink,
+                      fontSize: 13,
+                      weight: FontWeight.w800,
+                    ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   Row(
                     children: [
                       const Icon(
-                        Icons.visibility_outlined,
+                        Icons.location_on_outlined,
+                        size: 14,
+                        color: inkSoft,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          report.location,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: inkSoft,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.schedule_rounded,
                         size: 13,
                         color: inkSoft,
                       ),
                       const SizedBox(width: 4),
-                      Text(
-                        report.watchers,
-                        style: const TextStyle(color: inkSoft, fontSize: 10),
-                      ),
-                      const SizedBox(width: 14),
                       Expanded(
                         child: Text(
-                          _formatReportDate(report.age),
+                          'Filed ${_formatReportDate(report.age)}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: infraMono(fontSize: 9.5, color: inkSoft),
+                          style: const TextStyle(color: inkSoft, fontSize: 9.5),
                         ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 12,
+                        color: inkSoft,
                       ),
                     ],
                   ),
@@ -546,6 +573,34 @@ class _MyReportCard extends StatelessWidget {
         ),
       ),
     ),
+  );
+}
+
+class _ReportThumbnailPlaceholder extends StatelessWidget {
+  const _ReportThumbnailPlaceholder({required this.report});
+
+  final ({
+    String title,
+    String reportId,
+    String description,
+    String location,
+    String category,
+    String severity,
+    String assignedTeam,
+    String resolutionNote,
+    String coordinates,
+    String age,
+    String image,
+    String status,
+    Color color,
+    IconData icon,
+  })
+  report;
+
+  @override
+  Widget build(BuildContext context) => ColoredBox(
+    color: report.color.withValues(alpha: .11),
+    child: Center(child: Icon(report.icon, color: report.color, size: 26)),
   );
 }
 
@@ -562,7 +617,6 @@ class MyReportDetailsPage extends StatelessWidget {
     String assignedTeam,
     String resolutionNote,
     String coordinates,
-    String watchers,
     String age,
     String image,
     String status,
@@ -625,6 +679,13 @@ class MyReportDetailsPage extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 6),
+              if (report.coordinates.isNotEmpty) ...[
+                Text(
+                  'GPS coordinates · ${report.coordinates}',
+                  style: infraMono(fontSize: 9, color: inkSoft),
+                ),
+                const SizedBox(height: 6),
+              ],
               Text(
                 'Report ID: ${report.reportId} ? Filed ${_formatReportDate(report.age)}',
                 style: infraMono(fontSize: 9, color: inkSoft),
@@ -705,7 +766,6 @@ String _locationFor(
     String assignedTeam,
     String resolutionNote,
     String coordinates,
-    String watchers,
     String age,
     String image,
     String status,
@@ -765,7 +825,6 @@ class _DetailsHero extends StatelessWidget {
     String assignedTeam,
     String resolutionNote,
     String coordinates,
-    String watchers,
     String age,
     String image,
     String status,
@@ -782,14 +841,20 @@ class _DetailsHero extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Image.network(
-            report.image,
-            fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => Container(
+          if (report.image.isEmpty)
+            Container(
               color: report.color.withValues(alpha: .18),
               child: Icon(report.icon, size: 58, color: report.color),
+            )
+          else
+            Image.network(
+              report.image,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => Container(
+                color: report.color.withValues(alpha: .18),
+                child: Icon(report.icon, size: 58, color: report.color),
+              ),
             ),
-          ),
           const DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(

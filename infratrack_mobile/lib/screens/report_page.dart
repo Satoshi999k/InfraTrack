@@ -17,13 +17,20 @@ class _ReportPageState extends State<ReportPage> {
   Position? _position;
   bool _locating = false;
   String? _locationError;
+  String _verification =
+      ApiService.currentUser?['verification']?.toString() ?? 'Not submitted';
+  bool _verificationLoading = true;
+  bool _checkingVerification = false;
+  String? _verificationError;
 
-  Future<void> refresh() => _refreshLocation();
+  bool get _isVerified => _verification.toLowerCase() == 'verified';
+
+  Future<void> refresh() => _refreshAccess();
 
   @override
   void initState() {
     super.initState();
-    _refreshLocation();
+    _refreshAccess();
   }
 
   @override
@@ -33,6 +40,7 @@ class _ReportPageState extends State<ReportPage> {
   }
 
   Future<void> _submitReport() async {
+    if (!_isVerified || _verificationLoading) return;
     if (_descriptionController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please add a description first')),
@@ -87,6 +95,14 @@ class _ReportPageState extends State<ReportPage> {
           setState(() {});
           return;
         }
+        if (error is ApiException && error.code == 'ACCOUNT_NOT_VERIFIED') {
+          setState(() {
+            _verification =
+                ApiService.currentUser?['verification']?.toString() ??
+                'Not submitted';
+          });
+          return;
+        }
         if (error is ApiException && error.code == 'ACCOUNT_BANNED') return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -94,6 +110,35 @@ class _ReportPageState extends State<ReportPage> {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _refreshAccess() async {
+    if (_checkingVerification) return;
+    _checkingVerification = true;
+    setState(() {
+      _verificationLoading = true;
+      _verificationError = null;
+    });
+    try {
+      final profile = await ApiService.profile();
+      if (!mounted) return;
+      setState(() {
+        _verification = profile['verification']?.toString() ?? 'Not submitted';
+      });
+      if (_isVerified) await _refreshLocation();
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () => _verificationError = error.toString().replaceFirst(
+            'Exception: ',
+            '',
+          ),
+        );
+      }
+    } finally {
+      _checkingVerification = false;
+      if (mounted) setState(() => _verificationLoading = false);
     }
   }
 
@@ -198,7 +243,36 @@ class _ReportPageState extends State<ReportPage> {
         ),
       );
     }
-
+    if (_verificationLoading || !_isVerified || _verificationError != null) {
+      return PageEntrance(
+        child: AppScroll(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const AppHeader(
+                eyebrow: 'NEW SUBMISSION',
+                title: 'Report an issue',
+              ),
+              const SizedBox(height: 12),
+              _ReportVerificationNotice(
+                verification: _verification,
+                loading: _verificationLoading,
+                error: _verificationError,
+                onRetry: _refreshAccess,
+                onVerify: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const IdentityVerificationPage(),
+                    ),
+                  );
+                  if (mounted) await _refreshAccess();
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return PageEntrance(
       child: AppScroll(
         child: Column(
@@ -334,6 +408,242 @@ class _ReportPageState extends State<ReportPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ReportVerificationNotice extends StatelessWidget {
+  const _ReportVerificationNotice({
+    required this.verification,
+    required this.loading,
+    required this.error,
+    required this.onRetry,
+    required this.onVerify,
+  });
+
+  final String verification;
+  final bool loading;
+  final String? error;
+  final Future<void> Function() onRetry;
+  final Future<void> Function() onVerify;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = verification.toLowerCase();
+    final pending = status.contains('pending');
+    final rejected = status.contains('mismatch') || status.contains('rejected');
+    final heading = loading
+        ? 'Checking your account'
+        : error != null
+        ? 'We couldn’t confirm your status'
+        : pending
+        ? 'Your verification is in review'
+        : rejected
+        ? 'Your verification needs an update'
+        : 'Verify your account to report';
+    final description = loading
+        ? 'We’re securely checking your verification status before opening the report form.'
+        : error != null
+        ? 'Reporting stays locked until we can confirm your account. Check your connection and try again.'
+        : pending
+        ? 'Your ID and selfie are being reviewed. You can submit a report as soon as your account is approved.'
+        : rejected
+        ? 'Your previous verification was not approved. Review your identity status and submit clear documents to continue.'
+        : 'To help keep community reports trustworthy, complete identity verification before submitting an issue.';
+    final statusLabel = loading
+        ? 'CHECKING'
+        : error != null
+        ? 'STATUS UNAVAILABLE'
+        : pending
+        ? 'PENDING REVIEW'
+        : rejected
+        ? 'ACTION NEEDED'
+        : 'NOT VERIFIED';
+    final actionLabel = pending
+        ? 'View verification status'
+        : rejected
+        ? 'Update verification'
+        : 'Verify identity';
+
+    return Container(
+      width: double.infinity,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: line),
+        boxShadow: [
+          BoxShadow(
+            color: deepNavy.withValues(alpha: .07),
+            blurRadius: 22,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [deepNavy, navy, teal],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: .14),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: Icon(
+                    loading
+                        ? Icons.shield_outlined
+                        : pending
+                        ? Icons.hourglass_top_rounded
+                        : rejected
+                        ? Icons.fact_check_outlined
+                        : Icons.verified_user_outlined,
+                    color: Colors.white,
+                    size: 26,
+                  ),
+                ),
+                const SizedBox(width: 13),
+                const Expanded(
+                  child: Text(
+                    'REPORTING ACCESS',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.1,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 7,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: .14),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white30),
+                  ),
+                  child: Text(
+                    statusLabel,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: .45,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 19, 18, 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  heading,
+                  style: infraHeading(
+                    color: navy,
+                    fontSize: 21,
+                    weight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  description,
+                  style: const TextStyle(
+                    color: inkSoft,
+                    fontSize: 13,
+                    height: 1.5,
+                  ),
+                ),
+                if (error != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    error!,
+                    style: const TextStyle(
+                      color: clay,
+                      fontSize: 11,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 17),
+                Container(
+                  padding: const EdgeInsets.all(13),
+                  decoration: BoxDecoration(
+                    color: sand.withValues(alpha: .75),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: line.withValues(alpha: .8)),
+                  ),
+                  child: const Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.lock_outline_rounded, color: teal, size: 19),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Your verification documents are private and will never appear on your public reports.',
+                          style: TextStyle(
+                            color: navy,
+                            fontSize: 11,
+                            height: 1.4,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 17),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: loading ? null : onVerify,
+                    icon: const Icon(Icons.verified_user_outlined, size: 19),
+                    label: Text(actionLabel),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: clay,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 9),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton.icon(
+                    onPressed: loading ? null : onRetry,
+                    icon: const Icon(Icons.refresh_rounded, size: 17),
+                    label: const Text('Refresh verification status'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: navy,
+                      padding: const EdgeInsets.symmetric(vertical: 11),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
