@@ -1912,6 +1912,16 @@ tbody tr:last-child td {
 .full-map {
   padding-bottom: 20px;
 }
+.full-map .card-head > .filters {
+  flex: 0 1 65%;
+  flex-wrap: nowrap;
+  min-width: 0;
+  overflow-x: auto;
+}
+.full-map .card-head > .filters > .filter {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
 .analytics-grid {
   display: grid;
   grid-template-columns: 1fr 1.15fr 1.15fr;

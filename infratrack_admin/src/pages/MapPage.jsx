@@ -385,7 +385,15 @@ export default function MapPage({ onOpenIssue, issues = [], user }) {
               label: reportCategory,
             })),
           ].map(({ value, label }) => (
-            <button key={value} className={`filter ${category === value ? "active" : ""}`} onClick={() => setCategory(value)}>{label}</button>
+            <button
+              key={value}
+              type="button"
+              className={`filter ${category === value ? "active" : ""}`}
+              aria-pressed={category === value}
+              onClick={() => setCategory(value)}
+            >
+              {label}
+            </button>
           ))}
         </div>
       </div>
