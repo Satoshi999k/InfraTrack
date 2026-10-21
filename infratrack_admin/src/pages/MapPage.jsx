@@ -1,10 +1,19 @@
-import { useEffect, useMemo, useState } from "react";
-import { divIcon } from "leaflet";
+import { useEffect, useMemo, useRef, useState } from "react";
+import L, { divIcon } from "leaflet";
+import "leaflet.markercluster/dist/MarkerCluster.css";
 import { MapContainer, Marker, Popup, TileLayer, ZoomControl, useMap } from "react-leaflet";
 import { Search, X } from "lucide-react";
 
 import { getBarangayMapCenter, normalizeBarangayName } from "../barangayMap";
 import { searchAddressLocations } from "../mapSearch";
+
+let markerClusterPluginPromise;
+
+function loadMarkerClusterPlugin() {
+  globalThis.L = L;
+  markerClusterPluginPromise ??= import("leaflet.markercluster");
+  return markerClusterPluginPromise;
+}
 
 function LeafletResizeHandler() {
   const map = useMap();
@@ -83,24 +92,126 @@ function issuePinIcon(issue) {
   const categoryInitial = escapeHtmlAttribute(
     String(issue.category || "?").slice(0, 1).toUpperCase(),
   );
-  const markerContent = `<span>${categoryInitial}</span>${
-    issue.media_url
-      ? `<img src="${escapeHtmlAttribute(issue.media_url)}" alt="" />`
-      : ""
-  }`;
+  const markerContent = issue.media_url
+    ? `<img src="${escapeHtmlAttribute(issue.media_url)}" alt="" />`
+    : `<span>${categoryInitial}</span>`;
   return divIcon({
     className: "leaflet-issue-icon",
-    iconSize: [44, 44],
-    iconAnchor: [22, 22],
-    popupAnchor: [0, -24],
+    iconSize: [44, 54],
+    iconAnchor: [22, 52],
+    popupAnchor: [0, -50],
     html: `
       <div class="leaflet-pin ${severity}">
+        <i class="leaflet-pin-tail"></i>
         <span class="leaflet-pin-ring">
           <span class="leaflet-pin-photo">${markerContent}</span>
+          <i class="leaflet-pin-center"></i>
         </span>
         <i class="leaflet-pin-status"></i>
       </div>
     `,
+  });
+}
+
+function issueClusterIcon(cluster) {
+  const count = cluster.getChildCount();
+  return divIcon({
+    className: "leaflet-issue-cluster-icon",
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
+    html: `<span class="leaflet-issue-cluster" title="${count} reports"><span>${count}</span></span>`,
+  });
+}
+
+function bindIssuePopup(marker, issue) {
+  const popupContent = document.createElement("div");
+  popupContent.textContent = issue.title || "Infrastructure report";
+  marker.bindPopup(popupContent);
+}
+
+function issueCoordinates(issue) {
+  if (
+    issue.latitude == null ||
+    issue.latitude === "" ||
+    issue.longitude == null ||
+    issue.longitude === ""
+  ) {
+    return null;
+  }
+  const latitude = Number(issue.latitude);
+  const longitude = Number(issue.longitude);
+  if (
+    !Number.isFinite(latitude) ||
+    !Number.isFinite(longitude) ||
+    Math.abs(latitude) > 90 ||
+    Math.abs(longitude) > 180
+  ) {
+    return null;
+  }
+  return [latitude, longitude];
+}
+
+function ClusteredIssues({ issues, onOpenIssue }) {
+  const map = useMap();
+  const [clusterUnavailable, setClusterUnavailable] = useState(false);
+  const onOpenIssueRef = useRef(onOpenIssue);
+
+  useEffect(() => {
+    onOpenIssueRef.current = onOpenIssue;
+  }, [onOpenIssue]);
+
+  useEffect(() => {
+    let active = true;
+    let clusterGroup;
+    setClusterUnavailable(false);
+
+    loadMarkerClusterPlugin()
+      .then(() => {
+        if (!active) return;
+        clusterGroup = L.markerClusterGroup({
+          maxClusterRadius: 44,
+          spiderfyOnMaxZoom: true,
+          zoomToBoundsOnClick: true,
+          showCoverageOnHover: false,
+          iconCreateFunction: issueClusterIcon,
+        });
+        for (const issue of issues) {
+          const coordinates = issueCoordinates(issue);
+          if (!coordinates) continue;
+          const marker = L.marker(coordinates, {
+            icon: issuePinIcon(issue),
+          });
+          bindIssuePopup(marker, issue);
+          marker.on("click", () => onOpenIssueRef.current?.(issue));
+          clusterGroup.addLayer(marker);
+        }
+        map.addLayer(clusterGroup);
+      })
+      .catch((error) => {
+        console.error("Could not load clustered map markers.", error);
+        if (active) setClusterUnavailable(true);
+      });
+
+    return () => {
+      active = false;
+      if (clusterGroup) map.removeLayer(clusterGroup);
+    };
+  }, [issues, map]);
+
+  if (!clusterUnavailable) return null;
+  return issues.map((issue) => {
+    const coordinates = issueCoordinates(issue);
+    if (!coordinates) return null;
+    return (
+      <Marker
+        key={issue.id || issue.public_id}
+        position={coordinates}
+        icon={issuePinIcon(issue)}
+        eventHandlers={{ click: () => onOpenIssueRef.current?.(issue) }}
+      >
+        <Popup>{issue.title}</Popup>
+      </Marker>
+    );
   });
 }
 
@@ -151,16 +262,7 @@ export function LeafletInfrastructureMap({ large = false, onOpenIssue, issues = 
         )}
         <LeafletResizeHandler />
         <MapViewport center={center} zoom={zoom} recenterKey={recenterKey} />
-        {issues.map((issue) => (
-          <Marker
-            key={issue.id || issue.public_id}
-            position={[Number(issue.latitude) || 6.951, Number(issue.longitude) || 126.231]}
-            icon={issuePinIcon(issue)}
-            eventHandlers={{ click: () => onOpenIssue?.(issue) }}
-          >
-            <Popup>{issue.title}</Popup>
-          </Marker>
-        ))}
+        <ClusteredIssues issues={issues} onOpenIssue={onOpenIssue} />
       </MapContainer>
       <MapSearchControl issues={issues} map={map} />
       <div className="map-layer-switcher" role="group" aria-label="Map layer">

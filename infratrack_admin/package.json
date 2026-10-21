@@ -18,6 +18,7 @@
     "dotenv": "latest",
     "ffmpeg-static": "latest",
     "leaflet": "^1.9.4",
+    "leaflet.markercluster": "^1.5.3",
     "lucide-react": "latest",
     "mysql2": "latest",
     "multer": "latest",

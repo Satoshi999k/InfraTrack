@@ -5134,36 +5134,55 @@ tbody tr:last-child td {
   border: 0;
   border-radius: 0;
 }
-.leaflet-issue-icon {
+.leaflet-issue-icon.leaflet-div-icon {
   background: transparent;
   border: 0;
 }
 .leaflet-pin {
   position: relative;
-  width: 40px;
-  height: 40px;
-  margin: 2px;
+  width: 44px;
+  height: 54px;
+  --pin-color: var(--ink-soft);
+}
+.leaflet-pin.critical { --pin-color: var(--red); }
+.leaflet-pin.high { --pin-color: var(--amber); }
+.leaflet-pin.medium { --pin-color: #c9aa49; }
+.leaflet-pin.low { --pin-color: var(--green); }
+.leaflet-pin-tail {
+  position: absolute;
+  z-index: 0;
+  top: 34px;
+  left: 16px;
+  width: 14px;
+  height: 14px;
+  border-radius: 2px 0 3px;
+  background: var(--pin-color);
+  box-shadow: 2px 3px 5px #09273238;
+  transform: rotate(45deg);
 }
 .leaflet-pin-ring {
-  position: relative;
+  position: absolute;
+  z-index: 1;
+  top: 1px;
+  left: 2px;
   box-sizing: border-box;
   display: block;
   width: 40px;
   height: 40px;
-  overflow: hidden;
-  border: 3px solid #fff;
+  border: 3px solid var(--pin-color);
   border-radius: 50%;
-  background: var(--sand);
-  box-shadow: 0 6px 14px #09273247;
+  background: #fff;
+  box-shadow: 0 2px 6px #09273238, inset 0 0 0 2px #fff;
 }
 .leaflet-pin-photo {
   position: absolute;
-  inset: 3px;
+  inset: 2px;
   display: block;
   overflow: hidden;
   border-radius: 50%;
   background-position: center;
   background-size: cover;
+  background-color: var(--sand);
   color: var(--navy);
   font-size: 13px;
   font-weight: 800;
@@ -5175,7 +5194,6 @@ tbody tr:last-child td {
   width: 100%;
   height: 100%;
   max-width: none;
-  border-radius: 50%;
   object-fit: cover;
   object-position: center;
 }
@@ -5185,32 +5203,64 @@ tbody tr:last-child td {
   display: grid;
   place-items: center;
 }
-.leaflet-pin.critical .leaflet-pin-ring {
-  border-color: var(--red);
-}
-.leaflet-pin.high .leaflet-pin-ring {
-  border-color: var(--amber);
-}
-.leaflet-pin.medium .leaflet-pin-ring {
-  border-color: #e3d08c;
-}
-.leaflet-pin.low .leaflet-pin-ring {
-  border-color: var(--green);
+.leaflet-pin-center {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--navy);
+  box-shadow: 0 1px 4px #09273285;
+  transform: translate(-50%, -50%);
 }
 .leaflet-pin-status {
   position: absolute;
+  z-index: 3;
   top: 0;
-  right: 0;
-  width: 12px;
-  height: 12px;
+  right: 1px;
+  width: 11px;
+  height: 11px;
   border: 2px solid #fff;
   border-radius: 50%;
-  background: var(--ink-soft);
+  background: var(--pin-color);
 }
-.leaflet-pin.critical .leaflet-pin-status { background: var(--red); }
-.leaflet-pin.high .leaflet-pin-status { background: var(--amber); }
-.leaflet-pin.medium .leaflet-pin-status { background: #e3d08c; }
-.leaflet-pin.low .leaflet-pin-status { background: var(--green); }
+.leaflet-issue-cluster-icon {
+  background: transparent;
+  border: 0;
+}
+.leaflet-issue-cluster {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: var(--navy);
+  box-shadow: 0 3px 10px #0927324d, inset 0 0 0 1px #ffffff66;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+}
+.leaflet-issue-cluster span {
+  display: grid;
+  width: 29px;
+  height: 29px;
+  place-items: center;
+  border: 1px solid #ffffff80;
+  border-radius: 50%;
+}
+.leaflet-cluster-anim .leaflet-marker-icon,
+.leaflet-cluster-anim .leaflet-marker-shadow {
+  transition: transform 0.3s ease-out, opacity 0.3s ease-in;
+}
+.leaflet-cluster-spider-leg {
+  stroke: var(--navy);
+  stroke-opacity: 0.55;
+  stroke-width: 1.5;
+}
 .roads-photo,
 .road-photo { background-image: url("https://picsum.photos/seed/infratrack-road/120/120"); }
 .water-photo { background-image: url("https://picsum.photos/seed/infratrack-water/120/120"); }
