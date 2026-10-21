@@ -465,14 +465,12 @@ class ApiService {
     notificationReadRevision.value++;
   }
 
-  static Future<void> markAllNotificationsRead() async {
-    await _request(
-      'PATCH',
-      '/mobile/notifications/read-all',
-      authenticated: true,
-    );
-    lastReadNotificationId = null;
-    notificationReadRevision.value++;
+  static Future<void> markAllNotificationsRead(
+    Iterable<int> notificationIds,
+  ) async {
+    for (final notificationId in notificationIds) {
+      await markNotificationRead(notificationId);
+    }
   }
 
   static Future<Map<String, dynamic>> profile() async {

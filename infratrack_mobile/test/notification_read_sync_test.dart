@@ -106,7 +106,7 @@ void main() {
   ) async {
     SharedPreferences.setMockInitialValues({});
     final originalClientFactory = ApiService.httpClientFactory;
-    var markAllRequestCount = 0;
+    final markedReadIds = <String>[];
     ApiService.httpClientFactory = () => MockClient((request) async {
       if (request.url.path.endsWith('/mobile/auth/login')) {
         return http.Response(
@@ -142,9 +142,10 @@ void main() {
           200,
         );
       }
-      if (request.url.path.endsWith('/mobile/notifications/read-all')) {
+      if (request.url.path.endsWith('/mobile/notifications/8/read') ||
+          request.url.path.endsWith('/mobile/notifications/9/read')) {
         expect(request.method, 'PATCH');
-        markAllRequestCount++;
+        markedReadIds.add(request.url.pathSegments[3]);
         return http.Response(jsonEncode({'ok': true, 'updated': 1}), 200);
       }
       return http.Response('Not found', 404);
@@ -163,7 +164,7 @@ void main() {
       await tester.tap(find.text('Mark all as read'));
       await tester.pumpAndSettle();
 
-      expect(markAllRequestCount, 1);
+      expect(markedReadIds, ['8']);
       expect(find.text('Mark all as read'), findsNothing);
     } finally {
       ApiService.httpClientFactory = originalClientFactory;

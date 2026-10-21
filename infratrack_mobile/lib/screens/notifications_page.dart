@@ -69,8 +69,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
   }
 
   Future<void> _markAllRead() async {
-    if (_markingAllRead ||
-        !_serverNotifications.any((item) => item['read_at'] == null)) {
+    final unreadIds = _serverNotifications
+        .where((item) => item['read_at'] == null)
+        .map((item) => int.parse(item['id'].toString()))
+        .toList();
+    if (_markingAllRead || unreadIds.isEmpty) {
       return;
     }
     final previousNotifications = _serverNotifications;
@@ -85,10 +88,25 @@ class _NotificationsPageState extends State<NotificationsPage> {
           .toList();
     });
     try {
-      await ApiService.markAllNotificationsRead();
+      await ApiService.markAllNotificationsRead(unreadIds);
     } catch (error) {
       if (!mounted) return;
-      setState(() => _serverNotifications = previousNotifications);
+      try {
+        final latestNotifications = await ApiService.notifications();
+        if (!mounted) return;
+        setState(() => _serverNotifications = latestNotifications);
+      } catch (refreshError) {
+        setState(() => _serverNotifications = previousNotifications);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Could not refresh notifications after marking them read: '
+              '${refreshError.toString().replaceFirst('Exception: ', '')}',
+            ),
+          ),
+        );
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(error.toString().replaceFirst('Exception: ', '')),
