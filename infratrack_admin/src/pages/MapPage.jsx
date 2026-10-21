@@ -93,8 +93,8 @@ function issuePinIcon(issue) {
     String(issue.category || "?").slice(0, 1).toUpperCase(),
   );
   const markerContent = issue.media_url
-    ? `<img src="${escapeHtmlAttribute(issue.media_url)}" alt="" />`
-    : `<span>${categoryInitial}</span>`;
+    ? `<img class="leaflet-pin-photo" src="${escapeHtmlAttribute(issue.media_url)}" alt="" />`
+    : `<span class="leaflet-pin-category">${categoryInitial}</span>`;
   return divIcon({
     className: "leaflet-issue-icon",
     iconSize: [44, 54],
@@ -104,7 +104,7 @@ function issuePinIcon(issue) {
       <div class="leaflet-pin ${severity}">
         <i class="leaflet-pin-tail"></i>
         <span class="leaflet-pin-ring">
-          <span class="leaflet-pin-photo">${markerContent}</span>
+          ${markerContent}
           <i class="leaflet-pin-center"></i>
         </span>
         <i class="leaflet-pin-status"></i>
