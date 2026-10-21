@@ -29,4 +29,17 @@ void main() {
     expect(find.text('Sign in with biometrics'), findsNothing);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('security settings use biometric sign-in instead of app lock', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+
+    await tester.pumpWidget(const MaterialApp(home: PrivacySecurityPage()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Biometric sign-in'), findsOneWidget);
+    expect(find.text('Biometric app lock'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 }

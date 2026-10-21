@@ -2662,25 +2662,28 @@ class _PrivacySettingTile extends StatelessWidget {
   final ValueChanged<bool>? onChanged;
 
   @override
-  Widget build(BuildContext context) => ListTile(
-    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-    leading: _SettingsIcon(icon: icon, color: color),
-    title: Text(
-      title,
-      style: const TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w700,
-        color: ink,
+  Widget build(BuildContext context) => Material(
+    color: Colors.transparent,
+    child: ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+      leading: _SettingsIcon(icon: icon, color: color),
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: ink,
+        ),
       ),
-    ),
-    subtitle: Padding(
-      padding: const EdgeInsets.only(top: 3),
-      child: Text(
-        subtitle,
-        style: const TextStyle(fontSize: 10.5, color: inkSoft),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 3),
+        child: Text(
+          subtitle,
+          style: const TextStyle(fontSize: 10.5, color: inkSoft),
+        ),
       ),
+      trailing: Switch.adaptive(value: value, onChanged: onChanged),
     ),
-    trailing: Switch.adaptive(value: value, onChanged: onChanged),
   );
 }
 
@@ -2700,26 +2703,29 @@ class _ActionSettingTile extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => ListTile(
-    onTap: onTap,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-    leading: _SettingsIcon(icon: icon, color: color),
-    title: Text(
-      title,
-      style: const TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w700,
-        color: ink,
+  Widget build(BuildContext context) => Material(
+    color: Colors.transparent,
+    child: ListTile(
+      onTap: onTap,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+      leading: _SettingsIcon(icon: icon, color: color),
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: ink,
+        ),
       ),
-    ),
-    subtitle: Padding(
-      padding: const EdgeInsets.only(top: 3),
-      child: Text(
-        subtitle,
-        style: const TextStyle(fontSize: 10.5, color: inkSoft),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 3),
+        child: Text(
+          subtitle,
+          style: const TextStyle(fontSize: 10.5, color: inkSoft),
+        ),
       ),
+      trailing: const Icon(Icons.chevron_right, color: inkSoft),
     ),
-    trailing: const Icon(Icons.chevron_right, color: inkSoft),
   );
 }
 
