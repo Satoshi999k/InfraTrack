@@ -39,6 +39,14 @@ export function geoDistanceKm(aLat, aLng, bLat, bLng) {
 
 export function computeDuplicateMatch(current = {}, existing = {}) {
   if (!current || !existing) return false;
+  if (
+    current.reporter_id == null ||
+    existing.reporter_id == null ||
+    String(current.reporter_id) !== String(existing.reporter_id)
+  ) {
+    return false;
+  }
+
   const sameCategory = (current.category || "").toLowerCase() === (existing.category || "").toLowerCase();
   if (!sameCategory) return false;
 

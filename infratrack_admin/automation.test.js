@@ -6,6 +6,7 @@ import { getBarangayForCoordinates, validateBarangayCoordinates } from './barang
 test('duplicate detection catches same-issue reports in the same barangay', () => {
   const existing = {
     id: 42,
+    reporter_id: 17,
     category: 'Roads',
     location: 'Brgy. Central',
     title: 'Deep pothole along Rizal Street',
@@ -15,6 +16,7 @@ test('duplicate detection catches same-issue reports in the same barangay', () =
   };
 
   const current = {
+    reporter_id: 17,
     category: 'Roads',
     location: 'Brgy. Central',
     title: 'Pothole on Rizal St near the market',
@@ -24,6 +26,40 @@ test('duplicate detection catches same-issue reports in the same barangay', () =
 
   assert.equal(computeDuplicateMatch(current, existing), true);
   assert.equal(normalizeIssueText('Road repair near Rizal St.').includes('rizal'), true);
+});
+
+test('duplicate detection does not match reports from different residents', () => {
+  const existing = {
+    reporter_id: 17,
+    category: 'Roads',
+    location: 'Brgy. Central',
+    title: 'Deep pothole along Rizal Street',
+    latitude: 6.953,
+    longitude: 126.228,
+  };
+  const current = {
+    reporter_id: 18,
+    category: 'Roads',
+    location: 'Brgy. Central',
+    title: 'Deep pothole along Rizal Street',
+    latitude: 6.953,
+    longitude: 126.228,
+  };
+
+  assert.equal(computeDuplicateMatch(current, existing), false);
+});
+
+test('duplicate detection does not match reports without resident identities', () => {
+  const report = {
+    category: 'Roads',
+    location: 'Brgy. Central',
+    title: 'Deep pothole along Rizal Street',
+    latitude: 6.953,
+    longitude: 126.228,
+  };
+
+  assert.equal(computeDuplicateMatch(report, { ...report, reporter_id: 17 }), false);
+  assert.equal(computeDuplicateMatch({ ...report, reporter_id: 17 }, report), false);
 });
 
 test('priority escalation raises delayed items by urgency level', () => {

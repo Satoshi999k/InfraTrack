@@ -401,7 +401,12 @@ async function notifyIssueStakeholders(report, eventType = "report") {
 
 async function evaluateIssueAutomation(report) {
   const reportId = Number(report.id);
-  const [existing] = await pool.query("SELECT id, public_id, title, category, location, latitude, longitude, created_at, severity, status FROM reports WHERE id <> ? AND status NOT IN ('Resolved', 'Rejected', 'Archived') ORDER BY created_at DESC LIMIT 200", [reportId]);
+  const [existing] = report.reporter_id == null
+    ? [[]]
+    : await pool.query(
+        "SELECT id, public_id, title, category, location, latitude, longitude, created_at, severity, status, reporter_id FROM reports WHERE id <> ? AND reporter_id = ? AND status NOT IN ('Resolved', 'Rejected', 'Archived') ORDER BY created_at DESC LIMIT 200",
+        [reportId, report.reporter_id],
+      );
   const duplicate = existing.find((candidate) => computeDuplicateMatch(report, candidate));
 
   if (duplicate) {
@@ -409,6 +414,12 @@ async function evaluateIssueAutomation(report) {
     await pool.query("UPDATE reports SET duplicate_of = ?, duplicate_reason = ? WHERE id = ?", [duplicate.id, details, reportId]);
     await notifyIssueStakeholders({ ...report, public_id: report.public_id || report.id }, "duplicate");
     return { duplicateOf: duplicate.id, escalated: false };
+  }
+  if (report.duplicate_of) {
+    await pool.query(
+      "UPDATE reports SET duplicate_of = NULL, duplicate_reason = NULL WHERE id = ?",
+      [reportId],
+    );
   }
 
   const ageHours = report.created_at ? (Date.now() - new Date(report.created_at).getTime()) / 3600000 : 0;
@@ -1451,6 +1462,12 @@ app.get("/api/issues", async (req, res) => {
   const search = `%${String(req.query.search ?? "").toLowerCase()}%`;
   const scope = getReportScope(req.auth, "r");
   const [issues] = await pool.query(`SELECT r.*, u.name AS reporter,
+    EXISTS (
+      SELECT 1 FROM reports duplicate_report
+      WHERE duplicate_report.id = r.duplicate_of
+        AND duplicate_report.reporter_id = r.reporter_id
+        AND r.reporter_id IS NOT NULL
+    ) AS same_reporter_duplicate,
     (SELECT m.file_path FROM media m WHERE m.report_id = r.id ORDER BY m.id ASC LIMIT 1) AS media_url,
     (SELECT m.media_type FROM media m WHERE m.report_id = r.id ORDER BY m.id ASC LIMIT 1) AS media_kind,
     (SELECT COUNT(*) FROM media m WHERE m.report_id = r.id) AS media_count,

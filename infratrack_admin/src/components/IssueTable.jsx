@@ -9,7 +9,7 @@ export default function IssueTable({ issues, onOpenIssue }) {
             <tr>
               <th>Issue</th>
               <th>Severity</th>
-              <th>Status</th>
+              <th className="queue-status-heading">Status</th>
               <th>Reported by</th>
               <th>Filed</th>
               <th>Assigned to</th>
@@ -19,7 +19,7 @@ export default function IssueTable({ issues, onOpenIssue }) {
           <tbody>
             {issues.map((issue) => {
               const automationFlags = [];
-              if (issue.duplicate_of) automationFlags.push("Duplicate");
+              if (issue.same_reporter_duplicate) automationFlags.push("Duplicate");
               if (issue.escalated_at) automationFlags.push("Escalated");
 
               return (

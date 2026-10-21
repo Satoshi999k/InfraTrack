@@ -1659,6 +1659,9 @@ a:focus-visible,
 .queue-card th {
   padding: 8px 12px 10px;
 }
+.queue-card th.queue-status-heading {
+  text-align: center;
+}
 .queue-card td {
   padding: 11px 12px;
   white-space: nowrap;
