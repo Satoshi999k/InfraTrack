@@ -100,4 +100,74 @@ void main() {
       await ApiService.signOutForExpiredSession();
     }
   });
+
+  testWidgets('notifications can all be marked read and filters show icons', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final originalClientFactory = ApiService.httpClientFactory;
+    var markAllRequestCount = 0;
+    ApiService.httpClientFactory = () => MockClient((request) async {
+      if (request.url.path.endsWith('/mobile/auth/login')) {
+        return http.Response(
+          jsonEncode({
+            'token': 'notification-test-token',
+            'user': {'id': 42, 'name': 'Test Resident'},
+          }),
+          200,
+        );
+      }
+      if (request.url.path.endsWith('/mobile/notifications')) {
+        return http.Response(
+          jsonEncode({
+            'notifications': [
+              {
+                'id': 8,
+                'type': 'report',
+                'title': 'Report update',
+                'message': 'Your report was approved.',
+                'created_at': '2026-10-21T10:00:00.000Z',
+                'read_at': null,
+              },
+              {
+                'id': 9,
+                'type': 'account',
+                'title': 'Account verified',
+                'message': 'Your account is verified.',
+                'created_at': '2026-10-20T10:00:00.000Z',
+                'read_at': '2026-10-20T11:00:00.000Z',
+              },
+            ],
+          }),
+          200,
+        );
+      }
+      if (request.url.path.endsWith('/mobile/notifications/read-all')) {
+        expect(request.method, 'PATCH');
+        markAllRequestCount++;
+        return http.Response(jsonEncode({'ok': true, 'updated': 1}), 200);
+      }
+      return http.Response('Not found', 404);
+    });
+
+    try {
+      await ApiService.login('resident@example.test', 'test-password');
+      await tester.pumpWidget(const MaterialApp(home: NotificationsPage()));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Mark all as read'), findsOneWidget);
+      final filters = tester.widgetList<FilterChip>(find.byType(FilterChip));
+      expect(filters, hasLength(4));
+      expect(filters.every((chip) => chip.avatar is Icon), isTrue);
+
+      await tester.tap(find.text('Mark all as read'));
+      await tester.pumpAndSettle();
+
+      expect(markAllRequestCount, 1);
+      expect(find.text('Mark all as read'), findsNothing);
+    } finally {
+      ApiService.httpClientFactory = originalClientFactory;
+      await ApiService.signOutForExpiredSession();
+    }
+  });
 }

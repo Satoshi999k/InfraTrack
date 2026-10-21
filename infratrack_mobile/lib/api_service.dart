@@ -465,6 +465,16 @@ class ApiService {
     notificationReadRevision.value++;
   }
 
+  static Future<void> markAllNotificationsRead() async {
+    await _request(
+      'PATCH',
+      '/mobile/notifications/read-all',
+      authenticated: true,
+    );
+    lastReadNotificationId = null;
+    notificationReadRevision.value++;
+  }
+
   static Future<Map<String, dynamic>> profile() async {
     final body = await _request('GET', '/mobile/profile', authenticated: true);
     currentUser = Map<String, dynamic>.from(body['user'] as Map);

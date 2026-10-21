@@ -1038,6 +1038,13 @@ app.get("/api/mobile/notifications", async (req, res) => {
   );
   res.json({ notifications });
 });
+app.patch("/api/mobile/notifications/read-all", async (req, res) => {
+  const [result] = await pool.query(
+    "UPDATE notifications SET read_at = CURRENT_TIMESTAMP WHERE user_id = ? AND read_at IS NULL",
+    [req.auth.id],
+  );
+  res.json({ ok: true, updated: result.affectedRows });
+});
 app.post("/api/mobile/chat", async (req, res) => {
   const messages = normalizeChatRequestMessages(req.body?.messages);
   if (!messages) {

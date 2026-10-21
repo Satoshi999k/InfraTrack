@@ -11,6 +11,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
   String filter = 'All';
   List<Map<String, dynamic>> _serverNotifications = [];
   bool _loading = true;
+  bool _markingAllRead = false;
   String? _loadError;
 
   @override
@@ -64,6 +65,37 @@ class _NotificationsPageState extends State<NotificationsPage> {
           content: Text(error.toString().replaceFirst('Exception: ', '')),
         ),
       );
+    }
+  }
+
+  Future<void> _markAllRead() async {
+    if (_markingAllRead ||
+        !_serverNotifications.any((item) => item['read_at'] == null)) {
+      return;
+    }
+    final previousNotifications = _serverNotifications;
+    final readAt = DateTime.now().toIso8601String();
+    setState(() {
+      _markingAllRead = true;
+      _serverNotifications = _serverNotifications
+          .map(
+            (item) =>
+                item['read_at'] == null ? {...item, 'read_at': readAt} : item,
+          )
+          .toList();
+    });
+    try {
+      await ApiService.markAllNotificationsRead();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _serverNotifications = previousNotifications);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _markingAllRead = false);
     }
   }
 
@@ -169,6 +201,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     filter: filter,
                     notifications: notifications,
                     onFilterChanged: (value) => setState(() => filter = value),
+                    onMarkAllRead: _markingAllRead ? null : _markAllRead,
                     onBack: () => Navigator.pop(context),
                   ),
                 ),
@@ -232,19 +265,21 @@ class _NotificationHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.filter,
     required this.notifications,
     required this.onFilterChanged,
+    required this.onMarkAllRead,
     required this.onBack,
   });
 
   final String filter;
   final List<_NotificationItem> notifications;
   final ValueChanged<String> onFilterChanged;
+  final VoidCallback? onMarkAllRead;
   final VoidCallback onBack;
 
   @override
-  double get minExtent => 132;
+  double get minExtent => 154;
 
   @override
-  double get maxExtent => 132;
+  double get maxExtent => 154;
 
   @override
   Widget build(
@@ -295,7 +330,28 @@ class _NotificationHeaderDelegate extends SliverPersistentHeaderDelegate {
                 ],
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 2),
+            Align(
+              alignment: Alignment.centerRight,
+              child: notifications.any((item) => item.unread)
+                  ? TextButton.icon(
+                      onPressed: onMarkAllRead,
+                      icon: const Icon(Icons.done_all_rounded, size: 16),
+                      label: const Text('Mark all as read'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: teal,
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        minimumSize: const Size(0, 32),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        textStyle: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    )
+                  : const SizedBox(height: 32),
+            ),
+            const SizedBox(height: 2),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
@@ -311,9 +367,21 @@ class _NotificationHeaderDelegate extends SliverPersistentHeaderDelegate {
                                   (entry) => entry.type == item && entry.unread,
                                 )
                                 .length;
+                      final icon = switch (item) {
+                        'All' => Icons.notifications_outlined,
+                        'Report updates' => Icons.assignment_outlined,
+                        'City updates' => Icons.campaign_outlined,
+                        'Account' => Icons.person_outline_rounded,
+                        _ => Icons.notifications_outlined,
+                      };
                       return Padding(
                         padding: const EdgeInsets.only(right: 8),
                         child: FilterChip(
+                          avatar: Icon(
+                            icon,
+                            size: 15,
+                            color: selected ? Colors.white : teal,
+                          ),
                           label: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -355,7 +423,8 @@ class _NotificationHeaderDelegate extends SliverPersistentHeaderDelegate {
   @override
   bool shouldRebuild(covariant _NotificationHeaderDelegate oldDelegate) =>
       oldDelegate.filter != filter ||
-      oldDelegate.notifications != notifications;
+      oldDelegate.notifications != notifications ||
+      oldDelegate.onMarkAllRead != onMarkAllRead;
 }
 
 class _NotificationItem {

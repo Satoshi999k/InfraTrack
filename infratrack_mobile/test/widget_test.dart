@@ -70,6 +70,9 @@ void main() {
     expect(find.text('Report updates'), findsOneWidget);
     expect(find.text('City updates'), findsOneWidget);
     expect(find.text('Account'), findsOneWidget);
+    final filters = tester.widgetList<FilterChip>(find.byType(FilterChip));
+    expect(filters, hasLength(4));
+    expect(filters.every((chip) => chip.avatar is Icon), isTrue);
   });
 
   testWidgets('my reports header stays pinned and filters show status icons', (
