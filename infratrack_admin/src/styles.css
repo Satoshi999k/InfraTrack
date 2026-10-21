@@ -1639,15 +1639,15 @@ a:focus-visible,
 .residents-pagination-controls {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
 }
 .residents-pagination-button {
   display: grid;
-  width: 38px;
-  height: 38px;
+  width: 30px;
+  height: 30px;
   place-items: center;
   border: 1px solid var(--line);
-  border-radius: 9px;
+  border-radius: 8px;
   background: #fff;
   color: var(--muted);
   cursor: pointer;
@@ -1665,11 +1665,11 @@ a:focus-visible,
 }
 .residents-pagination-page {
   display: grid;
-  width: 38px;
-  height: 38px;
+  width: 30px;
+  height: 30px;
   place-items: center;
   border: 1px solid var(--line);
-  border-radius: 9px;
+  border-radius: 8px;
   background: #fff;
   color: var(--navy);
   font: 700 13px "DM Sans", sans-serif;

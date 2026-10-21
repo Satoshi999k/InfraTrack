@@ -309,7 +309,7 @@ export default function UsersPage({ users, onOpenUser, user }) {
                 setResidentPage(Math.max(1, residentPageData.page - 1))
               }
             >
-              <ChevronLeft size={16} aria-hidden="true" />
+              <ChevronLeft size={14} aria-hidden="true" />
             </button>
             <span
               className="residents-pagination-page active"
@@ -332,7 +332,7 @@ export default function UsersPage({ users, onOpenUser, user }) {
                 )
               }
             >
-              <ChevronRight size={16} aria-hidden="true" />
+              <ChevronRight size={14} aria-hidden="true" />
             </button>
           </div>
         )}
