@@ -96,105 +96,105 @@ void main() {
     }
   });
 
-  testWidgets('map report pins use distinct colors for each category', (
-    tester,
-  ) async {
-    final originalClientFactory = ApiService.httpClientFactory;
-    ApiService.httpClientFactory = () => MockClient((request) async {
-      if (request.url.path.endsWith('/mobile/issues')) {
-        return http.Response(
-          jsonEncode({
-            'issues': [
-              _issue(
-                id: 1,
-                title: 'Road damage',
-                category: 'Roads',
-                latitude: 6.953,
-                longitude: 126.228,
-              ),
-              _issue(
-                id: 2,
-                title: 'Damaged barangay hall',
-                category: 'Public Buildings',
-                latitude: 6.953,
-                longitude: 126.228,
-              ),
-              _issue(
-                id: 3,
-                title: 'Blocked drainage',
-                category: 'Drainage',
-                latitude: 6.953,
-                longitude: 126.228,
-              ),
-              _issue(
-                id: 4,
-                title: 'Streetlight outage',
-                category: 'Streetlights',
-                latitude: 6.953,
-                longitude: 126.228,
-              ),
-              _issue(
-                id: 5,
-                title: 'Leaning electric pole',
-                category: 'Electric Poles',
-                latitude: 6.953,
-                longitude: 126.228,
-              ),
-            ],
-          }),
-          200,
+  testWidgets(
+    'co-located reports stay at their coordinate and are selectable',
+    (tester) async {
+      final originalClientFactory = ApiService.httpClientFactory;
+      ApiService.httpClientFactory = () => MockClient((request) async {
+        if (request.url.path.endsWith('/mobile/issues')) {
+          return http.Response(
+            jsonEncode({
+              'issues': [
+                _issue(
+                  id: 1,
+                  title: 'Road damage',
+                  category: 'Roads',
+                  latitude: 6.953,
+                  longitude: 126.228,
+                ),
+                _issue(
+                  id: 2,
+                  title: 'Damaged barangay hall',
+                  category: 'Public Buildings',
+                  latitude: 6.953,
+                  longitude: 126.228,
+                ),
+                _issue(
+                  id: 3,
+                  title: 'Blocked drainage',
+                  category: 'Drainage',
+                  latitude: 6.953,
+                  longitude: 126.228,
+                ),
+                _issue(
+                  id: 4,
+                  title: 'Streetlight outage',
+                  category: 'Streetlights',
+                  latitude: 6.953,
+                  longitude: 126.228,
+                ),
+                _issue(
+                  id: 5,
+                  title: 'Leaning electric pole',
+                  category: 'Electric Poles',
+                  latitude: 6.953,
+                  longitude: 126.228,
+                ),
+              ],
+            }),
+            200,
+          );
+        }
+        return http.Response('Not found', 404);
+      });
+
+      try {
+        await tester.pumpWidget(const MaterialApp(home: MapPage()));
+        await tester.pumpAndSettle();
+
+        expect(find.text('5 matching reports'), findsOneWidget);
+        final markers = tester
+            .widget<MarkerLayer>(find.byType(MarkerLayer))
+            .markers;
+        final clusterMarker = markers.singleWhere(
+          (marker) =>
+              marker.key?.toString().contains('report-cluster-') ?? false,
         );
-      }
-      return http.Response('Not found', 404);
-    });
-
-    try {
-      await tester.pumpWidget(const MaterialApp(home: MapPage()));
-      await tester.pumpAndSettle();
-
-      expect(find.text('5 matching reports'), findsOneWidget);
-      final reportMarkers = tester
-          .widget<MarkerLayer>(find.byType(MarkerLayer))
-          .markers
-          .where(
+        expect(clusterMarker.point, const LatLng(6.953, 126.228));
+        expect(
+          markers.where(
             (marker) =>
                 marker.key?.toString().contains('report-marker-') ?? false,
-          )
-          .toList();
-      expect(reportMarkers, hasLength(5));
-      expect(
-        reportMarkers
-            .map(
-              (marker) => '${marker.point.latitude},${marker.point.longitude}',
-            )
-            .toSet(),
-        hasLength(5),
-      );
+          ),
+          isEmpty,
+        );
 
-      expect(tester.takeException(), isNull);
+        expect(tester.takeException(), isNull);
 
-      final roadMarker = find.ancestor(
-        of: find.byIcon(Icons.add_road_rounded),
-        matching: find.byType(AnimatedScale),
-      );
-      await tester.tap(roadMarker);
-      await tester.pumpAndSettle();
-      expect(find.text('Road damage'), findsOneWidget);
-      await tester.tapAt(const Offset(5, 5));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('report-cluster-visual-1')));
+        await tester.pumpAndSettle();
+        expect(find.text('5 reports at this location'), findsOneWidget);
+        expect(find.text('Road damage'), findsOneWidget);
+        expect(find.text('Damaged barangay hall'), findsOneWidget);
+        expect(find.text('Blocked drainage'), findsOneWidget);
+        expect(find.text('Streetlight outage'), findsOneWidget);
+        await tester.scrollUntilVisible(
+          find.text('Leaning electric pole'),
+          180,
+          scrollable: find.byType(Scrollable).last,
+        );
+        expect(find.text('Leaning electric pole'), findsOneWidget);
 
-      final buildingsMarker = find.ancestor(
-        of: find.byIcon(Icons.apartment_rounded),
-        matching: find.byType(AnimatedScale),
-      );
-      await tester.tap(buildingsMarker);
-      await tester.pumpAndSettle();
-      expect(find.text('Damaged barangay hall'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    } finally {
-      ApiService.httpClientFactory = originalClientFactory;
-    }
-  });
+        await tester.tap(find.text('Leaning electric pole'));
+        await tester.pumpAndSettle();
+        expect(find.text('Leaning electric pole'), findsOneWidget);
+        expect(find.text('Electric Poles'), findsWidgets);
+        expect(tester.takeException(), isNull);
+      } finally {
+        ApiService.httpClientFactory = originalClientFactory;
+      }
+    },
+  );
 
   testWidgets('map report loading error offers retry', (tester) async {
     final originalClientFactory = ApiService.httpClientFactory;

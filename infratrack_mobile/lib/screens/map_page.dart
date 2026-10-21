@@ -1,5 +1,15 @@
 part of '../main.dart';
 
+IconData _mapCategoryIcon(String category) =>
+    switch (normalizeReportCategory(category)) {
+      'Roads' => Icons.add_road_rounded,
+      'Public Buildings' => Icons.apartment_rounded,
+      'Drainage' => Icons.water_damage_outlined,
+      'Streetlights' => Icons.lightbulb_outline_rounded,
+      'Electric Poles' => Icons.electric_bolt_rounded,
+      _ => Icons.map_outlined,
+    };
+
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
 
@@ -110,11 +120,7 @@ class _MapPageState extends State<MapPage> {
       if (!mounted) return;
       setState(() {
         _reports = issues
-            .where(
-              (issue) =>
-                  double.tryParse('${issue['latitude']}') != null &&
-                  double.tryParse('${issue['longitude']}') != null,
-            )
+            .where((issue) => _hasValidCoordinates(issue))
             .map(_mapReportFromIssue)
             .toList();
         _loadingReports = false;
@@ -128,6 +134,19 @@ class _MapPageState extends State<MapPage> {
         });
       }
     }
+  }
+
+  bool _hasValidCoordinates(Map<String, dynamic> issue) {
+    final latitude = double.tryParse('${issue['latitude']}');
+    final longitude = double.tryParse('${issue['longitude']}');
+    return latitude != null &&
+        longitude != null &&
+        latitude.isFinite &&
+        longitude.isFinite &&
+        latitude >= -90 &&
+        latitude <= 90 &&
+        longitude >= -180 &&
+        longitude <= 180;
   }
 
   _MapReport _mapReportFromIssue(Map<String, dynamic> issue) {
@@ -211,34 +230,24 @@ class _MapPageState extends State<MapPage> {
       if (group.length > 1) {
         markers.add(
           Marker(
+            key: ValueKey('report-cluster-${group.first.id}'),
             point: group.first.point,
-            width: 12,
-            height: 12,
-            child: Container(
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                border: Border.all(color: teal, width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: navy.withValues(alpha: .2),
-                    blurRadius: 5,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
-              ),
+            width: 54,
+            height: 62,
+            alignment: Alignment.bottomCenter,
+            child: GestureDetector(
+              key: ValueKey('report-cluster-visual-${group.first.id}'),
+              onTap: () => _showCoincidentReports(group),
+              child: _ReportClusterMarker(count: group.length),
             ),
           ),
         );
-      }
-      for (var index = 0; index < group.length; index++) {
-        final report = group[index];
+      } else {
+        final report = group.single;
         markers.add(
           Marker(
             key: ValueKey('report-marker-${report.id}'),
-            point: _spideredPoint(report.point, index, group.length),
+            point: report.point,
             width: 50,
             height: 58,
             alignment: Alignment.bottomCenter,
@@ -247,7 +256,7 @@ class _MapPageState extends State<MapPage> {
               onTap: () => _showReportDetails(report),
               child: _ReportMarker(
                 markerId: report.id,
-                icon: _categoryIcon(report.category),
+                icon: _mapCategoryIcon(report.category),
                 color: report.color,
                 selected: _selectedReport == report.id,
                 mediaUrl: report.mediaUrl,
@@ -261,24 +270,16 @@ class _MapPageState extends State<MapPage> {
     return markers;
   }
 
-  LatLng _spideredPoint(LatLng point, int index, int count) {
-    if (count == 1) return point;
-    final angle = -math.pi / 2 + (2 * math.pi * index / count);
-    final radius = math.max(34.0, count * 54 / (2 * math.pi));
-    final worldSize = 256 * math.pow(2, _zoom);
-    final x = (point.longitude + 180) / 360 * worldSize;
-    final latitudeRadians = point.latitude * math.pi / 180;
-    final y =
-        (1 - math.log(math.tan(math.pi / 4 + latitudeRadians / 2)) / math.pi) /
-        2 *
-        worldSize;
-    final shiftedX = x + math.cos(angle) * radius;
-    final shiftedY = y + math.sin(angle) * radius;
-    final longitude = shiftedX / worldSize * 360 - 180;
-    final mercator = math.pi * (1 - 2 * shiftedY / worldSize);
-    final latitude =
-        (2 * math.atan(math.exp(mercator)) - math.pi / 2) * 180 / math.pi;
-    return LatLng(latitude, longitude);
+  Future<void> _showCoincidentReports(List<_MapReport> reports) async {
+    final selectedReport = await showModalBottomSheet<_MapReport>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _CoincidentReportsSheet(reports: reports),
+    );
+    if (selectedReport != null && mounted) {
+      await _showReportDetails(selectedReport);
+    }
   }
 
   String get _reportCountLabel {
@@ -400,7 +401,7 @@ class _MapPageState extends State<MapPage> {
                     padding: const EdgeInsets.only(right: 8),
                     child: _MapFilterChip(
                       label: category,
-                      icon: _categoryIcon(category),
+                      icon: _mapCategoryIcon(category),
                       color: category == 'All'
                           ? navy
                           : _categoryColor(category),
@@ -570,7 +571,7 @@ class _MapPageState extends State<MapPage> {
                           _MapLegendRow(
                             label: item.$1,
                             color: item.$2,
-                            icon: _categoryIcon(item.$1),
+                            icon: _mapCategoryIcon(item.$1),
                             count: item.$3,
                             selected: _activeCategory == item.$1,
                             onTap: () => setState(() {
@@ -607,16 +608,6 @@ class _MapPageState extends State<MapPage> {
               .length,
         ),
   ];
-
-  IconData _categoryIcon(String category) =>
-      switch (normalizeReportCategory(category)) {
-        'Roads' => Icons.add_road_rounded,
-        'Public Buildings' => Icons.apartment_rounded,
-        'Drainage' => Icons.water_damage_outlined,
-        'Streetlights' => Icons.lightbulb_outline_rounded,
-        'Electric Poles' => Icons.electric_bolt_rounded,
-        _ => Icons.map_outlined,
-      };
 }
 
 class _MapReport {
@@ -939,6 +930,269 @@ class _UserLocationMarker extends StatelessWidget {
       ),
     ),
   );
+}
+
+class _ReportClusterMarker extends StatelessWidget {
+  const _ReportClusterMarker({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: 54,
+    height: 62,
+    child: Stack(
+      alignment: Alignment.topCenter,
+      children: [
+        Positioned(
+          bottom: 3,
+          child: Transform.rotate(
+            angle: math.pi / 4,
+            child: Container(
+              width: 16,
+              height: 16,
+              decoration: BoxDecoration(
+                color: navy,
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          top: 0,
+          child: Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: navy,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 3),
+              boxShadow: [
+                BoxShadow(
+                  color: navy.withValues(alpha: .28),
+                  blurRadius: 9,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                const Icon(Icons.layers_rounded, color: Colors.white, size: 25),
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: Container(
+                    constraints: const BoxConstraints(minWidth: 21),
+                    height: 21,
+                    padding: const EdgeInsets.symmetric(horizontal: 5),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: clay,
+                      borderRadius: BorderRadius.circular(11),
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                    child: Text(
+                      '$count',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _CoincidentReportsSheet extends StatelessWidget {
+  const _CoincidentReportsSheet({required this.reports});
+
+  final List<_MapReport> reports;
+
+  @override
+  Widget build(BuildContext context) {
+    final point = reports.first.point;
+    return SafeArea(
+      top: false,
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * .72,
+        ),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
+              child: Column(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: inkSoft.withValues(alpha: .3),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: teal.withValues(alpha: .1),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(
+                          Icons.layers_rounded,
+                          color: teal,
+                          size: 23,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${reports.length} reports at this location',
+                              style: infraHeading(
+                                color: navy,
+                                fontSize: 16,
+                                weight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              '${point.latitude.toStringAsFixed(6)}, '
+                              '${point.longitude.toStringAsFixed(6)}',
+                              style: TextStyle(color: inkSoft, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Choose a report to view its details',
+                      style: TextStyle(color: inkSoft, fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Flexible(
+              child: ListView.separated(
+                shrinkWrap: true,
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                itemCount: reports.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final report = reports[index];
+                  return Material(
+                    color: sand.withValues(alpha: .55),
+                    borderRadius: BorderRadius.circular(16),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: () => Navigator.of(context).pop(report),
+                      child: Padding(
+                        padding: const EdgeInsets.all(11),
+                        child: Row(
+                          children: [
+                            _ClusterReportThumbnail(
+                              report: report,
+                              icon: _mapCategoryIcon(report.category),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    report.title,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: infraHeading(
+                                      color: navy,
+                                      fontSize: 14,
+                                      weight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 5),
+                                  Text(
+                                    '${report.category} · ${report.status}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: inkSoft,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Icon(
+                              Icons.chevron_right_rounded,
+                              color: inkSoft,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ClusterReportThumbnail extends StatelessWidget {
+  const _ClusterReportThumbnail({required this.report, required this.icon});
+
+  final _MapReport report;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = report.mediaUrl;
+    return Container(
+      width: 48,
+      height: 48,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: report.color.withValues(alpha: .12),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: url != null && url.isNotEmpty && report.mediaKind != 'video'
+          ? Image.network(
+              url,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => _fallback(),
+            )
+          : _fallback(),
+    );
+  }
+
+  Widget _fallback() => Icon(icon, color: report.color, size: 23);
 }
 
 class _ReportMarker extends StatelessWidget {
