@@ -294,10 +294,6 @@ export default function UsersPage({ users, onOpenUser, user }) {
       </div>
       {residentPageData.total > 10 && (
         <div className="residents-pagination" aria-label="Resident pages">
-          <span className="residents-pagination-range">
-            Showing {residentPageData.start}–{residentPageData.end} of{" "}
-            {residentPageData.total} residents
-          </span>
           <div className="residents-pagination-controls">
             <button
               type="button"
@@ -308,11 +304,14 @@ export default function UsersPage({ users, onOpenUser, user }) {
                 setResidentPage(Math.max(1, residentPageData.page - 1))
               }
             >
-              <ChevronLeft size={16} />
-              <span>Previous</span>
+              <ChevronLeft size={16} aria-hidden="true" />
             </button>
-            <span className="residents-pagination-current">
-              Page {residentPageData.page} of {residentPageData.pageCount}
+            <span
+              className="residents-pagination-page active"
+              aria-label={`Page ${residentPageData.page} of ${residentPageData.pageCount}`}
+              aria-current="page"
+            >
+              {residentPageData.page}
             </span>
             <button
               type="button"
@@ -328,8 +327,7 @@ export default function UsersPage({ users, onOpenUser, user }) {
                 )
               }
             >
-              <span>Next</span>
-              <ChevronRight size={16} />
+              <ChevronRight size={16} aria-hidden="true" />
             </button>
           </div>
         </div>
