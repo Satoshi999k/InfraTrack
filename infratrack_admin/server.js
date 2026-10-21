@@ -1470,9 +1470,10 @@ app.get("/api/issues", async (req, res) => {
         AND duplicate_report.reporter_id = r.reporter_id
         AND r.reporter_id IS NOT NULL
     ) AS same_reporter_duplicate,
-    (SELECT m.file_path FROM media m WHERE m.report_id = r.id ORDER BY m.id ASC LIMIT 1) AS media_url,
-    (SELECT m.media_type FROM media m WHERE m.report_id = r.id ORDER BY m.id ASC LIMIT 1) AS media_kind,
-    (SELECT COUNT(*) FROM media m WHERE m.report_id = r.id) AS media_count,
+    (SELECT m.file_path FROM media m WHERE m.report_id = r.id AND m.media_type <> 'resolution_photo' ORDER BY m.id ASC LIMIT 1) AS media_url,
+    (SELECT m.media_type FROM media m WHERE m.report_id = r.id AND m.media_type <> 'resolution_photo' ORDER BY m.id ASC LIMIT 1) AS media_kind,
+    (SELECT m.file_path FROM media m WHERE m.report_id = r.id AND m.media_type = 'resolution_photo' ORDER BY m.id DESC LIMIT 1) AS resolution_media_url,
+    (SELECT COUNT(*) FROM media m WHERE m.report_id = r.id AND m.media_type <> 'resolution_photo') AS media_count,
     (SELECT COUNT(*) FROM media m WHERE m.report_id = r.id AND m.media_type IN ('photo', 'gif')) AS photo_count,
     (SELECT COUNT(*) FROM media m WHERE m.report_id = r.id AND m.media_type = 'video') AS video_count,
     (SELECT e.note FROM report_events e WHERE e.report_id = r.id ORDER BY e.created_at DESC, e.id DESC LIMIT 1) AS latest_event_note,
@@ -1484,6 +1485,7 @@ app.get("/api/issues", async (req, res) => {
     issues: issues.map((issue) => ({
       ...issue,
       media_url: publicMediaUrl(req, issue.media_url),
+      resolution_media_url: publicMediaUrl(req, issue.resolution_media_url),
     })),
   });
 });
@@ -2105,7 +2107,7 @@ app.post("/api/reports", async (req, res) => {
   res.status(201).json({ report });
 });
 app.patch("/api/issues/:id", async (req, res) => {
-  const { status, assignedTeam, resolutionNote, severity, progressPercentage, progressNote, beforeMediaUrl } = req.body ?? {};
+  const { status, assignedTeam, resolutionNote, severity, progressPercentage, progressNote, beforeMediaUrl, afterMediaUrl } = req.body ?? {};
   const parsedProgress = Number(progressPercentage);
   const progress = Number.isFinite(parsedProgress)
     ? Math.min(100, Math.max(0, Math.round(parsedProgress)))
@@ -2136,13 +2138,33 @@ app.patch("/api/issues/:id", async (req, res) => {
   if (beforeMediaUrl && (typeof beforeMediaUrl !== "string" || (!isDurableMediaUrl(beforeMediaUrl) && !beforeMediaUrl.startsWith("/uploads/")))) {
     return res.status(400).json({ error: "Invalid replacement report photo URL" });
   }
+  if (afterMediaUrl && (typeof afterMediaUrl !== "string" || (!isDurableMediaUrl(afterMediaUrl) && !afterMediaUrl.startsWith("/uploads/")))) {
+    return res.status(400).json({ error: "Invalid resolution photo URL" });
+  }
   await pool.query("UPDATE reports SET status = COALESCE(?, status), assigned_team = COALESCE(?, assigned_team), resolution_note = COALESCE(?, resolution_note), severity = COALESCE(?, severity), progress_percentage = COALESCE(?, progress_percentage) WHERE id = ?", [status ?? null, assignedTeam ?? null, resolutionNote ?? null, severity ?? null, progress, report.id]);
   if (beforeMediaUrl) {
-    const [mediaRows] = await pool.query("SELECT id FROM media WHERE report_id = ? ORDER BY id ASC LIMIT 1", [report.id]);
+    const [mediaRows] = await pool.query("SELECT id FROM media WHERE report_id = ? AND media_type IN ('photo', 'gif') ORDER BY id ASC LIMIT 1", [report.id]);
     if (mediaRows.length) {
       await pool.query("UPDATE media SET file_path = ?, media_type = 'photo' WHERE id = ?", [beforeMediaUrl, mediaRows[0].id]);
     } else {
       await pool.query("INSERT INTO media (report_id, file_path, media_type) VALUES (?, ?, 'photo')", [report.id, beforeMediaUrl]);
+    }
+  }
+  if (afterMediaUrl) {
+    const [resolutionMediaRows] = await pool.query(
+      "SELECT id FROM media WHERE report_id = ? AND media_type = 'resolution_photo' ORDER BY id DESC LIMIT 1",
+      [report.id],
+    );
+    if (resolutionMediaRows.length) {
+      await pool.query(
+        "UPDATE media SET file_path = ? WHERE id = ?",
+        [afterMediaUrl, resolutionMediaRows[0].id],
+      );
+    } else {
+      await pool.query(
+        "INSERT INTO media (report_id, file_path, media_type) VALUES (?, ?, 'resolution_photo')",
+        [report.id, afterMediaUrl],
+      );
     }
   }
   const statusChanged = Boolean(status && status !== report.status);

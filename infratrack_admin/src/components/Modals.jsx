@@ -308,8 +308,11 @@ export function IssueModal({ data, onClose, onSave }) {
   const [isSaving, setIsSaving] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
   const [beforePhoto, setBeforePhoto] = useState(data.media_url || "");
+  const [afterPhoto, setAfterPhoto] = useState(data.resolution_media_url || "");
   const [isUploadingBeforePhoto, setIsUploadingBeforePhoto] = useState(false);
+  const [isUploadingAfterPhoto, setIsUploadingAfterPhoto] = useState(false);
   const beforePhotoInput = useRef(null);
+  const afterPhotoInput = useRef(null);
 
   const saveChanges = async (changes, archiving = false) => {
     setIsSaving(true);
@@ -346,7 +349,15 @@ export function IssueModal({ data, onClose, onSave }) {
       setValidationError("A resolution note is required.");
       return;
     }
-    void saveChanges({ status, assignedTeam: assigned, resolutionNote: note, progressPercentage, progressNote, beforeMediaUrl: beforePhoto || null });
+    void saveChanges({
+      status,
+      assignedTeam: assigned,
+      resolutionNote: note,
+      progressPercentage,
+      progressNote,
+      beforeMediaUrl: beforePhoto || null,
+      afterMediaUrl: afterPhoto || null,
+    });
   };
 
   const replaceBeforePhoto = async (event) => {
@@ -366,6 +377,26 @@ export function IssueModal({ data, onClose, onSave }) {
       setValidationError(error instanceof Error ? error.message : "Could not upload replacement photo.");
     } finally {
       setIsUploadingBeforePhoto(false);
+    }
+  };
+
+  const uploadAfterPhoto = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setIsUploadingAfterPhoto(true);
+    setValidationError("");
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await apiFetch("/uploads", { method: "POST", body: formData });
+      const result = await response.json();
+      if (!response.ok || !result.url) throw new Error(result.error || "Could not upload the after photo.");
+      setAfterPhoto(result.url);
+    } catch (error) {
+      setValidationError(error instanceof Error ? error.message : "Could not upload the after photo.");
+    } finally {
+      setIsUploadingAfterPhoto(false);
     }
   };
 
@@ -491,30 +522,75 @@ export function IssueModal({ data, onClose, onSave }) {
                       placeholder={status === "Rejected" ? "Explain why this report was rejected..." : "Describe what was done..."}
                     />
                   </label>
-                  <div className="before-after">
-                    <div className="before-after-card">
-                      <span className="before-after-label">Before photo · resident submission</span>
-                      {beforePhoto ? (
-                        <img src={beforePhoto} alt="Resident submitted before photo" />
-                      ) : (
-                        <span className="before-after-empty"><FileText size={16} /> No resident photo submitted</span>
-                      )}
-                      <input ref={beforePhotoInput} hidden type="file" accept="image/*" onChange={replaceBeforePhoto} />
-                      <button type="button" onClick={() => beforePhotoInput.current?.click()} disabled={isUploadingBeforePhoto}>
-                        <ImageIcon size={15} /> {isUploadingBeforePhoto ? "Uploading..." : "Replace photo"}
-                      </button>
-                    </div>
-                    <button>
-                      <FileText size={16} /> After photo
-                    </button>
-                  </div>
                 </>
+              )}
+              {status === "Resolved" && (
+                  <section className="resolution-evidence" aria-label="Before and after photos">
+                    <div className="resolution-evidence-heading">
+                      <h4>Resolution photos</h4>
+                      <span>Compare the reported issue with the completed work.</span>
+                    </div>
+                    <div className="resolution-evidence-grid">
+                      <article className="evidence-card">
+                        <div className="evidence-card-heading">
+                          <span className="evidence-phase">Before</span>
+                          <span className="evidence-source">Resident submission</span>
+                        </div>
+                        <div className={`evidence-photo-stage${beforePhoto ? " has-photo" : ""}`}>
+                          {beforePhoto ? (
+                            <img src={beforePhoto} alt="Before: resident-submitted report photo" />
+                          ) : (
+                            <div className="evidence-empty">
+                              <ImageIcon size={22} />
+                              <span>No original photo</span>
+                            </div>
+                          )}
+                        </div>
+                        <input ref={beforePhotoInput} hidden type="file" accept="image/*" onChange={replaceBeforePhoto} />
+                        <button
+                          className="evidence-upload-button"
+                          type="button"
+                          onClick={() => beforePhotoInput.current?.click()}
+                          disabled={isUploadingBeforePhoto || isUploadingAfterPhoto || isSaving}
+                        >
+                          <ImageIcon size={15} />
+                          {isUploadingBeforePhoto ? "Uploading..." : beforePhoto ? "Replace before photo" : "Add before photo"}
+                        </button>
+                      </article>
+                      <article className="evidence-card">
+                        <div className="evidence-card-heading">
+                          <span className="evidence-phase after">After</span>
+                          <span className="evidence-source">Completion proof</span>
+                        </div>
+                        <div className={`evidence-photo-stage${afterPhoto ? " has-photo" : ""}`}>
+                          {afterPhoto ? (
+                            <img src={afterPhoto} alt="After: photo showing completed report resolution" />
+                          ) : (
+                            <div className="evidence-empty">
+                              <ImageIcon size={22} />
+                              <span>Add a photo of the completed work</span>
+                            </div>
+                          )}
+                        </div>
+                        <input ref={afterPhotoInput} hidden type="file" accept="image/*" onChange={uploadAfterPhoto} />
+                        <button
+                          className="evidence-upload-button primary"
+                          type="button"
+                          onClick={() => afterPhotoInput.current?.click()}
+                          disabled={isUploadingBeforePhoto || isUploadingAfterPhoto || isSaving}
+                        >
+                          <ImageIcon size={15} />
+                          {isUploadingAfterPhoto ? "Uploading..." : afterPhoto ? "Replace after photo" : "Upload after photo"}
+                        </button>
+                      </article>
+                    </div>
+                  </section>
               )}
               {validationError && <p className="form-error" role="alert">{validationError}</p>}
               <button
                 className="primary-button full-button"
                 onClick={saveWorkflow}
-                disabled={isSaving}
+                disabled={isSaving || isUploadingBeforePhoto || isUploadingAfterPhoto}
               >
                 <CheckCircle2 size={16} /> {isSaving ? "Saving..." : "Save changes"}
               </button>
@@ -522,7 +598,7 @@ export function IssueModal({ data, onClose, onSave }) {
                 type="button"
                 className="secondary-button full-button danger-button"
                 onClick={() => void saveChanges({ status: "Archived", assignedTeam: assigned, resolutionNote: "Archived by administrator" }, true)}
-                disabled={isSaving}
+                disabled={isSaving || isUploadingBeforePhoto || isUploadingAfterPhoto}
               >
                 {isArchiving ? "Archiving..." : "Archive issue"}
               </button>
