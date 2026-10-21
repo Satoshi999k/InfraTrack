@@ -46,8 +46,8 @@ void main() {
               {
                 'id': 7,
                 'type': 'account',
-                'title': 'Account warning',
-                'message': 'Please follow the community guidelines.',
+                'title': "You're verified - welcome to InfraTrack!",
+                'message': 'Your account has been approved. You can now submit community reports.',
                 'created_at': '2026-10-20T10:00:00.000Z',
                 'read_at': null,
               },
@@ -75,7 +75,9 @@ void main() {
       await tester.tap(find.byTooltip('Notifications'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Account warning'));
+      expect(find.text('VERIFIED'), findsOneWidget);
+      expect(find.byIcon(Icons.verified_outlined), findsOneWidget);
+      await tester.tap(find.text("You're verified - welcome to InfraTrack!"));
       await tester.pumpAndSettle();
 
       await tester.pageBack();

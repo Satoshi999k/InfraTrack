@@ -29,6 +29,11 @@ import {
   standingAfterModeration,
   suspensionHours,
 } from "./moderationPolicy.js";
+import {
+  attachReportEventsToReports,
+  progressUpdateError,
+} from "./progressWorkflow.js";
+import { verificationApprovalNotification } from "./verificationNotifications.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -884,7 +889,22 @@ app.get("/api/mobile/reports", async (req, res) => {
     (SELECT m.media_type FROM media m WHERE m.report_id = r.id ORDER BY m.id ASC LIMIT 1) AS media_kind
     FROM reports r LEFT JOIN users u ON u.id = r.reporter_id
     WHERE r.reporter_id = ? ORDER BY r.created_at DESC`, [req.auth.id]);
-  res.json({ reports: reports.map((report) => ({
+  let progressEvents = [];
+  if (reports.length > 0) {
+    const reportIds = reports.map((report) => report.id);
+    const [events] = await pool.query(
+      `SELECT report_id, status, note, created_at FROM report_events
+       WHERE report_id IN (?)
+       ORDER BY created_at DESC, id DESC`,
+      [reportIds],
+    );
+    progressEvents = events;
+  }
+  const reportsWithProgress = attachReportEventsToReports(
+    reports,
+    progressEvents,
+  );
+  res.json({ reports: reportsWithProgress.map((report) => ({
     ...report,
     media_url: publicMediaUrl(req, report.media_url),
   })) });
@@ -1979,7 +1999,7 @@ app.patch("/api/users/:id/verification", async (req, res) => {
   }
 
   const [[targetUser]] = await pool.query(
-    "SELECT id, name, barangay FROM users WHERE id = ? AND role = 'resident'",
+    "SELECT id, name, barangay, verification FROM users WHERE id = ? AND role = 'resident'",
     [Number(req.params.id)],
   );
   if (!targetUser) return res.status(404).json({ error: "Resident account not found" });
@@ -2009,6 +2029,17 @@ app.patch("/api/users/:id/verification", async (req, res) => {
     verification,
     targetUser.id,
   ]);
+  if (decision === "approve") {
+    const welcomeNotification = verificationApprovalNotification(
+      targetUser.verification,
+    );
+    if (welcomeNotification) {
+      await queueNotification({
+        userId: targetUser.id,
+        ...welcomeNotification,
+      });
+    }
+  }
   await writeAuditLog(req, {
     actorId: req.auth.id,
     action: `user_verification_${decision}d`,
@@ -2047,7 +2078,7 @@ app.post("/api/reports", async (req, res) => {
   res.status(201).json({ report });
 });
 app.patch("/api/issues/:id", async (req, res) => {
-  const { status, assignedTeam, resolutionNote, severity, progressPercentage, beforeMediaUrl } = req.body ?? {};
+  const { status, assignedTeam, resolutionNote, severity, progressPercentage, progressNote, beforeMediaUrl } = req.body ?? {};
   const parsedProgress = Number(progressPercentage);
   const progress = Number.isFinite(parsedProgress)
     ? Math.min(100, Math.max(0, Math.round(parsedProgress)))
@@ -2057,6 +2088,16 @@ app.patch("/api/issues/:id", async (req, res) => {
   if (!report) return res.status(404).json({ error: "Report not found" });
   const editor = req.auth;
   if (editor?.role === "barangay_staff" && editor.barangay !== report.location) return res.status(403).json({ error: "You can only manage issues in your barangay" });
+  const nextStatus = status ?? report.status;
+  const progressError = progressUpdateError({
+    currentStatus: report.status,
+    nextStatus,
+    currentProgress: Number(report.progress_percentage) || 0,
+    nextProgress: progress,
+    progressNote,
+  });
+  if (progressError) return res.status(400).json({ error: progressError });
+  const progressNoteText = typeof progressNote === "string" ? progressNote.trim() : "";
   if (beforeMediaUrl && (typeof beforeMediaUrl !== "string" || (!isDurableMediaUrl(beforeMediaUrl) && !beforeMediaUrl.startsWith("/uploads/")))) {
     return res.status(400).json({ error: "Invalid replacement report photo URL" });
   }
@@ -2069,8 +2110,22 @@ app.patch("/api/issues/:id", async (req, res) => {
       await pool.query("INSERT INTO media (report_id, file_path, media_type) VALUES (?, ?, 'photo')", [report.id, beforeMediaUrl]);
     }
   }
-  if (status && status !== report.status) await pool.query("INSERT INTO report_events (report_id, status, note) VALUES (?, ?, ?)", [report.id, status, resolutionNote ?? null]);
   const statusChanged = Boolean(status && status !== report.status);
+  const progressChanged = progress !== null && progress !== Number(report.progress_percentage);
+  if (statusChanged) {
+    const eventNote = status === "In progress"
+      ? progressNoteText || null
+      : resolutionNote ?? null;
+    await pool.query(
+      "INSERT INTO report_events (report_id, status, note) VALUES (?, ?, ?)",
+      [report.id, status, eventNote],
+    );
+  } else if (nextStatus === "In progress" && (progressChanged || progressNoteText)) {
+    await pool.query(
+      "INSERT INTO report_events (report_id, status, note) VALUES (?, 'In progress', ?)",
+      [report.id, progressNoteText || null],
+    );
+  }
   const assignmentChanged = Boolean(assignedTeam && assignedTeam !== report.assigned_team);
   if (report.reporter_id && (statusChanged || assignmentChanged)) {
     const updateMessage = statusChanged

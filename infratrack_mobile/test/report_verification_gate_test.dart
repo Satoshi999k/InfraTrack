@@ -89,4 +89,119 @@ void main() {
       await ApiService.signOutForExpiredSession();
     }
   });
+
+  testWidgets(
+    'verification notice is centered without a card and keeps app navigation visible',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(430, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      SharedPreferences.setMockInitialValues({});
+      final originalClientFactory = ApiService.httpClientFactory;
+      ApiService.httpClientFactory = () => MockClient((request) async {
+        if (request.url.path.endsWith('/mobile/auth/login')) {
+          return http.Response(
+            jsonEncode({
+              'token': 'report-verification-navigation-token',
+              'user': {
+                'id': 42,
+                'name': 'Test Resident',
+                'verification': 'Pending ID match',
+              },
+            }),
+            200,
+          );
+        }
+        if (request.url.path.endsWith('/mobile/profile')) {
+          return http.Response(
+            jsonEncode({
+              'user': {
+                'id': 42,
+                'name': 'Test Resident',
+                'verification': 'Pending ID match',
+                'standing': 'Active',
+              },
+            }),
+            200,
+          );
+        }
+        if (request.url.path.endsWith('/mobile/reports')) {
+          return http.Response(jsonEncode({'reports': []}), 200);
+        }
+        if (request.url.path.endsWith('/mobile/issues')) {
+          return http.Response(jsonEncode({'issues': []}), 200);
+        }
+        if (request.url.path.endsWith('/mobile/advisories')) {
+          return http.Response(jsonEncode({'advisories': []}), 200);
+        }
+        if (request.url.path.endsWith('/mobile/notifications')) {
+          return http.Response(jsonEncode({'notifications': []}), 200);
+        }
+        if (request.url.path.endsWith('/mobile/overview')) {
+          return http.Response(
+            jsonEncode({
+              'summary': {
+                'total': 0,
+                'reported': 0,
+                'inProgress': 0,
+                'resolved': 0,
+              },
+            }),
+            200,
+          );
+        }
+        return http.Response('Not found', 404);
+      });
+
+      try {
+        await ApiService.login('resident@example.test', 'test-password');
+        await tester.pumpWidget(const MaterialApp(home: MainShell()));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+
+        await tester.tap(find.text('Report'));
+        await tester.pump();
+
+        expect(find.text('Report an issue'), findsOneWidget);
+        expect(find.byType(NavigationBar), findsOneWidget);
+        expect(find.text('Home'), findsOneWidget);
+        expect(find.text('Map'), findsOneWidget);
+        expect(find.text('News'), findsOneWidget);
+        expect(find.text('Profile'), findsOneWidget);
+        expect(find.text('Your verification is in review'), findsOneWidget);
+        expect(
+          (tester.getCenter(find.text('Your verification is in review')).dx -
+                  215)
+              .abs(),
+          lessThan(1),
+        );
+        final availableAreaCenter =
+            (tester.getRect(find.byType(AppHeader)).bottom +
+                tester.getTopLeft(find.byType(NavigationBar)).dy) /
+            2;
+        expect(
+          (tester
+                      .getCenter(
+                        find.byKey(const ValueKey('verificationNoticeCenter')),
+                      )
+                      .dy -
+                  availableAreaCenter)
+              .abs(),
+          lessThan(2),
+        );
+        expect(
+          find.ancestor(
+            of: find.text('Your verification is in review'),
+            matching: find.byType(Card),
+          ),
+          findsNothing,
+        );
+        expect(tester.takeException(), isNull);
+      } finally {
+        ApiService.httpClientFactory = originalClientFactory;
+        await ApiService.signOutForExpiredSession();
+      }
+    },
+  );
 }

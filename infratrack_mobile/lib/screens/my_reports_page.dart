@@ -83,6 +83,16 @@ class _MyReportsPageState extends State<MyReportsPage> {
         severity: item['severity']?.toString() ?? 'Medium',
         assignedTeam: item['assigned_team']?.toString() ?? '',
         resolutionNote: item['resolution_note']?.toString() ?? '',
+        progressPercentage:
+            (int.tryParse('${item['progress_percentage']}') ?? 0).clamp(0, 100),
+        progressUpdates: (item['progress_updates'] as List<dynamic>? ?? [])
+            .whereType<Map>()
+            .map((update) => Map<String, dynamic>.from(update))
+            .toList(),
+        statusHistory: (item['status_history'] as List<dynamic>? ?? [])
+            .whereType<Map>()
+            .map((event) => Map<String, dynamic>.from(event))
+            .toList(),
         coordinates: item['latitude'] == null || item['longitude'] == null
             ? ''
             : 'Lat ${item['latitude']}, Lon ${item['longitude']}',
@@ -433,6 +443,9 @@ class _MyReportCard extends StatelessWidget {
     String severity,
     String assignedTeam,
     String resolutionNote,
+    int progressPercentage,
+    List<Map<String, dynamic>> progressUpdates,
+    List<Map<String, dynamic>> statusHistory,
     String coordinates,
     String age,
     String image,
@@ -588,6 +601,9 @@ class _ReportThumbnailPlaceholder extends StatelessWidget {
     String severity,
     String assignedTeam,
     String resolutionNote,
+    int progressPercentage,
+    List<Map<String, dynamic>> progressUpdates,
+    List<Map<String, dynamic>> statusHistory,
     String coordinates,
     String age,
     String image,
@@ -616,6 +632,9 @@ class MyReportDetailsPage extends StatelessWidget {
     String severity,
     String assignedTeam,
     String resolutionNote,
+    int progressPercentage,
+    List<Map<String, dynamic>> progressUpdates,
+    List<Map<String, dynamic>> statusHistory,
     String coordinates,
     String age,
     String image,
@@ -703,6 +722,14 @@ class MyReportDetailsPage extends StatelessWidget {
                   _DetailMetaChip(icon: report.icon, label: report.status),
                 ],
               ),
+              if (report.status == 'In progress') ...[
+                const SizedBox(height: 18),
+                _ReportProgressCard(
+                  progressPercentage: report.progressPercentage,
+                  updates: report.progressUpdates,
+                  statusHistory: report.statusHistory,
+                ),
+              ],
               const SizedBox(height: 18),
               const Divider(color: line),
               const SizedBox(height: 14),
@@ -765,6 +792,9 @@ String _locationFor(
     String severity,
     String assignedTeam,
     String resolutionNote,
+    int progressPercentage,
+    List<Map<String, dynamic>> progressUpdates,
+    List<Map<String, dynamic>> statusHistory,
     String coordinates,
     String age,
     String image,
@@ -774,6 +804,258 @@ String _locationFor(
   })
   report,
 ) => report.location;
+
+class _ReportProgressCard extends StatelessWidget {
+  const _ReportProgressCard({
+    required this.progressPercentage,
+    required this.updates,
+    required this.statusHistory,
+  });
+
+  final int progressPercentage;
+  final List<Map<String, dynamic>> updates;
+  final List<Map<String, dynamic>> statusHistory;
+
+  bool get _wasInspected =>
+      statusHistory.any((event) => event['status'] == 'Verified by inspector');
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: line),
+      boxShadow: [
+        BoxShadow(
+          color: navy.withValues(alpha: .035),
+          blurRadius: 12,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: teal.withValues(alpha: .11),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.handyman_outlined, color: teal, size: 19),
+            ),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'CITY TEAM PROGRESS',
+                    style: TextStyle(
+                      color: inkSoft,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: .9,
+                    ),
+                  ),
+                  SizedBox(height: 3),
+                  Text(
+                    'Work is underway',
+                    style: TextStyle(
+                      color: navy,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              '$progressPercentage%',
+              style: infraHeading(
+                color: teal,
+                fontSize: 19,
+                weight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 17),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: progressPercentage / 100,
+            minHeight: 6,
+            color: teal,
+            backgroundColor: teal.withValues(alpha: .12),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            _ReportProgressStage(label: 'Reported', complete: true),
+            _ReportProgressConnector(complete: true),
+            _ReportProgressStage(label: 'Inspected', complete: _wasInspected),
+            _ReportProgressConnector(complete: _wasInspected),
+            const _ReportProgressStage(
+              label: 'In progress',
+              complete: true,
+              active: true,
+            ),
+            const _ReportProgressConnector(complete: false),
+            const _ReportProgressStage(label: 'Resolved', complete: false),
+          ],
+        ),
+        const SizedBox(height: 16),
+        const Divider(height: 1, color: line),
+        const SizedBox(height: 13),
+        Row(
+          children: [
+            const Icon(Icons.notes_rounded, size: 16, color: teal),
+            const SizedBox(width: 7),
+            Text(
+              updates.isEmpty ? 'Progress update' : 'Updates from city team',
+              style: const TextStyle(
+                color: navy,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (updates.isEmpty)
+          const Text(
+            'The city team has not posted a progress note yet. Check back for updates.',
+            style: TextStyle(color: inkSoft, fontSize: 11, height: 1.45),
+          )
+        else
+          for (final update in updates)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: _ReportProgressUpdate(update: update),
+            ),
+      ],
+    ),
+  );
+}
+
+class _ReportProgressStage extends StatelessWidget {
+  const _ReportProgressStage({
+    required this.label,
+    required this.complete,
+    this.active = false,
+  });
+
+  final String label;
+  final bool complete;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = complete ? teal : line;
+    return SizedBox(
+      width: 54,
+      child: Column(
+        children: [
+          Container(
+            width: 22,
+            height: 22,
+            decoration: BoxDecoration(
+              color: complete ? color : Colors.white,
+              shape: BoxShape.circle,
+              border: Border.all(color: color, width: active ? 2 : 1.4),
+            ),
+            child: Icon(
+              active
+                  ? Icons.handyman_outlined
+                  : complete
+                  ? Icons.check_rounded
+                  : Icons.circle_outlined,
+              size: active ? 12 : 13,
+              color: complete ? Colors.white : inkSoft,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            style: TextStyle(
+              color: active
+                  ? navy
+                  : complete
+                  ? inkSoft
+                  : inkSoft,
+              fontSize: 8,
+              height: 1.15,
+              fontWeight: active ? FontWeight.w800 : FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReportProgressConnector extends StatelessWidget {
+  const _ReportProgressConnector({required this.complete});
+
+  final bool complete;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+    child: Container(
+      height: 2,
+      margin: const EdgeInsets.only(bottom: 19),
+      color: complete ? teal.withValues(alpha: .55) : line,
+    ),
+  );
+}
+
+class _ReportProgressUpdate extends StatelessWidget {
+  const _ReportProgressUpdate({required this.update});
+
+  final Map<String, dynamic> update;
+
+  @override
+  Widget build(BuildContext context) {
+    final note = update['note']?.toString().trim() ?? '';
+    final createdAt = update['created_at']?.toString() ?? '';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: sand.withValues(alpha: .75),
+        borderRadius: BorderRadius.circular(13),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (createdAt.isNotEmpty)
+            Text(
+              _formatReportDate(createdAt),
+              style: const TextStyle(
+                color: inkSoft,
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          if (createdAt.isNotEmpty) const SizedBox(height: 4),
+          Text(
+            note,
+            style: const TextStyle(color: ink, fontSize: 11, height: 1.45),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _DetailsBackButton extends StatelessWidget {
   const _DetailsBackButton({required this.onPressed});
@@ -824,6 +1106,9 @@ class _DetailsHero extends StatelessWidget {
     String severity,
     String assignedTeam,
     String resolutionNote,
+    int progressPercentage,
+    List<Map<String, dynamic>> progressUpdates,
+    List<Map<String, dynamic>> statusHistory,
     String coordinates,
     String age,
     String image,

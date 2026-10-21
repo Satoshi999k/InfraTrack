@@ -97,7 +97,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
       final value when value.contains('warn') => amber,
       final value when value.contains('suspend') => clay,
       final value when value.contains('ban') => red,
-      final value when value.contains('restor') => green,
+      final value when value.contains('restor') || value.contains('verif') =>
+        green,
       _ => clay,
     };
     return _NotificationItem(
@@ -112,6 +113,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
               final value when value.contains('suspend') => 'SUSPENSION',
               final value when value.contains('ban') => 'ACCOUNT BANNED',
               final value when value.contains('restor') => 'RESTORED',
+              final value when value.contains('verif') => 'VERIFIED',
               _ => 'ACCOUNT',
             }
           : rawType.replaceAll('_', ' ').toUpperCase(),
@@ -127,7 +129,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
               final value when value.contains('suspend') =>
                 Icons.hourglass_top_rounded,
               final value when value.contains('ban') => Icons.gpp_bad_outlined,
-              final value when value.contains('restor') =>
+              final value
+                  when value.contains('restor') || value.contains('verif') =>
                 Icons.verified_outlined,
               _ => Icons.person_outline,
             }

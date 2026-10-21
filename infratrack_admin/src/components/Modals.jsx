@@ -26,6 +26,7 @@ import {
   X,
 } from "lucide-react";
 import { apiFetch } from "../api";
+import { progressUpdateError } from "../../progressWorkflow.js";
 
 export function Modal({ data, onClose, onSave, onUserSave, onUserVerification, onFetchUserReports }) {
   if (data.type === "user") return <UserModal user={data.user} onClose={onClose} onSave={onUserSave} onVerification={onUserVerification} onFetchReports={onFetchUserReports} />;
@@ -301,6 +302,7 @@ export function IssueModal({ data, onClose, onSave }) {
   );
   const [assigned, setAssigned] = useState("Unassigned");
   const [progressPercentage, setProgressPercentage] = useState(Number(data.progress_percentage) || 0);
+  const [progressNote, setProgressNote] = useState("");
   const [note, setNote] = useState("");
   const [validationError, setValidationError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -324,6 +326,18 @@ export function IssueModal({ data, onClose, onSave }) {
   };
 
   const saveWorkflow = () => {
+    const currentStatus = data.status === "New report" ? "Reported" : data.status;
+    const progressError = progressUpdateError({
+      currentStatus,
+      nextStatus: status,
+      currentProgress: Number(data.progress_percentage) || 0,
+      nextProgress: progressPercentage,
+      progressNote,
+    });
+    if (progressError) {
+      setValidationError(progressError);
+      return;
+    }
     if (status === "Rejected" && !note.trim()) {
       setValidationError("A rejection reason is required.");
       return;
@@ -332,7 +346,7 @@ export function IssueModal({ data, onClose, onSave }) {
       setValidationError("A resolution note is required.");
       return;
     }
-    void saveChanges({ status, assignedTeam: assigned, resolutionNote: note, progressPercentage, beforeMediaUrl: beforePhoto || null });
+    void saveChanges({ status, assignedTeam: assigned, resolutionNote: note, progressPercentage, progressNote, beforeMediaUrl: beforePhoto || null });
   };
 
   const replaceBeforePhoto = async (event) => {
@@ -430,21 +444,33 @@ export function IssueModal({ data, onClose, onSave }) {
                 </select>
               </label>
               {status === "In progress" && (
-                <label className="progress-field">
-                  Progress
-                  <div className="progress-input-row">
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      step="5"
-                      value={progressPercentage}
-                      onChange={(event) => setProgressPercentage(Number(event.target.value))}
+                <>
+                  <label className="progress-field">
+                    Progress
+                    <div className="progress-input-row">
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="5"
+                        value={progressPercentage}
+                        onChange={(event) => setProgressPercentage(Number(event.target.value))}
+                      />
+                      <output>{progressPercentage}%</output>
+                    </div>
+                    <div className="progress-track" aria-hidden="true"><span style={{ width: `${progressPercentage}%` }} /></div>
+                  </label>
+                  <label>
+                    Progress update for resident
+                    <textarea
+                      value={progressNote}
+                      maxLength={1000}
+                      onChange={(event) => setProgressNote(event.target.value)}
+                      placeholder="Describe the work completed or the next action..."
                     />
-                    <output>{progressPercentage}%</output>
-                  </div>
-                  <div className="progress-track" aria-hidden="true"><span style={{ width: `${progressPercentage}%` }} /></div>
-                </label>
+                    <small>Residents can see this update in their report details. {progressNote.length}/1,000</small>
+                  </label>
+                </>
               )}
               <label>
                 Priority

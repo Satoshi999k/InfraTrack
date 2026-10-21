@@ -275,28 +275,55 @@ class _ReportPageState extends State<ReportPage> {
     }
     if (_verificationLoading || !_isVerified || _verificationError != null) {
       return PageEntrance(
-        child: AppScroll(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        child: LayoutBuilder(
+          builder: (context, constraints) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const AppHeader(
-                eyebrow: 'NEW SUBMISSION',
-                title: 'Report an issue',
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 12, 20, 0),
+                child: AppHeader(
+                  eyebrow: 'NEW SUBMISSION',
+                  title: 'Report an issue',
+                ),
               ),
-              const SizedBox(height: 12),
-              _ReportVerificationNotice(
-                verification: _verification,
-                loading: _verificationLoading,
-                error: _verificationError,
-                onRetry: _refreshAccess,
-                onVerify: () async {
-                  await Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const IdentityVerificationPage(),
-                    ),
-                  );
-                  if (mounted) await _refreshAccess();
-                },
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, contentConstraints) {
+                    final minimumHeight = (contentConstraints.maxHeight - 40)
+                        .clamp(0.0, double.infinity)
+                        .toDouble();
+                    return SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 28,
+                        vertical: 20,
+                      ),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(minHeight: minimumHeight),
+                        child: Center(
+                          key: const ValueKey('verificationNoticeCenter'),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 420),
+                            child: _ReportVerificationNotice(
+                              verification: _verification,
+                              loading: _verificationLoading,
+                              error: _verificationError,
+                              onRetry: _refreshAccess,
+                              onVerify: () async {
+                                await Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) =>
+                                        const IdentityVerificationPage(),
+                                  ),
+                                );
+                                if (mounted) await _refreshAccess();
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
             ],
           ),
@@ -950,6 +977,11 @@ class _ReportVerificationNotice extends StatelessWidget {
     final status = verification.toLowerCase();
     final pending = status.contains('pending');
     final rejected = status.contains('mismatch') || status.contains('rejected');
+    final accent = error != null || rejected
+        ? clay
+        : pending
+        ? amber
+        : teal;
     final heading = loading
         ? 'Checking your account'
         : error != null
@@ -983,185 +1015,156 @@ class _ReportVerificationNotice extends StatelessWidget {
         ? 'Update verification'
         : 'Verify identity';
 
-    return Container(
-      width: double.infinity,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: line),
-        boxShadow: [
-          BoxShadow(
-            color: deepNavy.withValues(alpha: .07),
-            blurRadius: 22,
-            offset: const Offset(0, 8),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          width: 96,
+          height: 96,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: accent.withValues(alpha: .10),
+            border: Border.all(color: accent.withValues(alpha: .17)),
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [deepNavy, navy, teal],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: .14),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.white24),
-                  ),
-                  child: Icon(
-                    loading
-                        ? Icons.shield_outlined
-                        : pending
-                        ? Icons.hourglass_top_rounded
-                        : rejected
-                        ? Icons.fact_check_outlined
-                        : Icons.verified_user_outlined,
-                    color: Colors.white,
-                    size: 26,
-                  ),
-                ),
-                const SizedBox(width: 13),
-                const Expanded(
-                  child: Text(
-                    'REPORTING ACCESS',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.1,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 7,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: .14),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.white30),
-                  ),
-                  child: Text(
-                    statusLabel,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: .45,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 19, 18, 18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  heading,
-                  style: infraHeading(
-                    color: navy,
-                    fontSize: 21,
-                    weight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  description,
-                  style: const TextStyle(
-                    color: inkSoft,
-                    fontSize: 13,
-                    height: 1.5,
-                  ),
-                ),
-                if (error != null) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    error!,
-                    style: const TextStyle(
-                      color: clay,
-                      fontSize: 11,
-                      height: 1.4,
-                    ),
+          child: Center(
+            child: Container(
+              width: 68,
+              height: 68,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: .82),
+                boxShadow: [
+                  BoxShadow(
+                    color: accent.withValues(alpha: .10),
+                    blurRadius: 18,
+                    offset: const Offset(0, 6),
                   ),
                 ],
-                const SizedBox(height: 17),
-                Container(
-                  padding: const EdgeInsets.all(13),
-                  decoration: BoxDecoration(
-                    color: sand.withValues(alpha: .75),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: line.withValues(alpha: .8)),
-                  ),
-                  child: const Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(Icons.lock_outline_rounded, color: teal, size: 19),
-                      SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Your verification documents are private and will never appear on your public reports.',
-                          style: TextStyle(
-                            color: navy,
-                            fontSize: 11,
-                            height: 1.4,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+              ),
+              child: loading
+                  ? Padding(
+                      padding: const EdgeInsets.all(21),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: accent,
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 17),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: loading ? null : onVerify,
-                    icon: const Icon(Icons.verified_user_outlined, size: 19),
-                    label: Text(actionLabel),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: clay,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15),
-                      ),
+                    )
+                  : Icon(
+                      pending
+                          ? Icons.hourglass_top_rounded
+                          : rejected
+                          ? Icons.fact_check_outlined
+                          : error != null
+                          ? Icons.cloud_off_outlined
+                          : Icons.verified_user_outlined,
+                      color: accent,
+                      size: 32,
                     ),
-                  ),
-                ),
-                const SizedBox(height: 9),
-                SizedBox(
-                  width: double.infinity,
-                  child: TextButton.icon(
-                    onPressed: loading ? null : onRetry,
-                    icon: const Icon(Icons.refresh_rounded, size: 17),
-                    label: const Text('Refresh verification status'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: navy,
-                      padding: const EdgeInsets.symmetric(vertical: 11),
-                    ),
-                  ),
-                ),
-              ],
             ),
           ),
+        ),
+        const SizedBox(height: 20),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: .10),
+            borderRadius: BorderRadius.circular(30),
+          ),
+          child: Text(
+            statusLabel,
+            style: TextStyle(
+              color: accent,
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+              letterSpacing: .8,
+            ),
+          ),
+        ),
+        const SizedBox(height: 13),
+        Text(
+          'REPORTING ACCESS',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: teal,
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.5,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          heading,
+          textAlign: TextAlign.center,
+          style: infraHeading(
+            color: navy,
+            fontSize: 22,
+            weight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 9),
+        Text(
+          description,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: inkSoft, fontSize: 13, height: 1.5),
+        ),
+        if (error != null) ...[
+          const SizedBox(height: 11),
+          Text(
+            error!,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: clay, fontSize: 11, height: 1.4),
+          ),
         ],
-      ),
+        const SizedBox(height: 17),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.lock_outline_rounded, color: teal, size: 16),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                'Your verification documents stay private and never appear on your public reports.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: navy.withValues(alpha: .82),
+                  fontSize: 10,
+                  height: 1.4,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 19),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: loading ? null : onVerify,
+            icon: const Icon(Icons.verified_user_outlined, size: 18),
+            label: Text(actionLabel),
+            style: FilledButton.styleFrom(
+              backgroundColor: clay,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 5),
+        TextButton.icon(
+          onPressed: loading ? null : onRetry,
+          icon: const Icon(Icons.refresh_rounded, size: 17),
+          label: const Text('Refresh verification status'),
+          style: TextButton.styleFrom(
+            foregroundColor: navy,
+            padding: const EdgeInsets.symmetric(vertical: 10),
+          ),
+        ),
+      ],
     );
   }
 }
