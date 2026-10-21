@@ -45,8 +45,10 @@ class _ReportPageState extends State<ReportPage> {
   Future<void> _submitReport() async {
     if (!_isVerified || _verificationLoading || _submitting) return;
     if (_descriptionController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please add a description first')),
+      showInfraNotice(
+        context,
+        'Please add a description first.',
+        kind: InfraNoticeKind.warning,
       );
       return;
     }
@@ -77,8 +79,7 @@ class _ReportPageState extends State<ReportPage> {
           : await _uploadEvidence(stage);
       stage.value = _ReportSubmissionStage.submitting;
       await ApiService.createReport(
-        title:
-            '$category issue reported by resident',
+        title: '$category issue reported by resident',
         description: _descriptionController.text.trim(),
         category: category,
         location: 'Mati City',
@@ -116,15 +117,10 @@ class _ReportPageState extends State<ReportPage> {
           return;
         }
         if (error is ApiException && error.code == 'ACCOUNT_BANNED') return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: deepNavy,
-            content: Text(
-              error.toString().replaceFirst('Exception: ', ''),
-              style: const TextStyle(color: Colors.white),
-            ),
-          ),
+        showInfraNotice(
+          context,
+          error.toString().replaceFirst('Exception: ', ''),
+          kind: InfraNoticeKind.error,
         );
       }
     } finally {

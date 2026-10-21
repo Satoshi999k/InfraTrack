@@ -126,6 +126,63 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets('shared notifier presents a branded success notice', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => Column(
+              children: [
+                TextButton(
+                  onPressed: () => showInfraNotice(
+                    context,
+                    'Biometric sign-in is enabled.',
+                    kind: InfraNoticeKind.success,
+                  ),
+                  child: const Text('Show success'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Show success'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Biometric sign-in is enabled.'), findsOneWidget);
+    expect(find.byIcon(Icons.check_circle_outline_rounded), findsOneWidget);
+    expect(find.byTooltip('Dismiss notification'), findsOneWidget);
+  });
+
+  testWidgets('shared notifier presents a branded error notice', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showInfraNotice(
+                context,
+                'Could not save your changes.',
+                kind: InfraNoticeKind.error,
+              ),
+              child: const Text('Show error'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Show error'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Could not save your changes.'), findsOneWidget);
+    expect(find.byIcon(Icons.error_outline_rounded), findsOneWidget);
+  });
+
   testWidgets('chat intro keeps its thumbs-up mascot pose', (
     WidgetTester tester,
   ) async {

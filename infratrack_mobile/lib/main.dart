@@ -56,6 +56,104 @@ TextStyle infraMono({double? fontSize, Color? color, FontWeight? weight}) =>
       fontWeight: weight,
     );
 
+enum InfraNoticeKind { success, error, warning, info }
+
+void showInfraNotice(
+  BuildContext context,
+  String message, {
+  InfraNoticeKind kind = InfraNoticeKind.info,
+  Duration? duration,
+}) {
+  final messenger = ScaffoldMessenger.of(context);
+  late final Color accent;
+  late final IconData icon;
+  switch (kind) {
+    case InfraNoticeKind.success:
+      accent = const Color(0xFF66D2A5);
+      icon = Icons.check_circle_outline_rounded;
+      break;
+    case InfraNoticeKind.error:
+      accent = const Color(0xFFFF8B80);
+      icon = Icons.error_outline_rounded;
+      break;
+    case InfraNoticeKind.warning:
+      accent = const Color(0xFFFFCA72);
+      icon = Icons.warning_amber_rounded;
+      break;
+    case InfraNoticeKind.info:
+      accent = const Color(0xFF75D5CF);
+      icon = Icons.info_outline_rounded;
+      break;
+  }
+
+  messenger.hideCurrentSnackBar();
+  messenger.showSnackBar(
+    SnackBar(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      padding: EdgeInsets.zero,
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+      duration: duration ?? const Duration(seconds: 4),
+      content: Container(
+        constraints: const BoxConstraints(minHeight: 68),
+        padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+        decoration: BoxDecoration(
+          color: deepNavy,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+          boxShadow: [
+            BoxShadow(
+              color: deepNavy.withValues(alpha: 0.22),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            ExcludeSemantics(
+              child: Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.14),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: accent, size: 21),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  height: 1.35,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            IconButton(
+              onPressed: messenger.hideCurrentSnackBar,
+              tooltip: 'Dismiss notification',
+              visualDensity: VisualDensity.compact,
+              icon: Icon(
+                Icons.close_rounded,
+                color: Colors.white.withValues(alpha: 0.68),
+                size: 19,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
 void main() => runApp(const InfraTrackApp());
 
 class InfraTrackApp extends StatelessWidget {
@@ -619,12 +717,10 @@ class _LoginPageState extends State<LoginPage> {
       await _biometricSignIn.disableIfAccountMismatch(email);
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Signed in, but saved biometric credentials could not be cleared: ${error.toString().replaceFirst('Exception: ', '')}',
-            ),
-          ),
+        showInfraNotice(
+          context,
+          'Signed in, but saved biometric credentials could not be cleared: ${error.toString().replaceFirst('Exception: ', '')}',
+          kind: InfraNoticeKind.warning,
         );
       }
     }
@@ -848,14 +944,11 @@ class _LoginPageState extends State<LoginPage> {
                               Align(
                                 alignment: Alignment.centerRight,
                                 child: TextButton(
-                                  onPressed: () => ScaffoldMessenger.of(context)
-                                      .showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'Password reset is not connected yet.',
-                                          ),
-                                        ),
-                                      ),
+                                  onPressed: () => showInfraNotice(
+                                    context,
+                                    'Password reset is not connected yet.',
+                                    kind: InfraNoticeKind.info,
+                                  ),
                                   style: TextButton.styleFrom(
                                     padding: const EdgeInsets.symmetric(
                                       vertical: 2,

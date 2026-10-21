@@ -527,36 +527,28 @@ class _VerifyIdPageState extends State<VerifyIdPage> {
       });
     } on PlatformException {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Unable to access images. Please check app permissions.',
-          ),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: navy,
-        ),
+      showInfraNotice(
+        context,
+        'Unable to access images. Please check app permissions.',
+        kind: InfraNoticeKind.warning,
       );
     }
   }
 
   Future<void> _continue() async {
     if (_frontImage == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please upload the front side of your ID first.'),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: navy,
-        ),
+      showInfraNotice(
+        context,
+        'Please upload the front side of your ID first.',
+        kind: InfraNoticeKind.warning,
       );
       return;
     }
     if (_backImage == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please upload the back side of your ID.'),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: navy,
-        ),
+      showInfraNotice(
+        context,
+        'Please upload the back side of your ID.',
+        kind: InfraNoticeKind.warning,
       );
       return;
     }
@@ -1485,8 +1477,7 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
 
   void _showMessage(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message), backgroundColor: navy));
+    showInfraNotice(context, message, kind: InfraNoticeKind.error);
   }
 
   @override

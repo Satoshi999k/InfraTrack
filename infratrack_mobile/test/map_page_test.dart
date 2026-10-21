@@ -48,7 +48,13 @@ void main() {
         return http.Response(
           jsonEncode({
             'issues': [
-              _issue(id: 1, title: 'Road damage', category: 'Roads'),
+              _issue(
+                id: 1,
+                title: 'Road damage',
+                category: 'Roads',
+                latitude: 6.953,
+                longitude: 126.228,
+              ),
               _issue(
                 id: 2,
                 title: 'Damaged barangay hall',
@@ -68,8 +74,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
 
       expect(find.text('2 matching reports'), findsOneWidget);
-      expect(find.byIcon(Icons.add_road_rounded), findsOneWidget);
-      expect(find.byIcon(Icons.apartment_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.add_road_rounded), findsWidgets);
+      expect(find.byIcon(Icons.apartment_rounded), findsWidgets);
 
       final publicBuildingsFilter = find.text('Public Buildings').first;
       final categoryScroller = find
@@ -147,26 +153,43 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('5 matching reports'), findsOneWidget);
-      final pinColors = tester
-          .widgetList<Icon>(find.byIcon(Icons.location_on))
-          .map((icon) => icon.color)
-          .toSet();
+      final reportMarkers = tester
+          .widget<MarkerLayer>(find.byType(MarkerLayer))
+          .markers
+          .where(
+            (marker) =>
+                marker.key?.toString().contains('report-marker-') ?? false,
+          )
+          .toList();
+      expect(reportMarkers, hasLength(5));
       expect(
-        pinColors,
-        containsAll({
-          const Color(0xFFC1592B),
-          const Color(0xFF176B87),
-          const Color(0xFF1B8A83),
-          const Color(0xFF7450A1),
-          const Color(0xFFD99A2B),
-        }),
+        reportMarkers
+            .map(
+              (marker) => '${marker.point.latitude},${marker.point.longitude}',
+            )
+            .toSet(),
+        hasLength(5),
       );
-      expect(pinColors.length, 5);
-      expect(find.byIcon(Icons.add_road_rounded), findsWidgets);
-      expect(find.byIcon(Icons.apartment_rounded), findsWidgets);
-      expect(find.byIcon(Icons.water_damage_outlined), findsWidgets);
-      expect(find.byIcon(Icons.lightbulb_outline_rounded), findsWidgets);
-      expect(find.byIcon(Icons.electric_bolt_rounded), findsWidgets);
+
+      expect(tester.takeException(), isNull);
+
+      final roadMarker = find.ancestor(
+        of: find.byIcon(Icons.add_road_rounded),
+        matching: find.byType(AnimatedScale),
+      );
+      await tester.tap(roadMarker);
+      await tester.pumpAndSettle();
+      expect(find.text('Road damage'), findsOneWidget);
+      await tester.tapAt(const Offset(5, 5));
+      await tester.pumpAndSettle();
+
+      final buildingsMarker = find.ancestor(
+        of: find.byIcon(Icons.apartment_rounded),
+        matching: find.byType(AnimatedScale),
+      );
+      await tester.tap(buildingsMarker);
+      await tester.pumpAndSettle();
+      expect(find.text('Damaged barangay hall'), findsOneWidget);
       expect(tester.takeException(), isNull);
     } finally {
       ApiService.httpClientFactory = originalClientFactory;

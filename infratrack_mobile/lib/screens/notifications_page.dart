@@ -60,10 +60,10 @@ class _NotificationsPageState extends State<NotificationsPage> {
           return {...item, 'read_at': previousReadAt};
         }).toList();
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.toString().replaceFirst('Exception: ', '')),
-        ),
+      showInfraNotice(
+        context,
+        error.toString().replaceFirst('Exception: ', ''),
+        kind: InfraNoticeKind.error,
       );
     }
   }
@@ -97,20 +97,18 @@ class _NotificationsPageState extends State<NotificationsPage> {
         setState(() => _serverNotifications = latestNotifications);
       } catch (refreshError) {
         setState(() => _serverNotifications = previousNotifications);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Could not refresh notifications after marking them read: '
-              '${refreshError.toString().replaceFirst('Exception: ', '')}',
-            ),
-          ),
+        showInfraNotice(
+          context,
+          'Could not refresh notifications after marking them read: '
+          '${refreshError.toString().replaceFirst('Exception: ', '')}',
+          kind: InfraNoticeKind.error,
         );
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.toString().replaceFirst('Exception: ', '')),
-        ),
+      showInfraNotice(
+        context,
+        error.toString().replaceFirst('Exception: ', ''),
+        kind: InfraNoticeKind.error,
       );
     } finally {
       if (mounted) setState(() => _markingAllRead = false);

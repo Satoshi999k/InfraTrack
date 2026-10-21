@@ -84,12 +84,10 @@ class _MapPageState extends State<MapPage> {
     if (!mounted) return;
     setState(() => _locatingMe = false);
     if (!located || _userPosition == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Could not get your location. Check location services and app permissions.',
-          ),
-        ),
+      showInfraNotice(
+        context,
+        'Could not get your location. Check location services and app permissions.',
+        kind: InfraNoticeKind.warning,
       );
       return;
     }
@@ -138,6 +136,10 @@ class _MapPageState extends State<MapPage> {
     final longitude =
         double.tryParse('${issue['longitude']}') ?? _matiCity.longitude;
     return _MapReport(
+      id:
+          issue['public_id']?.toString() ??
+          issue['id']?.toString() ??
+          '${issue['title'] ?? 'Infrastructure report'}-$latitude-$longitude',
       title: issue['title'] as String? ?? 'Infrastructure report',
       description: issue['description'] as String? ?? '',
       category: issue['category'] as String? ?? 'Other',
@@ -153,7 +155,7 @@ class _MapPageState extends State<MapPage> {
   }
 
   Future<void> _showReportDetails(_MapReport report) async {
-    setState(() => _selectedReport = report.title);
+    setState(() => _selectedReport = report.id);
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -195,6 +197,90 @@ class _MapPageState extends State<MapPage> {
     }).toList();
   }
 
+  List<Marker> get _reportMarkers {
+    final groups = <String, List<_MapReport>>{};
+    for (final report in _visibleReports) {
+      final key =
+          '${report.point.latitude.toStringAsPrecision(15)},'
+          '${report.point.longitude.toStringAsPrecision(15)}';
+      groups.putIfAbsent(key, () => []).add(report);
+    }
+
+    final markers = <Marker>[];
+    for (final group in groups.values) {
+      if (group.length > 1) {
+        markers.add(
+          Marker(
+            point: group.first.point,
+            width: 12,
+            height: 12,
+            child: Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(color: teal, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: navy.withValues(alpha: .2),
+                    blurRadius: 5,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+      for (var index = 0; index < group.length; index++) {
+        final report = group[index];
+        markers.add(
+          Marker(
+            key: ValueKey('report-marker-${report.id}'),
+            point: _spideredPoint(report.point, index, group.length),
+            width: 50,
+            height: 58,
+            alignment: Alignment.bottomCenter,
+            child: GestureDetector(
+              key: ValueKey('report-marker-visual-${report.id}'),
+              onTap: () => _showReportDetails(report),
+              child: _ReportMarker(
+                markerId: report.id,
+                icon: _categoryIcon(report.category),
+                color: report.color,
+                selected: _selectedReport == report.id,
+                mediaUrl: report.mediaUrl,
+                mediaKind: report.mediaKind,
+              ),
+            ),
+          ),
+        );
+      }
+    }
+    return markers;
+  }
+
+  LatLng _spideredPoint(LatLng point, int index, int count) {
+    if (count == 1) return point;
+    final angle = -math.pi / 2 + (2 * math.pi * index / count);
+    final radius = math.max(34.0, count * 54 / (2 * math.pi));
+    final worldSize = 256 * math.pow(2, _zoom);
+    final x = (point.longitude + 180) / 360 * worldSize;
+    final latitudeRadians = point.latitude * math.pi / 180;
+    final y =
+        (1 - math.log(math.tan(math.pi / 4 + latitudeRadians / 2)) / math.pi) /
+        2 *
+        worldSize;
+    final shiftedX = x + math.cos(angle) * radius;
+    final shiftedY = y + math.sin(angle) * radius;
+    final longitude = shiftedX / worldSize * 360 - 180;
+    final mercator = math.pi * (1 - 2 * shiftedY / worldSize);
+    final latitude =
+        (2 * math.atan(math.exp(mercator)) - math.pi / 2) * 180 / math.pi;
+    return LatLng(latitude, longitude);
+  }
+
   String get _reportCountLabel {
     if (_loadingReports) return 'Finding community reports';
     if (_visibleReports.isEmpty) return 'No matching reports';
@@ -221,7 +307,7 @@ class _MapPageState extends State<MapPage> {
             maxZoom: 19,
             onPositionChanged: (position, _) {
               if (position.zoom != _zoom) {
-                _zoom = position.zoom;
+                setState(() => _zoom = position.zoom);
               }
             },
             onTap: (_, _) => setState(() => _selectedReport = null),
@@ -245,22 +331,7 @@ class _MapPageState extends State<MapPage> {
                     height: 40,
                     child: const _UserLocationMarker(),
                   ),
-                for (final report in _visibleReports)
-                  Marker(
-                    point: report.point,
-                    width: 54,
-                    height: 64,
-                    child: GestureDetector(
-                      onTap: () => _showReportDetails(report),
-                      child: _ReportMarker(
-                        icon: _categoryIcon(report.category),
-                        color: report.color,
-                        selected: _selectedReport == report.title,
-                        mediaUrl: report.mediaUrl,
-                        mediaKind: report.mediaKind,
-                      ),
-                    ),
-                  ),
+                ..._reportMarkers,
               ],
             ),
             RichAttributionWidget(
@@ -550,6 +621,7 @@ class _MapPageState extends State<MapPage> {
 
 class _MapReport {
   const _MapReport({
+    required this.id,
     required this.title,
     required this.description,
     required this.category,
@@ -563,6 +635,7 @@ class _MapReport {
     required this.point,
   });
 
+  final String id;
   final String title;
   final String description;
   final String category;
@@ -870,6 +943,7 @@ class _UserLocationMarker extends StatelessWidget {
 
 class _ReportMarker extends StatelessWidget {
   const _ReportMarker({
+    required this.markerId,
     required this.icon,
     required this.color,
     required this.selected,
@@ -877,6 +951,7 @@ class _ReportMarker extends StatelessWidget {
     required this.mediaKind,
   });
 
+  final String markerId;
   final IconData icon;
   final Color color;
   final bool selected;
@@ -888,39 +963,68 @@ class _ReportMarker extends StatelessWidget {
     scale: selected ? 1.18 : 1,
     duration: const Duration(milliseconds: 150),
     child: SizedBox(
-      width: 48,
+      width: 50,
       height: 58,
       child: Stack(
         alignment: Alignment.topCenter,
         children: [
           Positioned(
-            bottom: 0,
-            child: Icon(Icons.location_on, color: color, size: 48),
+            bottom: 3,
+            child: Transform.rotate(
+              angle: math.pi / 4,
+              child: Container(
+                width: 15,
+                height: 15,
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(3),
+                  boxShadow: [
+                    BoxShadow(
+                      color: navy.withValues(alpha: .18),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
           Positioned(
-            top: 3,
+            top: 0,
             child: Container(
-              width: 24,
-              height: 24,
+              key: ValueKey('report-marker-circle-$markerId'),
+              width: 46,
+              height: 46,
+              padding: const EdgeInsets.all(3),
               decoration: BoxDecoration(
                 color: Colors.white,
                 shape: BoxShape.circle,
-                border: Border.all(color: color, width: 2),
+                border: Border.all(color: color, width: 3),
+                boxShadow: [
+                  BoxShadow(
+                    color: navy.withValues(alpha: .2),
+                    blurRadius: 7,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: ClipOval(
                 child:
                     mediaUrl == null ||
                         mediaUrl!.isEmpty ||
                         mediaKind == 'video'
-                    ? Icon(icon, color: color, size: 14)
+                    ? ColoredBox(
+                        color: color.withValues(alpha: .12),
+                        child: Icon(icon, color: color, size: 23),
+                      )
                     : Image.network(
                         mediaUrl!,
-                        width: 20,
-                        height: 20,
                         fit: BoxFit.cover,
                         alignment: Alignment.center,
-                        errorBuilder: (_, _, _) =>
-                            Icon(icon, color: color, size: 14),
+                        errorBuilder: (_, _, _) => ColoredBox(
+                          color: color.withValues(alpha: .12),
+                          child: Icon(icon, color: color, size: 23),
+                        ),
                       ),
               ),
             ),

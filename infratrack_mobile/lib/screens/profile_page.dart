@@ -136,8 +136,10 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
 
   Future<void> _editProfile(BuildContext context) async {
     if (!ApiService.isSignedIn) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sign in to edit your profile.')),
+      showInfraNotice(
+        context,
+        'Sign in to edit your profile.',
+        kind: InfraNoticeKind.warning,
       );
       return;
     }
@@ -339,10 +341,10 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
           FilledButton(
             onPressed: () {
               if (selectedImage == null) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Choose a new photo before saving.'),
-                  ),
+                showInfraNotice(
+                  context,
+                  'Choose a new photo before saving.',
+                  kind: InfraNoticeKind.warning,
                 );
                 return;
               }
@@ -362,18 +364,18 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
             _profile = updated;
             _profileImage = null;
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Your profile photo was saved to your account.'),
-            ),
+          showInfraNotice(
+            context,
+            'Your profile photo was saved to your account.',
+            kind: InfraNoticeKind.success,
           );
         }
       } catch (error) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(error.toString().replaceFirst('Exception: ', '')),
-            ),
+          showInfraNotice(
+            context,
+            error.toString().replaceFirst('Exception: ', ''),
+            kind: InfraNoticeKind.error,
           );
         }
       }
@@ -434,10 +436,10 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
         await ApiService.logout();
       } catch (error) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(error.toString().replaceFirst('Exception: ', '')),
-            ),
+          showInfraNotice(
+            context,
+            error.toString().replaceFirst('Exception: ', ''),
+            kind: InfraNoticeKind.error,
           );
         }
       }
@@ -650,8 +652,10 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
       next.dispose();
       confirm.dispose();
       if (changed == true && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Password updated successfully.')),
+        showInfraNotice(
+          context,
+          'Password updated successfully.',
+          kind: InfraNoticeKind.success,
         );
       }
     }
@@ -1978,12 +1982,10 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
         if (mounted) setState(() => _biometric = false);
       } catch (error) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Could not disable biometric sign-in: ${error.toString().replaceFirst('Exception: ', '')}',
-              ),
-            ),
+          showInfraNotice(
+            context,
+            'Could not disable biometric sign-in: ${error.toString().replaceFirst('Exception: ', '')}',
+            kind: InfraNoticeKind.error,
           );
         }
       } finally {
@@ -1993,8 +1995,10 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
     }
 
     if (!ApiService.isSignedIn) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sign in to enable biometric sign-in.')),
+      showInfraNotice(
+        context,
+        'Sign in to enable biometric sign-in.',
+        kind: InfraNoticeKind.warning,
       );
       return;
     }
@@ -2026,18 +2030,18 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
           _biometric = true;
           _preferencesError = null;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Biometric sign-in is enabled.')),
+        showInfraNotice(
+          context,
+          'Biometric sign-in is enabled.',
+          kind: InfraNoticeKind.success,
         );
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Could not enable biometric sign-in: ${error.toString().replaceFirst('Exception: ', '')}',
-            ),
-          ),
+        showInfraNotice(
+          context,
+          'Could not enable biometric sign-in: ${error.toString().replaceFirst('Exception: ', '')}',
+          kind: InfraNoticeKind.error,
         );
       }
     } finally {
@@ -2113,8 +2117,10 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
 
   Future<void> _changePassword() async {
     if (!ApiService.isSignedIn) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sign in to change your password.')),
+      showInfraNotice(
+        context,
+        'Sign in to change your password.',
+        kind: InfraNoticeKind.warning,
       );
       return;
     }
@@ -2290,10 +2296,10 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
         );
       } catch (error) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(error.toString().replaceFirst('Exception: ', '')),
-            ),
+          showInfraNotice(
+            context,
+            error.toString().replaceFirst('Exception: ', ''),
+            kind: InfraNoticeKind.error,
           );
         }
         return;
@@ -2304,26 +2310,22 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
           if (mounted) setState(() => _biometric = false);
         } catch (error) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Password updated, but biometric credentials could not be cleared: ${error.toString().replaceFirst('Exception: ', '')}',
-                ),
-              ),
+            showInfraNotice(
+              context,
+              'Password updated, but biometric credentials could not be cleared: ${error.toString().replaceFirst('Exception: ', '')}',
+              kind: InfraNoticeKind.warning,
             );
           }
           return;
         }
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              biometricWasEnabled
-                  ? 'Password updated. Enable biometric sign-in again to use the new password.'
-                  : 'Password updated successfully.',
-            ),
-          ),
+        showInfraNotice(
+          context,
+          biometricWasEnabled
+              ? 'Password updated. Enable biometric sign-in again to use the new password.'
+              : 'Password updated successfully.',
+          kind: InfraNoticeKind.success,
         );
       }
     }
@@ -2427,10 +2429,10 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
                 value: _location,
                 onChanged: (value) {
                   if (!ApiService.isSignedIn) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Sign in to update privacy settings.'),
-                      ),
+                    showInfraNotice(
+                      context,
+                      'Sign in to update privacy settings.',
+                      kind: InfraNoticeKind.warning,
                     );
                     return;
                   }
@@ -2445,10 +2447,10 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
                 value: _notifications,
                 onChanged: (value) {
                   if (!ApiService.isSignedIn) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Sign in to update privacy settings.'),
-                      ),
+                    showInfraNotice(
+                      context,
+                      'Sign in to update privacy settings.',
+                      kind: InfraNoticeKind.warning,
                     );
                     return;
                   }
