@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import IssueTable from "../components/IssueTable";
+import { issueMatchesBarangay } from "../issueBarangay.js";
 
 export default function IssueQueuePage({ issues, onOpenIssue }) {
   const [statusFilter, setStatusFilter] = useState("all");
@@ -13,7 +14,7 @@ export default function IssueQueuePage({ issues, onOpenIssue }) {
       const matchesStatus = statusFilter === "all"
         || (statusFilter === "pending" ? issue.status === "Reported" : issue.status === statusFilter);
       const matchesCategory = categoryFilter === "all" || issue.category === categoryFilter;
-      const matchesBarangay = barangayFilter === "all" || issue.location === barangayFilter;
+      const matchesBarangay = barangayFilter === "all" || issueMatchesBarangay(issue, barangayFilter);
       const age = issue.created_at ? (Date.now() - new Date(issue.created_at).getTime()) / 86400000 : 0;
       const matchesDate = dateFilter === "all" || (dateFilter === "7" ? age <= 7 : age <= 30);
       return matchesStatus && matchesCategory && matchesBarangay && matchesDate;

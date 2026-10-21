@@ -262,6 +262,11 @@ class _HomePageState extends State<HomePage> {
       ApiService.currentUser?['barangay']?.toString(),
     );
     final location = report['location']?.toString() ?? '';
+    final normalizedLocation = _normalizedBarangay(location);
+    final locationForMatching =
+        normalizedLocation == 'mati city' || normalizedLocation == 'mati'
+        ? report['reporter_barangay']?.toString() ?? ''
+        : location;
     final status = (report['status'] as String? ?? '').trim().toLowerCase();
     final isApprovedOrInProgress = const {
       'approved',
@@ -269,7 +274,7 @@ class _HomePageState extends State<HomePage> {
       'in progress',
     }.contains(status);
     return userBarangay.isNotEmpty &&
-        _locationMatchesBarangay(location, userBarangay) &&
+        _locationMatchesBarangay(locationForMatching, userBarangay) &&
         isApprovedOrInProgress &&
         (_activeFilter == 'All' || category == _activeFilter);
   }).toList();

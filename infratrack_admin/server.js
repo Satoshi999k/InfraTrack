@@ -851,10 +851,10 @@ app.get("/api/mobile/issues", async (req, res) => {
     ? "r.status IN ('Verified by inspector', 'In progress', 'Resolved')"
     : "r.status <> 'Archived'";
   const [issues] = await pool.query(`SELECT r.public_id, r.title, r.description, r.category,
-    r.location, r.latitude, r.longitude, r.severity, r.status, r.created_at, r.updated_at,
+    r.location, u.barangay AS reporter_barangay, r.latitude, r.longitude, r.severity, r.status, r.created_at, r.updated_at,
     (SELECT m.file_path FROM media m WHERE m.report_id = r.id ORDER BY m.id ASC LIMIT 1) AS media_url,
     (SELECT m.media_type FROM media m WHERE m.report_id = r.id ORDER BY m.id ASC LIMIT 1) AS media_kind
-    FROM reports r
+    FROM reports r LEFT JOIN users u ON u.id = r.reporter_id
     WHERE ${statusFilter} ORDER BY r.created_at DESC`);
   res.json({ issues: issues.map((issue) => ({
     ...issue,
@@ -1461,7 +1461,7 @@ app.post("/api/auth/register", async (req, res) => {
 app.get("/api/issues", async (req, res) => {
   const search = `%${String(req.query.search ?? "").toLowerCase()}%`;
   const scope = getReportScope(req.auth, "r");
-  const [issues] = await pool.query(`SELECT r.*, u.name AS reporter,
+  const [issues] = await pool.query(`SELECT r.*, u.name AS reporter, u.barangay AS reporter_barangay,
     EXISTS (
       SELECT 1 FROM reports duplicate_report
       WHERE duplicate_report.id = r.duplicate_of

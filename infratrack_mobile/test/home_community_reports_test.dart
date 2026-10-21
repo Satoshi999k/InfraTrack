@@ -42,9 +42,8 @@ void main() {
                     index,
                     'Central approved $index',
                     index.isEven ? 'In progress' : 'Verified by inspector',
-                    index.isEven
-                        ? 'Mati City, Brgy. Central'
-                        : 'Barangay Central',
+                    index.isEven ? 'Mati City' : 'Barangay Central',
+                    reporterBarangay: 'Barangay Central',
                   ),
                 _issue(
                   8,
@@ -122,13 +121,15 @@ Map<String, dynamic> _issue(
   int id,
   String title,
   String status,
-  String location,
-) => {
+  String location, {
+  String? reporterBarangay,
+}) => {
   'id': id,
   'title': title,
   'description': 'A neighborhood infrastructure report.',
   'category': 'Roads',
   'status': status,
   'location': location,
+  'reporter_barangay': reporterBarangay,
   'created_at': '2026-10-21T06:00:00.000Z',
 };
