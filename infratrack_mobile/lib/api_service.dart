@@ -403,8 +403,18 @@ class ApiService {
     );
   }
 
-  static Future<List<Map<String, dynamic>>> issues() async =>
-      _readList(await _request('GET', '/mobile/issues'), 'issues');
+  static Future<List<Map<String, dynamic>>> issues({
+    bool verifiedOnly = false,
+    bool homeUpdatesOnly = false,
+  }) async {
+    final queryParameters = <String, String>{};
+    if (verifiedOnly) queryParameters['verified_only'] = 'true';
+    if (homeUpdatesOnly) queryParameters['home_updates_only'] = 'true';
+    final query = queryParameters.isEmpty
+        ? ''
+        : '?${Uri(queryParameters: queryParameters).query}';
+    return _readList(await _request('GET', '/mobile/issues$query'), 'issues');
+  }
 
   static Future<Map<String, dynamic>> overview() =>
       _request('GET', '/mobile/overview');

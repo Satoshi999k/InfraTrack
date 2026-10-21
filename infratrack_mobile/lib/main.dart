@@ -1448,109 +1448,95 @@ class _SessionNoticeContent extends StatelessWidget {
   );
 }
 
-class _AccountBannedDialog extends StatelessWidget {
-  const _AccountBannedDialog({required this.onContinue});
+class AccountBannedDialog extends StatelessWidget {
+  const AccountBannedDialog({super.key, required this.onContinue});
 
   final VoidCallback onContinue;
 
   @override
-  Widget build(BuildContext context) => Dialog(
-    backgroundColor: Colors.transparent,
-    insetPadding: const EdgeInsets.symmetric(horizontal: 22),
-    child: Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: sand,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: Colors.white.withValues(alpha: .85)),
-        boxShadow: [
-          BoxShadow(
-            color: deepNavy.withValues(alpha: .25),
-            blurRadius: 32,
-            offset: const Offset(0, 16),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(24, 26, 24, 24),
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [deepNavy, navy],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+  Widget build(BuildContext context) {
+    final maxHeight = MediaQuery.sizeOf(context).height * .82;
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: Container(
+          key: const ValueKey('accountBannedDialogSurface'),
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: sand,
+            borderRadius: BorderRadius.circular(26),
+            border: Border.all(color: Colors.white.withValues(alpha: .85)),
+            boxShadow: [
+              BoxShadow(
+                color: deepNavy.withValues(alpha: .22),
+                blurRadius: 28,
+                offset: const Offset(0, 14),
               ),
-            ),
+            ],
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 26, 24, 24),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  width: 68,
-                  height: 68,
+                  width: 56,
+                  height: 56,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: .13),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: .25),
-                    ),
+                    color: clay.withValues(alpha: .12),
+                    borderRadius: BorderRadius.circular(18),
                   ),
                   child: const Icon(
                     Icons.gpp_bad_outlined,
-                    color: Colors.white,
-                    size: 34,
+                    color: clay,
+                    size: 30,
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
                 Text(
                   'Account access restricted',
-                  textAlign: TextAlign.center,
                   style: infraHeading(
-                    color: Colors.white,
-                    fontSize: 20,
+                    color: navy,
+                    fontSize: 21,
                     weight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 9),
                 const Text(
                   'Your InfraTrack account has been banned. You have been signed out and cannot sign in while the ban is in effect.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Color(0xFFD5E3E6),
-                    fontSize: 13,
-                    height: 1.5,
-                  ),
+                  style: TextStyle(color: inkSoft, fontSize: 14, height: 1.55),
                 ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(22, 18, 22, 22),
-            child: Column(
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(
-                      Icons.info_outline_rounded,
-                      color: teal,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 9),
-                    const Expanded(
-                      child: Text(
-                        'If you believe this is a mistake, contact Mati City support for help.',
-                        style: TextStyle(
-                          color: inkSoft,
-                          fontSize: 12,
-                          height: 1.45,
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: .72),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: line),
+                  ),
+                  child: const Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.info_outline_rounded, color: teal, size: 20),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'If you believe this is a mistake, contact Mati City support for help.',
+                          style: TextStyle(
+                            color: inkSoft,
+                            fontSize: 12.5,
+                            height: 1.45,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
@@ -1558,21 +1544,24 @@ class _AccountBannedDialog extends StatelessWidget {
                     style: FilledButton.styleFrom(
                       backgroundColor: clay,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      minimumSize: const Size.fromHeight(52),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(15),
                       ),
                     ),
-                    child: const Text('OK, sign out'),
+                    child: const Text(
+                      'Sign out',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-        ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class MainShell extends StatefulWidget {
@@ -1622,7 +1611,7 @@ class _MainShellState extends State<MainShell> {
       await showDialog<void>(
         context: context,
         barrierDismissible: false,
-        builder: (dialogContext) => _AccountBannedDialog(
+        builder: (dialogContext) => AccountBannedDialog(
           onContinue: () => Navigator.of(dialogContext).pop(),
         ),
       );

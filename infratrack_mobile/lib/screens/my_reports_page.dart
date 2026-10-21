@@ -144,32 +144,58 @@ class _MyReportsPageState extends State<MyReportsPage> {
                     onFilterChanged: (value) => setState(() => filter = value),
                   ),
                 ),
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
-                  sliver: SliverList(
-                    delegate: SliverChildListDelegate([
-                      if (_loading)
-                        const ReportFeedSkeleton(count: 4)
-                      else if (_loadError != null)
-                        LoadErrorPanel(
-                          message: _loadError!,
-                          onRetry: _loadReports,
-                        )
-                      else if (visible.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 24),
-                          child: Text(
-                            ApiService.isSignedIn
-                                ? 'You have not submitted any reports yet.'
-                                : 'Sign in to see your reports.',
-                            style: const TextStyle(color: inkSoft),
-                          ),
-                        )
-                      else
-                        ...visible.map((item) => _MyReportCard(report: item)),
-                    ]),
+                if (_loading)
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
+                    sliver: SliverList(
+                      delegate: SliverChildListDelegate([
+                        const ReportFeedSkeleton(count: 4),
+                      ]),
+                    ),
+                  )
+                else if (_loadError != null)
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
+                    sliver: SliverToBoxAdapter(
+                      child: LoadErrorPanel(
+                        message: _loadError!,
+                        onRetry: _loadReports,
+                      ),
+                    ),
+                  )
+                else if (_serverReports.isEmpty)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _EmptyReports(
+                      icon: Icons.assignment_outlined,
+                      title: ApiService.isSignedIn
+                          ? 'No reports yet'
+                          : 'Your reports are waiting',
+                      message: ApiService.isSignedIn
+                          ? 'You have not submitted any reports yet.'
+                          : 'Sign in to see your reports.',
+                    ),
+                  )
+                else if (visible.isEmpty)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: const _EmptyReports(
+                      icon: Icons.filter_alt_off_outlined,
+                      title: 'No reports match this filter',
+                      message: 'Try another status filter to see your reports.',
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) =>
+                            _MyReportCard(report: visible[index]),
+                        childCount: visible.length,
+                      ),
+                    ),
                   ),
-                ),
               ],
             ),
           ),
@@ -177,6 +203,47 @@ class _MyReportsPageState extends State<MyReportsPage> {
       ),
     );
   }
+}
+
+class _EmptyReports extends StatelessWidget {
+  const _EmptyReports({
+    required this.icon,
+    required this.title,
+    required this.message,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 48, color: inkSoft.withValues(alpha: .5)),
+          const SizedBox(height: 14),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: navy,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: inkSoft, fontSize: 13, height: 1.5),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _MyReportsHeaderDelegate extends SliverPersistentHeaderDelegate {

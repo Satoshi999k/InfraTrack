@@ -55,11 +55,14 @@ class NewsPage extends StatefulWidget {
 }
 
 class _NewsPageState extends State<NewsPage> {
+  static const _initialIssueLimit = 10;
+
   final _pageController = PageController();
   Timer? _rotationTimer;
   int _currentPage = 0;
   String _selectedReportCategory = 'All';
   String _selectedAdvisoryCategory = 'All';
+  bool _showAllIssues = false;
   List<Map<String, dynamic>> _advisories = [];
   List<Map<String, dynamic>> _issues = [];
   bool _loading = true;
@@ -92,7 +95,7 @@ class _NewsPageState extends State<NewsPage> {
     try {
       final results = await Future.wait([
         ApiService.advisories(),
-        ApiService.issues(),
+        ApiService.issues(verifiedOnly: true),
       ]);
       if (!mounted) return;
       setState(() {
@@ -148,6 +151,14 @@ class _NewsPageState extends State<NewsPage> {
   List<Map<String, dynamic>> get _visibleIssues => _issues.where((issue) {
     final status = (issue['status'] as String? ?? '').toLowerCase().trim();
     final category = (issue['category'] as String? ?? '').toLowerCase().trim();
+    if (!const {
+      'verified by inspector',
+      'approved',
+      'in progress',
+      'resolved',
+    }.contains(status)) {
+      return false;
+    }
     return switch (_selectedReportCategory) {
       'Roads' => category == 'roads' || category == 'road',
       'Water' => category == 'water',
@@ -178,109 +189,143 @@ class _NewsPageState extends State<NewsPage> {
 
   @override
   Widget build(BuildContext context) => PageEntrance(
-    child: AppScroll(
-      onRefresh: _loadNews,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const AppHeader(
-            eyebrow: 'MATI CITY · COMMUNITY INFORMATION',
-            title: 'City updates',
-            subtitle: 'Local reports and official notices, all in one place.',
-          ),
-          if (!_loading && _stories.isNotEmpty)
-            _NewsHeroCarousel(
-              stories: _stories,
-              controller: _pageController,
-              currentPage: _currentPage,
-              onPageChanged: (page) => setState(() => _currentPage = page),
-            ),
-          if (!_loading && _stories.isEmpty) const _NewsFeaturePlaceholder(),
-          const SizedBox(height: 14),
-          _NewsSectionHeading(
-            eyebrow: 'COMMUNITY FEED',
-            title: 'Report updates',
-            count: _loading ? null : _visibleIssues.length,
-            icon: Icons.location_city_outlined,
-          ),
-          const SizedBox(height: 5),
-          _NewsFilterBar(
-            selectedCategory: _selectedReportCategory,
-            categories: const [
-              'All',
-              'Roads',
-              'Water',
-              'Drainage',
-              'Lighting',
-              'Resolved',
-            ],
-            onCategorySelected: (category) =>
-                setState(() => _selectedReportCategory = category),
-          ),
-          const SizedBox(height: 18),
-          if (_loading)
-            const _NewsPageSkeleton()
-          else if (_loadError != null)
-            LoadErrorPanel(message: _loadError!, onRetry: _loadNews)
-          else ...[
-            if (_visibleIssues.isEmpty)
-              _NewsEmptyState(
-                icon: Icons.inbox_outlined,
-                title: _issues.isEmpty
-                    ? 'No community reports yet'
-                    : 'No reports in this category',
-                message: _issues.isEmpty
-                    ? 'New infrastructure reports from Mati residents will appear here.'
-                    : 'Choose another category to see more local report updates.',
+    child: Builder(
+      builder: (context) {
+        final visibleIssues = _visibleIssues;
+        final displayedIssues = _showAllIssues
+            ? visibleIssues
+            : visibleIssues.take(_initialIssueLimit).toList();
+        return AppScroll(
+          onRefresh: _loadNews,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const AppHeader(
+                eyebrow: 'MATI CITY · COMMUNITY INFORMATION',
+                title: 'City updates',
+                subtitle:
+                    'Local reports and official notices, all in one place.',
               ),
-            for (final issue in _visibleIssues)
-              _ReportUpdateCard(
-                icon: _issueIcon(issue),
-                title: issue['title'] as String? ?? 'Infrastructure report',
-                body:
-                    '${issue['status'] ?? 'Reported'} · ${issue['location'] ?? 'Mati City'}',
-                color: _issueColor(issue),
-                status: issue['status'] as String? ?? 'Reported',
-                location: issue['location'] as String? ?? 'Mati City',
-                date: _newsDate(issue['created_at']?.toString()),
+              if (!_loading && _stories.isNotEmpty)
+                _NewsHeroCarousel(
+                  stories: _stories,
+                  controller: _pageController,
+                  currentPage: _currentPage,
+                  onPageChanged: (page) => setState(() => _currentPage = page),
+                ),
+              if (!_loading && _stories.isEmpty)
+                const _NewsFeaturePlaceholder(),
+              const SizedBox(height: 14),
+              _NewsSectionHeading(
+                eyebrow: 'COMMUNITY FEED',
+                title: 'Report updates',
+                count: _loading ? null : visibleIssues.length,
+                icon: Icons.location_city_outlined,
               ),
-            _NewsSectionHeading(
-              eyebrow: 'OFFICIAL BULLETINS',
-              title: 'City advisories',
-              count: _visibleAdvisories.length,
-              icon: Icons.campaign_outlined,
-            ),
-            const SizedBox(height: 5),
-            _NewsFilterBar(
-              selectedCategory: _selectedAdvisoryCategory,
-              categories: const [
-                'All',
-                'Advertisement',
-                'Maintenance',
-                'Announcements',
+              const SizedBox(height: 5),
+              _NewsFilterBar(
+                selectedCategory: _selectedReportCategory,
+                categories: const [
+                  'All',
+                  'Roads',
+                  'Water',
+                  'Drainage',
+                  'Lighting',
+                  'Resolved',
+                ],
+                onCategorySelected: (category) => setState(() {
+                  _selectedReportCategory = category;
+                  _showAllIssues = false;
+                }),
+              ),
+              const SizedBox(height: 18),
+              if (_loading)
+                const _NewsPageSkeleton()
+              else if (_loadError != null)
+                LoadErrorPanel(message: _loadError!, onRetry: _loadNews)
+              else ...[
+                if (visibleIssues.isEmpty)
+                  _NewsEmptyState(
+                    icon: Icons.inbox_outlined,
+                    title: _issues.isEmpty
+                        ? 'No verified report updates yet'
+                        : 'No reports in this category',
+                    message: _issues.isEmpty
+                        ? 'Reports appear here after the city team verifies them.'
+                        : 'Choose another category to see more local report updates.',
+                  ),
+                for (final issue in displayedIssues)
+                  _ReportUpdateCard(
+                    icon: _issueIcon(issue),
+                    title: issue['title'] as String? ?? 'Infrastructure report',
+                    body:
+                        '${issue['status'] ?? 'Reported'} · ${issue['location'] ?? 'Mati City'}',
+                    color: _issueColor(issue),
+                    status: issue['status'] as String? ?? 'Reported',
+                    location: issue['location'] as String? ?? 'Mati City',
+                    date: _newsDate(issue['created_at']?.toString()),
+                  ),
+                if (!_showAllIssues &&
+                    visibleIssues.length > _initialIssueLimit)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 2, bottom: 18),
+                      child: TextButton.icon(
+                        key: const ValueKey('seeAllReportUpdates'),
+                        onPressed: () => setState(() => _showAllIssues = true),
+                        icon: const Icon(Icons.expand_more_rounded),
+                        label: Text(
+                          'See all previous reports (${visibleIssues.length - _initialIssueLimit})',
+                        ),
+                        style: TextButton.styleFrom(
+                          foregroundColor: navy,
+                          textStyle: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                _NewsSectionHeading(
+                  eyebrow: 'OFFICIAL BULLETINS',
+                  title: 'City advisories',
+                  count: _visibleAdvisories.length,
+                  icon: Icons.campaign_outlined,
+                ),
+                const SizedBox(height: 5),
+                _NewsFilterBar(
+                  selectedCategory: _selectedAdvisoryCategory,
+                  categories: const [
+                    'All',
+                    'Advertisement',
+                    'Maintenance',
+                    'Announcements',
+                  ],
+                  onCategorySelected: (category) =>
+                      setState(() => _selectedAdvisoryCategory = category),
+                  isAdvisory: true,
+                ),
+                const SizedBox(height: 12),
+                if (_visibleAdvisories.isEmpty)
+                  _NewsEmptyState(
+                    icon: Icons.notifications_none_rounded,
+                    title: _advisories.isEmpty
+                        ? 'No current advisories'
+                        : 'No advisories in this category',
+                    message: _advisories.isEmpty
+                        ? 'Official notices from the LGU will appear here when published.'
+                        : 'Try another advisory type to see more official updates.',
+                  )
+                else
+                  ..._visibleAdvisories.map(
+                    (advisory) => _PublicAdvisoryCard(advisory: advisory),
+                  ),
               ],
-              onCategorySelected: (category) =>
-                  setState(() => _selectedAdvisoryCategory = category),
-              isAdvisory: true,
-            ),
-            const SizedBox(height: 12),
-            if (_visibleAdvisories.isEmpty)
-              _NewsEmptyState(
-                icon: Icons.notifications_none_rounded,
-                title: _advisories.isEmpty
-                    ? 'No current advisories'
-                    : 'No advisories in this category',
-                message: _advisories.isEmpty
-                    ? 'Official notices from the LGU will appear here when published.'
-                    : 'Try another advisory type to see more official updates.',
-              )
-            else
-              ..._visibleAdvisories.map(
-                (advisory) => _PublicAdvisoryCard(advisory: advisory),
-              ),
-          ],
-        ],
-      ),
+            ],
+          ),
+        );
+      },
     ),
   );
 

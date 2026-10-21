@@ -74,7 +74,7 @@ class _HomePageState extends State<HomePage> {
     final notificationRevision = ApiService.notificationReadRevision.value;
     try {
       final results = await Future.wait([
-        ApiService.issues(),
+        ApiService.issues(homeUpdatesOnly: true),
         ApiService.reports(),
         ApiService.overview(),
         ApiService.notifications(),
@@ -256,26 +256,37 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  List<Map<String, dynamic>> get _nearbyReports => _issues
-      .where((report) {
-        final category = report['category'] as String? ?? '';
-        final userBarangay = _normalizedBarangay(
-          ApiService.currentUser?['barangay']?.toString(),
-        );
-        final reportBarangay = _normalizedBarangay(
-          report['location']?.toString(),
-        );
-        return (userBarangay.isEmpty || reportBarangay == userBarangay) &&
-            (_activeFilter == 'All' || category == _activeFilter);
-      })
-      .take(6)
-      .toList();
+  List<Map<String, dynamic>> get _nearbyReports => _issues.where((report) {
+    final category = report['category'] as String? ?? '';
+    final userBarangay = _normalizedBarangay(
+      ApiService.currentUser?['barangay']?.toString(),
+    );
+    final location = report['location']?.toString() ?? '';
+    final status = (report['status'] as String? ?? '').trim().toLowerCase();
+    final isApprovedOrInProgress = const {
+      'approved',
+      'verified by inspector',
+      'in progress',
+    }.contains(status);
+    return userBarangay.isNotEmpty &&
+        _locationMatchesBarangay(location, userBarangay) &&
+        isApprovedOrInProgress &&
+        (_activeFilter == 'All' || category == _activeFilter);
+  }).toList();
 
   String _normalizedBarangay(String? value) {
     return (value ?? '').trim().toLowerCase().replaceFirst(
       RegExp(r'^(?:brgy\.?|barangay)\s*'),
       '',
     );
+  }
+
+  bool _locationMatchesBarangay(String location, String barangay) {
+    if (_normalizedBarangay(location) == barangay) return true;
+    final escapedBarangay = RegExp.escape(barangay);
+    return RegExp(
+      '(?:^|[^a-z0-9])(?:brgy\\.?|barangay)\\s*$escapedBarangay(?:\$|[^a-z0-9])',
+    ).hasMatch(location.toLowerCase());
   }
 
   Color _reportColor(Map<String, dynamic> report) {

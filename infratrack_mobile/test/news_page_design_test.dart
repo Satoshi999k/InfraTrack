@@ -21,9 +21,15 @@ void main() {
         return http.Response(
           jsonEncode({
             'issues': [
-              _issue(1, 'Road repair on Rizal Street', 'Roads', 'Reported'),
+              _issue(
+                1,
+                'Road repair on Rizal Street',
+                'Roads',
+                'Verified by inspector',
+              ),
               _issue(2, 'Water supply restored', 'Water', 'Resolved'),
               _issue(3, 'Drainage clearing', 'Drainage', 'In progress'),
+              _issue(4, 'Unverified road damage', 'Roads', 'Reported'),
             ],
           }),
           200,
@@ -90,6 +96,66 @@ void main() {
     }
   });
 
+  testWidgets('News shows only approved reports and reveals older updates', (
+    WidgetTester tester,
+  ) async {
+    final originalClientFactory = ApiService.httpClientFactory;
+    var requestedVerifiedFeed = false;
+    ApiService.httpClientFactory = () => MockClient((request) async {
+      if (request.url.path.endsWith('/mobile/issues')) {
+        requestedVerifiedFeed =
+            request.url.queryParameters['verified_only'] == 'true';
+        return http.Response(
+          jsonEncode({
+            'issues': [
+              ...List.generate(
+                12,
+                (index) => _issue(
+                  index + 1,
+                  'Approved report ${index + 1}',
+                  'Roads',
+                  index.isEven ? 'Verified by inspector' : 'In progress',
+                ),
+              ),
+              _issue(13, 'Unverified report', 'Roads', 'Reported'),
+              _issue(14, 'Rejected report', 'Roads', 'Rejected'),
+            ],
+          }),
+          200,
+        );
+      }
+      if (request.url.path.endsWith('/mobile/advisories')) {
+        return http.Response(jsonEncode({'advisories': []}), 200);
+      }
+      return http.Response('{}', 404);
+    });
+
+    try {
+      await tester.pumpWidget(const MaterialApp(home: NewsPage()));
+      await tester.pumpAndSettle();
+
+      expect(requestedVerifiedFeed, isTrue);
+      expect(find.text('Approved report 1'), findsOneWidget);
+      expect(find.text('Approved report 10'), findsOneWidget);
+      expect(find.text('Approved report 11'), findsNothing);
+      expect(find.text('Unverified report'), findsNothing);
+      expect(find.text('Rejected report'), findsNothing);
+      expect(find.text('See all previous reports (2)'), findsOneWidget);
+
+      await tester.drag(find.byType(ListView), const Offset(0, -1200));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('See all previous reports (2)'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Approved report 11'), findsOneWidget);
+      expect(find.text('Approved report 12'), findsOneWidget);
+      expect(find.text('Unverified report'), findsNothing);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      ApiService.httpClientFactory = originalClientFactory;
+    }
+  });
+
   testWidgets('News page shows helpful empty states for both feeds', (
     WidgetTester tester,
   ) async {
@@ -108,7 +174,7 @@ void main() {
       await tester.pumpWidget(const MaterialApp(home: NewsPage()));
       await tester.pumpAndSettle();
 
-      expect(find.text('No community reports yet'), findsOneWidget);
+      expect(find.text('No verified report updates yet'), findsOneWidget);
       expect(find.text('No current advisories'), findsOneWidget);
       expect(find.byType(CircularProgressIndicator), findsNothing);
     } finally {

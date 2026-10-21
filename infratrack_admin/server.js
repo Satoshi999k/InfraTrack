@@ -831,16 +831,23 @@ app.get("/api/health", async (_req, res) => {
   try { await pool.query("SELECT 1"); res.json({ ok: true, service: "InfraTrack Admin API", database: dbName }); }
   catch { res.status(503).json({ ok: false, error: "Database unavailable" }); }
 });
-app.get("/api/mobile/issues", async (_req, res) => {
+app.get("/api/mobile/issues", async (req, res) => {
+  const homeUpdatesOnly = req.query.home_updates_only === "true";
+  const verifiedOnly = req.query.verified_only === "true";
+  const statusFilter = homeUpdatesOnly
+    ? "r.status IN ('Approved', 'Verified by inspector', 'In progress')"
+    : verifiedOnly
+    ? "r.status IN ('Verified by inspector', 'In progress', 'Resolved')"
+    : "r.status <> 'Archived'";
   const [issues] = await pool.query(`SELECT r.public_id, r.title, r.description, r.category,
     r.location, r.latitude, r.longitude, r.severity, r.status, r.created_at, r.updated_at,
     (SELECT m.file_path FROM media m WHERE m.report_id = r.id ORDER BY m.id ASC LIMIT 1) AS media_url,
     (SELECT m.media_type FROM media m WHERE m.report_id = r.id ORDER BY m.id ASC LIMIT 1) AS media_kind
     FROM reports r
-    WHERE r.status <> 'Archived' ORDER BY r.created_at DESC`);
+    WHERE ${statusFilter} ORDER BY r.created_at DESC`);
   res.json({ issues: issues.map((issue) => ({
     ...issue,
-    media_url: publicMediaUrl(_req, issue.media_url),
+    media_url: publicMediaUrl(req, issue.media_url),
   })) });
 });
 app.get("/api/mobile/overview", async (_req, res) => {

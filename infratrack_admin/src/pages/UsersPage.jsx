@@ -1,9 +1,11 @@
 import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
-import { Ban, CheckCircle2, Eye, Hourglass, ShieldCheck, UserPlus } from "lucide-react";
+import { Ban, CheckCircle2, Eye, Hourglass, Search, ShieldCheck, UserPlus, X } from "lucide-react";
 import { apiFetch } from "../api";
+import { filterResidents } from "../../residentSearch.js";
 
 export default function UsersPage({ users, onOpenUser, user }) {
+  const [residentSearch, setResidentSearch] = useState("");
   const [staff, setStaff] = useState([]);
   const [showStaffForm, setShowStaffForm] = useState(false);
   const [staffError, setStaffError] = useState("");
@@ -11,6 +13,7 @@ export default function UsersPage({ users, onOpenUser, user }) {
   const [staffForm, setStaffForm] = useState({ name: "", email: "", barangay: "", password: "Mati2026!", role: "barangay_staff" });
   const [passwordModal, setPasswordModal] = useState({ open: false, account: null, value: "", confirm: "", error: "" });
   const canManageStaff = ["lgu", "admin"].includes(user?.role);
+  const visibleResidents = filterResidents(users, residentSearch);
 
   const loadStaff = () => apiFetch("/staff").then(async (response) => {
     const data = await response.json();
@@ -170,7 +173,32 @@ export default function UsersPage({ users, onOpenUser, user }) {
         {staffNotice && <p role="status" className={`staff-notice ${staffNotice.includes("could not be sent") ? "staff-notice-warning" : ""}`}>{staffNotice}</p>}
         <div className="staff-account-list">{staff.map((account) => <div className="staff-account-row" key={account.id}><div><strong>{account.name}</strong><small>{account.email} · {account.barangay} · {account.role}</small></div><div className="staff-action-group"><span className={`status ${account.standing === "Active" ? "resolved" : "pending"}`}>{account.standing}</span><button type="button" className="view-user-button" onClick={() => resetStaffPassword(account)}>Reset password</button><button type="button" className="view-user-button" onClick={() => toggleStaff(account)}>{account.standing === "Disabled" ? "Activate" : "Disable"}</button></div></div>)}</div>
       </section>}
-      <div className="card table-card">
+      <div className="card table-card residents-table-card">
+      <div className="residents-search-toolbar">
+        <label className="residents-search-field">
+          <Search size={17} aria-hidden="true" />
+          <input
+            type="search"
+            aria-label="Search residents"
+            placeholder="Search residents by name, email, or barangay"
+            value={residentSearch}
+            onChange={(event) => setResidentSearch(event.target.value)}
+          />
+          {residentSearch && (
+            <button
+              type="button"
+              className="residents-search-clear"
+              aria-label="Clear resident search"
+              onClick={() => setResidentSearch("")}
+            >
+              <X size={16} />
+            </button>
+          )}
+        </label>
+        <span className="residents-search-count">
+          {visibleResidents.length} {visibleResidents.length === 1 ? "resident" : "residents"}
+        </span>
+      </div>
       <div className="table-wrap">
         <table>
           <thead>
@@ -185,7 +213,15 @@ export default function UsersPage({ users, onOpenUser, user }) {
             </tr>
           </thead>
           <tbody>
-            {users.map((resident) => {
+            {visibleResidents.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="residents-empty-result">
+                  {residentSearch.trim()
+                    ? "No residents match your search."
+                    : "No residents to display."}
+                </td>
+              </tr>
+            ) : visibleResidents.map((resident) => {
               const { id, name, email, barangay, reports, standing, verification, joined } = resident;
               return (
               <tr key={email} onClick={() => onOpenUser(resident)}>
