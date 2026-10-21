@@ -165,13 +165,15 @@ class _MapPageState extends State<MapPage> {
     }
   }
 
-  Color _categoryColor(String category) => switch (category.toLowerCase()) {
-    'road' || 'roads' => clay,
-    'water' => const Color(0xFF176B87),
-    'drainage' => teal,
-    'lighting' => const Color(0xFF7450A1),
-    _ => inkSoft,
-  };
+  Color _categoryColor(String category) =>
+      switch (normalizeReportCategory(category).toLowerCase()) {
+        'road' || 'roads' => clay,
+        'public buildings' => const Color(0xFF176B87),
+        'drainage' => teal,
+        'streetlights' || 'lighting' => const Color(0xFF7450A1),
+        'electric poles' => amber,
+        _ => inkSoft,
+      };
 
   @override
   void dispose() {
@@ -183,7 +185,8 @@ class _MapPageState extends State<MapPage> {
     final query = _searchController.text.trim().toLowerCase();
     return _reports.where((report) {
       final matchesCategory =
-          _activeCategory == 'All' || report.category == _activeCategory;
+          _activeCategory == 'All' ||
+          normalizeReportCategory(report.category) == _activeCategory;
       final matchesSearch =
           query.isEmpty ||
           report.title.toLowerCase().contains(query) ||
@@ -321,13 +324,7 @@ class _MapPageState extends State<MapPage> {
             child: ListView(
               scrollDirection: Axis.horizontal,
               children: [
-                for (final category in const [
-                  'All',
-                  'Roads',
-                  'Water',
-                  'Drainage',
-                  'Lighting',
-                ])
+                for (final category in ['All', ...reportCategories])
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: _MapFilterChip(
@@ -524,22 +521,31 @@ class _MapPageState extends State<MapPage> {
 
   List<(String, Color, int)> get _legendItems => [
     ('All', navy, _reports.length),
-    for (final category in const ['Roads', 'Water', 'Drainage', 'Lighting'])
-      if (_reports.any((report) => report.category == category))
+    for (final category in reportCategories)
+      if (_reports.any(
+        (report) => normalizeReportCategory(report.category) == category,
+      ))
         (
           category,
           _categoryColor(category),
-          _reports.where((report) => report.category == category).length,
+          _reports
+              .where(
+                (report) =>
+                    normalizeReportCategory(report.category) == category,
+              )
+              .length,
         ),
   ];
 
-  IconData _categoryIcon(String category) => switch (category) {
-    'Roads' => Icons.add_road_rounded,
-    'Water' => Icons.water_drop_outlined,
-    'Drainage' => Icons.water_damage_outlined,
-    'Lighting' => Icons.lightbulb_outline_rounded,
-    _ => Icons.map_outlined,
-  };
+  IconData _categoryIcon(String category) =>
+      switch (normalizeReportCategory(category)) {
+        'Roads' => Icons.add_road_rounded,
+        'Public Buildings' => Icons.apartment_rounded,
+        'Drainage' => Icons.water_damage_outlined,
+        'Streetlights' => Icons.lightbulb_outline_rounded,
+        'Electric Poles' => Icons.electric_bolt_rounded,
+        _ => Icons.map_outlined,
+      };
 }
 
 class _MapReport {

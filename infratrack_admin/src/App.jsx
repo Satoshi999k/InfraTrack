@@ -720,17 +720,17 @@ function Analytics() {
   ];
 
   const hotspotData = [
-    ["Purok 3, Brgy. Dawan", "Water service interruptions", 38],
+    ["Barangay Dawan Hall", "Public building repairs", 38],
     ["Rizal Street", "Road surface damage", 27],
     ["Public Market area", "Drainage blockage", 21],
-    ["J.P. Laurel Ave.", "Streetlight outages", 14],
+    ["J.P. Laurel Ave.", "Electric pole inspection", 14],
   ];
 
   const teamEfficiency = [
     ["Team Alpha", 92, "clay"],
     ["Crew Delta", 88, "amber"],
     ["Electrician U4", 95, "purple"],
-    ["Water District", 79, "teal"],
+    ["Public Facilities Unit", 79, "teal"],
   ];
 
   return (

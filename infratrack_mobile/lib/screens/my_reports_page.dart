@@ -68,7 +68,9 @@ class _MyReportsPageState extends State<MyReportsPage> {
   Widget build(BuildContext context) {
     final reports = _serverReports.map((item) {
       final status = item['status'] as String? ?? 'Reported';
-      final category = item['category'] as String? ?? 'Roads';
+      final category = normalizeReportCategory(
+        item['category'] as String? ?? 'Roads',
+      );
       final color = status == 'Resolved'
           ? green
           : status == 'In progress' || status == 'Scheduled for repair'
@@ -100,11 +102,14 @@ class _MyReportsPageState extends State<MyReportsPage> {
         image: publicMediaUrl(item['media_url'] as String?) ?? '',
         status: status,
         color: color,
-        icon: category == 'Water'
-            ? Icons.water_drop
-            : category == 'Lighting'
-            ? Icons.lightbulb_outline
-            : Icons.construction,
+        icon: switch (category) {
+          'Streetlights' => Icons.lightbulb_outline,
+          'Public Buildings' => Icons.apartment_rounded,
+          'Electric Poles' => Icons.electric_bolt_rounded,
+          'Drainage' => Icons.water_damage_outlined,
+          'Roads' => Icons.add_road_rounded,
+          _ => Icons.construction,
+        },
       );
     }).toList();
     final resolvedCount = _serverReports

@@ -11,21 +11,23 @@ test("assigns each report to one primary theme based on category and report text
 
   assert.deepEqual(themes.map(({ name, count }) => [name, count]), [
     ["Drainage & flooding", 1],
-    ["Lighting & electricity", 1],
     ["Roads & transportation", 1],
+    ["Streetlights", 1],
   ]);
   assert.equal(themes.reduce((total, theme) => total + theme.count, 0), 3);
 });
 
-test("uses the report category as a fallback signal and groups unmatched reports", () => {
+test("groups in-scope infrastructure categories and unmatched concerns", () => {
   const themes = analyzeReportThemes([
-    { category: "Water", title: "No service", description: "Residents report an interruption" },
+    { category: "Public Buildings", title: "Damaged hall", description: "Entrance needs repair" },
+    { category: "Electric Poles", title: "Damaged pole", description: "Pole is leaning" },
     { category: "Uncategorized", title: "Community concern", description: "Needs investigation" },
   ]);
 
   assert.deepEqual(themes.map(({ name, count }) => [name, count]), [
+    ["Electric poles", 1],
     ["Other infrastructure concerns", 1],
-    ["Water supply", 1],
+    ["Public buildings", 1],
   ]);
 });
 

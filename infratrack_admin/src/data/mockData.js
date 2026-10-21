@@ -10,12 +10,12 @@ export const issues = [
   },
   {
     id: "MT-2026-879",
-    title: "No water supply, Purok 3",
+    title: "Damaged barangay hall entrance",
     location: "Brgy. Dawan",
     severity: "High",
     status: "In progress",
     reporter: "Marco Bantilan",
-    category: "Water",
+    category: "Public Buildings",
   },
   {
     id: "MT-2026-884",
@@ -33,7 +33,7 @@ export const issues = [
     severity: "Low",
     status: "Resolved",
     reporter: "Rico Fernandez",
-    category: "Lighting",
+    category: "Streetlights",
   },
   {
     id: "MT-2026-842",
@@ -46,12 +46,12 @@ export const issues = [
   },
   {
     id: "MT-2026-901",
-    title: "Fallen tree branch, coastal road",
+    title: "Damaged electric pole, coastal road",
     location: "Brgy. Dahican",
     severity: "High",
     status: "In progress",
     reporter: "Anonymous walk-in",
-    category: "Debris",
+    category: "Electric Poles",
   },
 ];
 

@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { apiFetch } from "../api";
 import { progressUpdateError } from "../../progressWorkflow.js";
+import { REPORT_CATEGORIES } from "../../reportCategories.js";
 
 export function Modal({ data, onClose, onSave, onUserSave, onUserVerification, onFetchUserReports }) {
   if (data.type === "user") return <UserModal user={data.user} onClose={onClose} onSave={onUserSave} onVerification={onUserVerification} onFetchReports={onFetchUserReports} />;
@@ -266,7 +267,9 @@ function WalkInModal({ onClose, onSave }) {
         <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="e.g. Broken streetlight near city hall" autoFocus />
         <label>Category</label>
         <select value={category} onChange={(event) => setCategory(event.target.value)}>
-          <option>Roads</option><option>Water</option><option>Drainage</option><option>Lighting</option><option>Debris</option>
+          {REPORT_CATEGORIES.map((reportCategory) => (
+            <option key={reportCategory}>{reportCategory}</option>
+          ))}
         </select>
         <label>Location or barangay</label>
         <input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="e.g. Brgy. Central" />

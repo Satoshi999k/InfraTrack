@@ -17,6 +17,7 @@ import 'package:video_player/video_player.dart';
 
 import 'api_service.dart';
 import 'biometric_sign_in.dart';
+import 'report_categories.dart';
 
 part 'loading_skeleton.dart';
 part 'screens/home_page.dart';

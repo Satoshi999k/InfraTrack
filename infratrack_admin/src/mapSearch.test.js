@@ -6,7 +6,7 @@ import { searchAddressLocations } from './mapSearch.js';
 test('falls back to local issue matches when the geocoder request fails', async () => {
   const issues = [
     { title: 'Road repair', location: 'Mati City', latitude: 6.95, longitude: 126.2 },
-    { title: 'Water leak', location: 'Dahican', latitude: 6.94, longitude: 126.27 },
+    { title: 'Damaged drainage', location: 'Dahican', latitude: 6.94, longitude: 126.27 },
   ];
 
   const results = await searchAddressLocations('road', issues, {

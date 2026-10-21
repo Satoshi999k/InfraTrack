@@ -150,7 +150,7 @@ class _NewsPageState extends State<NewsPage> {
 
   List<Map<String, dynamic>> get _visibleIssues => _issues.where((issue) {
     final status = (issue['status'] as String? ?? '').toLowerCase().trim();
-    final category = (issue['category'] as String? ?? '').toLowerCase().trim();
+    final category = issue['category'] as String? ?? '';
     if (!const {
       'verified by inspector',
       'approved',
@@ -160,10 +160,12 @@ class _NewsPageState extends State<NewsPage> {
       return false;
     }
     return switch (_selectedReportCategory) {
-      'Roads' => category == 'roads' || category == 'road',
-      'Water' => category == 'water',
-      'Drainage' => category == 'drainage',
-      'Lighting' => category == 'lighting',
+      'Roads' => normalizeReportCategory(category) == 'Roads',
+      'Public Buildings' =>
+        normalizeReportCategory(category) == 'Public Buildings',
+      'Streetlights' => normalizeReportCategory(category) == 'Streetlights',
+      'Electric Poles' => normalizeReportCategory(category) == 'Electric Poles',
+      'Drainage' => normalizeReportCategory(category) == 'Drainage',
       'Resolved' => status == 'resolved',
       _ => true,
     };
@@ -228,9 +230,10 @@ class _NewsPageState extends State<NewsPage> {
                 categories: const [
                   'All',
                   'Roads',
-                  'Water',
+                  'Public Buildings',
+                  'Streetlights',
+                  'Electric Poles',
                   'Drainage',
-                  'Lighting',
                   'Resolved',
                 ],
                 onCategorySelected: (category) => setState(() {
@@ -344,12 +347,17 @@ class _NewsPageState extends State<NewsPage> {
 
   IconData _issueIcon(Map<String, dynamic> issue) {
     switch ((issue['category'] as String? ?? '').toLowerCase()) {
-      case 'water':
-        return Icons.water_drop;
+      case 'public buildings':
+      case 'public building':
+        return Icons.apartment_rounded;
       case 'drainage':
         return Icons.water_damage_outlined;
       case 'lighting':
+      case 'streetlights':
         return Icons.lightbulb_outline;
+      case 'electric poles':
+      case 'electric pole':
+        return Icons.electric_bolt_rounded;
       default:
         return Icons.construction;
     }
@@ -1009,9 +1017,10 @@ class _NewsFilterBar extends StatelessWidget {
               label: categories[index],
               icon: switch (categories[index]) {
                 'Roads' => Icons.add_road_rounded,
-                'Water' => Icons.water_drop_outlined,
+                'Public Buildings' => Icons.apartment_rounded,
+                'Streetlights' => Icons.lightbulb_outline_rounded,
+                'Electric Poles' => Icons.electric_bolt_rounded,
                 'Drainage' => Icons.water_damage_outlined,
-                'Lighting' => Icons.lightbulb_outline_rounded,
                 'Resolved' => Icons.task_alt_rounded,
                 'Advertisement' => Icons.local_offer_outlined,
                 'Maintenance' => Icons.build_outlined,

@@ -13,7 +13,7 @@ class ReportPage extends StatefulWidget {
 class _ReportPageState extends State<ReportPage> {
   final _imagePicker = ImagePicker();
   final _descriptionController = TextEditingController();
-  String category = 'Road';
+  String category = 'Roads';
   XFile? _capturedMedia;
   bool _capturedVideo = false;
   Position? _position;
@@ -78,9 +78,9 @@ class _ReportPageState extends State<ReportPage> {
       stage.value = _ReportSubmissionStage.submitting;
       await ApiService.createReport(
         title:
-            '${category == 'Road' ? 'Road' : category} issue reported by resident',
+            '$category issue reported by resident',
         description: _descriptionController.text.trim(),
-        category: category == 'Road' ? 'Roads' : category,
+        category: category,
         location: 'Mati City',
         latitude: _position!.latitude,
         longitude: _position!.longitude,
@@ -391,19 +391,19 @@ class _ReportPageState extends State<ReportPage> {
                   label: 'Roads',
                   icon: Icons.add_road_rounded,
                   color: clay,
-                  selected: category == 'Road',
+                  selected: category == 'Roads',
                   onTap: _submitting
                       ? null
-                      : () => setState(() => category = 'Road'),
+                      : () => setState(() => category = 'Roads'),
                 ),
                 _CategoryButton(
-                  label: 'Water',
-                  icon: Icons.water_drop_outlined,
+                  label: 'Public Buildings',
+                  icon: Icons.apartment_rounded,
                   color: teal,
-                  selected: category == 'Water',
+                  selected: category == 'Public Buildings',
                   onTap: _submitting
                       ? null
-                      : () => setState(() => category = 'Water'),
+                      : () => setState(() => category = 'Public Buildings'),
                 ),
                 _CategoryButton(
                   label: 'Drainage',
@@ -415,13 +415,22 @@ class _ReportPageState extends State<ReportPage> {
                       : () => setState(() => category = 'Drainage'),
                 ),
                 _CategoryButton(
-                  label: 'Lighting',
+                  label: 'Streetlights',
                   icon: Icons.lightbulb_outline_rounded,
                   color: navy,
-                  selected: category == 'Lighting',
+                  selected: category == 'Streetlights',
                   onTap: _submitting
                       ? null
-                      : () => setState(() => category = 'Lighting'),
+                      : () => setState(() => category = 'Streetlights'),
+                ),
+                _CategoryButton(
+                  label: 'Electric Poles',
+                  icon: Icons.electric_bolt_rounded,
+                  color: amber,
+                  selected: category == 'Electric Poles',
+                  onTap: _submitting
+                      ? null
+                      : () => setState(() => category = 'Electric Poles'),
                 ),
               ],
             ),

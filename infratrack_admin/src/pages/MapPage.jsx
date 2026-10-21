@@ -6,6 +6,10 @@ import { Search, X } from "lucide-react";
 
 import { getBarangayMapCenter, normalizeBarangayName } from "../barangayMap";
 import { searchAddressLocations } from "../mapSearch";
+import {
+  normalizeReportCategory,
+  REPORT_CATEGORIES,
+} from "../../reportCategories.js";
 
 let markerClusterPluginPromise;
 
@@ -363,7 +367,9 @@ export function LeafletInfrastructureMap({ large = false, onOpenIssue, issues = 
 export default function MapPage({ onOpenIssue, issues = [], user }) {
   const [category, setCategory] = useState("all");
   const filteredIssues = useMemo(
-    () => category === "all" ? issues : issues.filter((issue) => issue.category === category),
+    () => category === "all"
+      ? issues
+      : issues.filter((issue) => normalizeReportCategory(issue.category) === category),
     [issues, category],
   );
 
@@ -372,7 +378,13 @@ export default function MapPage({ onOpenIssue, issues = [], user }) {
       <div className="card-head">
         <h2>{user?.barangay ? `${user.barangay} infrastructure map` : "City-wide infrastructure map"}</h2>
         <div className="filters" style={{ marginBottom: 0 }}>
-          {[['all', 'All issues'], ['Roads', 'Roads'], ['Water', 'Water'], ['Drainage', 'Drainage'], ['Lighting', 'Lighting']].map(([value, label]) => (
+          {[
+            ["all", "All issues"],
+            ...REPORT_CATEGORIES.map((reportCategory) => ({
+              value: reportCategory,
+              label: reportCategory,
+            })),
+          ].map(({ value, label }) => (
             <button key={value} className={`filter ${category === value ? "active" : ""}`} onClick={() => setCategory(value)}>{label}</button>
           ))}
         </div>

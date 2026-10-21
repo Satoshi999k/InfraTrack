@@ -48,6 +48,30 @@ void main() {
     await ApiService.signOutForExpiredSession();
   });
 
+  testWidgets('shows only the infrastructure categories in scope', (
+    tester,
+  ) async {
+    ApiService.httpClientFactory = () => MockClient((request) async {
+      if (request.url.path.endsWith('/mobile/profile')) {
+        return _verifiedProfileResponse();
+      }
+      return http.Response('Not found', 404);
+    });
+
+    await _openReportForm(tester);
+
+    for (final category in const [
+      'Roads',
+      'Public Buildings',
+      'Streetlights',
+      'Electric Poles',
+      'Drainage',
+    ]) {
+      expect(find.text(category), findsOneWidget);
+    }
+    expect(find.text('Water'), findsNothing);
+  });
+
   testWidgets(
     'shows truthful no-evidence progress and blocks duplicate submissions',
     (tester) async {

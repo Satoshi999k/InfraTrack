@@ -72,10 +72,12 @@ void main() {
       );
       expect(horizontalLists, findsNWidgets(2));
 
-      await tester.tap(find.text('Water').first);
+      final drainageFilter = find.text('Drainage').first;
+      await tester.ensureVisible(drainageFilter);
+      await tester.tap(drainageFilter);
       await tester.pumpAndSettle();
 
-      expect(find.text('Water supply restored'), findsOneWidget);
+      expect(find.text('Drainage clearing'), findsOneWidget);
       expect(find.text('Road repair on Rizal Street'), findsNothing);
       expect(find.text('Community equipment showcase'), findsOneWidget);
       expect(find.text('Roadworks update'), findsOneWidget);
@@ -84,7 +86,7 @@ void main() {
       await tester.tap(find.text('Advertisement'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Water supply restored'), findsOneWidget);
+      expect(find.text('Drainage clearing'), findsOneWidget);
       expect(find.text('Community equipment showcase'), findsOneWidget);
       expect(find.text('Water service schedule'), findsNothing);
       expect(find.text('Roadworks update'), findsNothing);

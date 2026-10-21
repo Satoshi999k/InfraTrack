@@ -49,7 +49,11 @@ void main() {
           jsonEncode({
             'issues': [
               _issue(id: 1, title: 'Road damage', category: 'Roads'),
-              _issue(id: 2, title: 'Broken water pipe', category: 'Water'),
+              _issue(
+                id: 2,
+                title: 'Damaged barangay hall',
+                category: 'Public Buildings',
+              ),
             ],
           }),
           200,
@@ -65,10 +69,19 @@ void main() {
 
       expect(find.text('2 matching reports'), findsOneWidget);
       expect(find.byIcon(Icons.add_road_rounded), findsOneWidget);
-      expect(find.byIcon(Icons.water_drop_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.apartment_rounded), findsOneWidget);
 
-      await tester.tap(find.text('Water'));
-      await tester.pump();
+      final publicBuildingsFilter = find.text('Public Buildings').first;
+      final categoryScroller = find
+          .ancestor(
+            of: publicBuildingsFilter,
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      await tester.drag(categoryScroller, const Offset(-220, 0));
+      await tester.pumpAndSettle();
+      await tester.tap(publicBuildingsFilter);
+      await tester.pumpAndSettle();
 
       expect(find.text('1 matching report'), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -95,8 +108,8 @@ void main() {
               ),
               _issue(
                 id: 2,
-                title: 'Broken water pipe',
-                category: 'Water',
+                title: 'Damaged barangay hall',
+                category: 'Public Buildings',
                 latitude: 6.953,
                 longitude: 126.228,
               ),
@@ -110,7 +123,14 @@ void main() {
               _issue(
                 id: 4,
                 title: 'Streetlight outage',
-                category: 'Lighting',
+                category: 'Streetlights',
+                latitude: 6.953,
+                longitude: 126.228,
+              ),
+              _issue(
+                id: 5,
+                title: 'Leaning electric pole',
+                category: 'Electric Poles',
                 latitude: 6.953,
                 longitude: 126.228,
               ),
@@ -126,7 +146,7 @@ void main() {
       await tester.pumpWidget(const MaterialApp(home: MapPage()));
       await tester.pumpAndSettle();
 
-      expect(find.text('4 matching reports'), findsOneWidget);
+      expect(find.text('5 matching reports'), findsOneWidget);
       final pinColors = tester
           .widgetList<Icon>(find.byIcon(Icons.location_on))
           .map((icon) => icon.color)
@@ -138,13 +158,15 @@ void main() {
           const Color(0xFF176B87),
           const Color(0xFF1B8A83),
           const Color(0xFF7450A1),
+          const Color(0xFFD99A2B),
         }),
       );
-      expect(pinColors.length, 4);
+      expect(pinColors.length, 5);
       expect(find.byIcon(Icons.add_road_rounded), findsWidgets);
-      expect(find.byIcon(Icons.water_drop_outlined), findsWidgets);
+      expect(find.byIcon(Icons.apartment_rounded), findsWidgets);
       expect(find.byIcon(Icons.water_damage_outlined), findsWidgets);
       expect(find.byIcon(Icons.lightbulb_outline_rounded), findsWidgets);
+      expect(find.byIcon(Icons.electric_bolt_rounded), findsWidgets);
       expect(tester.takeException(), isNull);
     } finally {
       ApiService.httpClientFactory = originalClientFactory;

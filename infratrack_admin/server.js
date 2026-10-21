@@ -35,6 +35,11 @@ import {
   progressUpdateError,
 } from "./progressWorkflow.js";
 import { verificationApprovalNotification } from "./verificationNotifications.js";
+import {
+  aggregateReportCategories,
+  normalizeReportCategory,
+  REPORT_CATEGORIES,
+} from "./reportCategories.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -630,9 +635,9 @@ async function initializeDatabase() {
   await pool.query(insertUser, ["City Administrator", "admin@infratrack.test", "", "Mati City", hashPassword("Mati2026!"), "lgu", "Verified"]);
   const reports = [
     ["MT-2026-881", "Deep pothole along Rizal St.", "Road surface damage reported by a resident.", "Roads", "Brgy. Central", 6.953, 126.228, "Critical", "Reported", "elena.m@example.com"],
-    ["MT-2026-879", "No water supply, Purok 3", "Residents report a broken main line.", "Water", "Brgy. Dawan", 6.9482, 126.2311, "High", "In progress", "marco.b@example.com"],
+    ["MT-2026-879", "Damaged barangay hall entrance", "Residents report damaged steps at the public building entrance.", "Public Buildings", "Brgy. Dawan", 6.9482, 126.2311, "High", "In progress", "marco.b@example.com"],
     ["MT-2026-884", "Clogged drainage near market", "Drainage blockage near the public market.", "Drainage", "Brgy. Central", 6.9511, 126.2249, "Medium", "Reported", "grace.v@example.com"],
-    ["MT-2026-860", "Streetlight repaired, J.P. Laurel", "Streetlight repair completed.", "Lighting", "Brgy. Sainz", 6.9498, 126.2295, "Low", "Resolved", "rico.f@example.com"],
+    ["MT-2026-860", "Streetlight repaired, J.P. Laurel", "Streetlight repair completed.", "Streetlights", "Brgy. Sainz", 6.9498, 126.2295, "Low", "Resolved", "rico.f@example.com"],
   ];
   for (const [id, title, description, category, location, lat, lng, severity, status, email] of reports) {
     const [[user]] = await pool.query("SELECT id FROM users WHERE email = ?", [email]);
@@ -648,7 +653,7 @@ async function seedAdvisories() {
   if (!admin) return;
   const samples = [
     ["alert", "Flash flood advisory for low-lying barangays", "Heavy rainfall expected through tonight. Residents near Mati River are advised to move valuables to higher ground."],
-    ["maint", "Water interruption, Barangay Central", "Scheduled pipe repair will suspend water supply from 1:00 PM to 6:00 PM today."],
+    ["maint", "Streetlight maintenance, Barangay Central", "A maintenance crew will inspect and repair streetlights along the main road today."],
     ["gen", "Road resurfacing begins on Rizal Street", "Expect single-lane traffic near the public market from Monday. Motorists are asked to use the Chapel Street alternate."],
     ["gen", "Report follow-up: J.P. Laurel streetlight", "Repair crew completed replacement of 4 damaged fixtures reported by residents this week."],
   ];
@@ -673,8 +678,15 @@ async function ensureDefaultStaffAccount() {
   }
 }
 async function ensureDefaultTeams() {
-  const teams = [["Roads Response Team", "Roads"], ["Water Services Team", "Water"], ["Drainage Crew", "Drainage"], ["Lighting Unit", "Lighting"]];
+  const teams = [
+    ["Roads Response Team", "Roads"],
+    ["Public Buildings Team", "Public Buildings"],
+    ["Streetlight Maintenance Team", "Streetlights"],
+    ["Electric Poles Team", "Electric Poles"],
+    ["Drainage Crew", "Drainage"],
+  ];
   for (const [name, department] of teams) await pool.query("INSERT IGNORE INTO teams (name, department) VALUES (?, ?)", [name, department]);
+  await pool.query("UPDATE teams SET active = FALSE WHERE department = 'Water' OR name = 'Water Services Team'");
 }
 
 app.use(express.json());
@@ -930,8 +942,9 @@ app.get("/api/mobile/reports", async (req, res) => {
 });
 app.post("/api/mobile/reports", async (req, res) => {
   const { title, description, category, location, latitude, longitude, severity = "Medium", mediaUrl, mediaType = "photo" } = req.body ?? {};
-  if (!title || !description || !category) {
-    return res.status(400).json({ error: "Title, description, and category are required" });
+  const normalizedCategory = normalizeReportCategory(category);
+  if (!title || !description || !normalizedCategory) {
+    return res.status(400).json({ error: `Title, description, and a valid category are required (${REPORT_CATEGORIES.join(", ")})` });
   }
   const [[preferences]] = await pool.query(
     "SELECT show_location_on_reports FROM user_preferences WHERE user_id = ?",
@@ -987,7 +1000,7 @@ app.post("/api/mobile/reports", async (req, res) => {
     const id = publicId();
     const [result] = await connection.query(
       "INSERT INTO reports (public_id, title, description, category, location, latitude, longitude, severity, reporter_id, due_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 3 DAY))",
-      [id, title, description, category, resolvedLocation, parsedLat, parsedLng, severity, req.auth.id],
+      [id, title, description, normalizedCategory, resolvedLocation, parsedLat, parsedLng, severity, req.auth.id],
     );
     await connection.query(
       "INSERT INTO report_events (report_id, status, note) VALUES (?, 'Reported', ?)",
@@ -1014,7 +1027,7 @@ app.post("/api/mobile/reports", async (req, res) => {
     action: "report_created",
     resourceType: "report",
     resourceId: report.public_id,
-    details: { title, category, location: resolvedLocation },
+    details: { title, category: normalizedCategory, location: resolvedLocation },
   });
   res.status(201).json({ report });
 });
@@ -1499,8 +1512,9 @@ app.get("/api/overview", async (req, res) => {
     SUM(status = 'Resolved') AS resolved,
     ROUND(AVG(CASE WHEN status = 'Resolved' THEN TIMESTAMPDIFF(HOUR, created_at, updated_at) / 24 END), 1) AS avg_resolution_days
     FROM reports WHERE 1=1${scope}`, scopeParams);
-  const [[categoriesTotal]] = await pool.query(`SELECT COUNT(*) AS total FROM reports WHERE 1=1${scope}`, scopeParams);
-  const [categories] = await pool.query(`SELECT category AS name, COUNT(*) AS count FROM reports WHERE 1=1${scope} GROUP BY category ORDER BY count DESC`, scopeParams);
+  const [categoryRows] = await pool.query(`SELECT category AS name, COUNT(*) AS count FROM reports WHERE 1=1${scope} GROUP BY category ORDER BY count DESC`, scopeParams);
+  const categories = aggregateReportCategories(categoryRows);
+  const categoriesTotal = categories.reduce((total, item) => total + item.count, 0);
   const [teams] = await pool.query(`SELECT COALESCE(NULLIF(assigned_team, ''), 'Unassigned') AS name,
     COUNT(*) AS active_count, MAX(location) AS location FROM reports
     WHERE status <> 'Resolved'${scope} GROUP BY COALESCE(NULLIF(assigned_team, ''), 'Unassigned') ORDER BY active_count DESC LIMIT 6`, scopeParams);
@@ -1508,7 +1522,7 @@ app.get("/api/overview", async (req, res) => {
     FROM reports WHERE 1=1${scope} ORDER BY created_at DESC LIMIT 5`, scopeParams);
   res.json({
     summary: { total: Number(summary.total || 0), pending: Number(summary.pending || 0), resolved: Number(summary.resolved || 0), avgResolutionDays: Number(summary.avg_resolution_days || 0), completionRate: summary.total ? Math.round((Number(summary.resolved || 0) / Number(summary.total)) * 100) : 0 },
-    categories: categories.map((item) => ({ name: item.name, count: Number(item.count), percentage: categoriesTotal.total ? Math.round((Number(item.count) / Number(categoriesTotal.total)) * 100) : 0 })),
+    categories: categories.map((item) => ({ name: item.name, count: item.count, percentage: categoriesTotal ? Math.round((item.count / categoriesTotal) * 100) : 0 })),
     teams: teams.map((item) => ({ name: item.name, activeCount: Number(item.active_count), location: item.location })),
     recent,
   });
@@ -1528,7 +1542,8 @@ app.get("/api/analytics", async (req, res) => {
   const [[summary]] = await pool.query(`SELECT COUNT(*) AS total,
     SUM(status = 'Reported') AS reported, SUM(status = 'In progress') AS in_progress,
     SUM(status = 'Resolved') AS resolved FROM reports r WHERE ${where}`, whereParams);
-  const [categories] = await pool.query(`SELECT r.category AS name, COUNT(*) AS count FROM reports r WHERE ${where} GROUP BY r.category ORDER BY count DESC`, whereParams);
+  const [categoryRows] = await pool.query(`SELECT r.category AS name, COUNT(*) AS count FROM reports r WHERE ${where} GROUP BY r.category ORDER BY count DESC`, whereParams);
+  const categories = aggregateReportCategories(categoryRows);
   const [reportsForThemes] = await pool.query(`SELECT r.title, r.description, r.category FROM reports r WHERE ${where}`, whereParams);
   const reportThemes = analyzeReportThemes(reportsForThemes);
   const [hotspots] = await pool.query(`SELECT r.location AS name, r.category, COUNT(*) AS count FROM reports r WHERE ${where} GROUP BY r.location, r.category ORDER BY count DESC LIMIT 5`, whereParams);
@@ -2085,7 +2100,10 @@ app.get("/api/reports", async (req, res) => {
 });
 app.post("/api/reports", async (req, res) => {
   const { title, description, category, location, latitude, longitude, severity = "Medium", reporterId } = req.body ?? {};
-  if (!title || !description || !category) return res.status(400).json({ error: "Title, description, and category are required" });
+  const normalizedCategory = normalizeReportCategory(category);
+  if (!title || !description || !normalizedCategory) {
+    return res.status(400).json({ error: `Title, description, and a valid category are required (${REPORT_CATEGORIES.join(", ")})` });
+  }
 
   const parsedLat = latitude == null || latitude === "" ? null : Number(latitude);
   const parsedLng = longitude == null || longitude === "" ? null : Number(longitude);
@@ -2098,12 +2116,12 @@ app.post("/api/reports", async (req, res) => {
 
   const resolvedLocation = location || (Number.isFinite(parsedLat) && Number.isFinite(parsedLng) ? validateBarangayCoordinates({ latitude: parsedLat, longitude: parsedLng, location }).matchedBarangay || "Mati City" : "Mati City");
   const id = publicId();
-  const [result] = await pool.query("INSERT INTO reports (public_id, title, description, category, location, latitude, longitude, severity, reporter_id, due_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 3 DAY))", [id, title, description, category, resolvedLocation, parsedLat ?? null, parsedLng ?? null, severity, reporterId ?? null]);
+  const [result] = await pool.query("INSERT INTO reports (public_id, title, description, category, location, latitude, longitude, severity, reporter_id, due_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 3 DAY))", [id, title, description, normalizedCategory, resolvedLocation, parsedLat ?? null, parsedLng ?? null, severity, reporterId ?? null]);
   await pool.query("INSERT INTO report_events (report_id, status, note) VALUES (?, 'Reported', ?)", [result.insertId, "Report submitted by resident"]);
   const [reports] = await pool.query("SELECT * FROM reports WHERE id = ?", [result.insertId]);
   const report = reports[0];
   await evaluateIssueAutomation(report);
-  await writeAuditLog(req, { actorId: req.auth?.id ?? reporterId, action: "report_created", resourceType: "report", resourceId: id, details: { title, category, location: resolvedLocation } });
+  await writeAuditLog(req, { actorId: req.auth?.id ?? reporterId, action: "report_created", resourceType: "report", resourceId: id, details: { title, category: normalizedCategory, location: resolvedLocation } });
   res.status(201).json({ report });
 });
 app.patch("/api/issues/:id", async (req, res) => {

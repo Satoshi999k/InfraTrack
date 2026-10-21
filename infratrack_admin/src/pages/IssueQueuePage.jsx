@@ -1,6 +1,10 @@
 import { useMemo, useState } from "react";
 import IssueTable from "../components/IssueTable";
 import { issueMatchesBarangay } from "../issueBarangay.js";
+import {
+  normalizeReportCategory,
+  REPORT_CATEGORIES,
+} from "../../reportCategories.js";
 
 export default function IssueQueuePage({ issues, onOpenIssue }) {
   const [statusFilter, setStatusFilter] = useState("all");
@@ -13,7 +17,8 @@ export default function IssueQueuePage({ issues, onOpenIssue }) {
     () => issues.filter((issue) => {
       const matchesStatus = statusFilter === "all"
         || (statusFilter === "pending" ? issue.status === "Reported" : issue.status === statusFilter);
-      const matchesCategory = categoryFilter === "all" || issue.category === categoryFilter;
+      const matchesCategory = categoryFilter === "all"
+        || normalizeReportCategory(issue.category) === categoryFilter;
       const matchesBarangay = barangayFilter === "all" || issueMatchesBarangay(issue, barangayFilter);
       const age = issue.created_at ? (Date.now() - new Date(issue.created_at).getTime()) / 86400000 : 0;
       const matchesDate = dateFilter === "all" || (dateFilter === "7" ? age <= 7 : age <= 30);
@@ -34,10 +39,9 @@ export default function IssueQueuePage({ issues, onOpenIssue }) {
         <div className="queue-selects">
           <select aria-label="Filter by category" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
             <option value="all">All categories</option>
-            <option>Roads</option>
-            <option>Water</option>
-            <option>Drainage</option>
-            <option>Lighting</option>
+            {REPORT_CATEGORIES.map((category) => (
+              <option key={category}>{category}</option>
+            ))}
           </select>
           <select aria-label="Filter by barangay" value={barangayFilter} onChange={(event) => setBarangayFilter(event.target.value)}>
             <option value="all">All barangays</option>

@@ -206,10 +206,12 @@ class _HomePageState extends State<HomePage> {
                         ),
                         const SizedBox(width: 8),
                         _ReportFilter(
-                          label: 'Water',
-                          icon: Icons.water_drop_outlined,
-                          selected: _activeFilter == 'Water',
-                          onTap: () => setState(() => _activeFilter = 'Water'),
+                          label: 'Public Buildings',
+                          icon: Icons.apartment_rounded,
+                          selected: _activeFilter == 'Public Buildings',
+                          onTap: () => setState(
+                            () => _activeFilter = 'Public Buildings',
+                          ),
                         ),
                         const SizedBox(width: 8),
                         _ReportFilter(
@@ -221,11 +223,19 @@ class _HomePageState extends State<HomePage> {
                         ),
                         const SizedBox(width: 8),
                         _ReportFilter(
-                          label: 'Lighting',
+                          label: 'Streetlights',
                           icon: Icons.lightbulb_outline_rounded,
-                          selected: _activeFilter == 'Lighting',
+                          selected: _activeFilter == 'Streetlights',
                           onTap: () =>
-                              setState(() => _activeFilter = 'Lighting'),
+                              setState(() => _activeFilter = 'Streetlights'),
+                        ),
+                        const SizedBox(width: 8),
+                        _ReportFilter(
+                          label: 'Electric Poles',
+                          icon: Icons.electric_bolt_rounded,
+                          selected: _activeFilter == 'Electric Poles',
+                          onTap: () =>
+                              setState(() => _activeFilter = 'Electric Poles'),
                         ),
                       ],
                     ),
@@ -257,7 +267,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   List<Map<String, dynamic>> get _nearbyReports => _issues.where((report) {
-    final category = report['category'] as String? ?? '';
+    final category = normalizeReportCategory(report['category'] as String?);
     final userBarangay = _normalizedBarangay(
       ApiService.currentUser?['barangay']?.toString(),
     );
@@ -295,26 +305,34 @@ class _HomePageState extends State<HomePage> {
   }
 
   Color _reportColor(Map<String, dynamic> report) {
-    switch ((report['category'] as String? ?? '').toLowerCase()) {
-      case 'water':
-        return teal;
+    switch (normalizeReportCategory(report['category'] as String?)
+        .toLowerCase()) {
       case 'drainage':
         return amber;
-      case 'lighting':
+      case 'streetlights':
         return green;
+      case 'public buildings':
+        return teal;
+      case 'electric poles':
+        return navy;
       default:
         return red;
     }
   }
 
   IconData _reportIcon(Map<String, dynamic> report) {
-    switch ((report['category'] as String? ?? '').toLowerCase()) {
-      case 'water':
-        return Icons.water_drop;
+    switch (normalizeReportCategory(report['category'] as String?)
+        .toLowerCase()) {
       case 'drainage':
         return Icons.water_damage_outlined;
-      case 'lighting':
+      case 'streetlights':
         return Icons.lightbulb_outline;
+      case 'public buildings':
+        return Icons.apartment_rounded;
+      case 'electric poles':
+        return Icons.electric_bolt_rounded;
+      case 'roads':
+        return Icons.add_road_rounded;
       default:
         return Icons.construction;
     }

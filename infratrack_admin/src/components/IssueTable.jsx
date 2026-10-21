@@ -92,7 +92,7 @@ export default function IssueTable({ issues, onOpenIssue }) {
                       </span>
                     ) : issue.id === "MT-2026-879" ? (
                       <span className="assignee">
-                        <i className="assignee-avatar teal">MW</i>Mati Water District
+                        <i className="assignee-avatar teal">PB</i>Public Buildings Team
                       </span>
                     ) : (
                       <span className="unassigned">
