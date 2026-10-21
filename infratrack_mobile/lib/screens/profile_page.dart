@@ -1917,13 +1917,18 @@ class _IdentityStep extends StatelessWidget {
 }
 
 class PrivacySecurityPage extends StatefulWidget {
-  const PrivacySecurityPage({super.key});
+  const PrivacySecurityPage({super.key, this.biometricService});
+
+  final BiometricSignInService? biometricService;
 
   @override
   State<PrivacySecurityPage> createState() => _PrivacySecurityPageState();
 }
 
 class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
+  BiometricSignInService get _biometricSignIn =>
+      widget.biometricService ?? biometricSignIn;
+
   bool _location = true;
   bool _notifications = true;
   bool _biometric = false;
@@ -1938,7 +1943,10 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
 
   Future<void> _loadPreferences() async {
     try {
-      final biometricEnabled = await biometricSignIn.isEnabled;
+      final accountEmail = ApiService.currentUser?['email']?.toString();
+      final biometricEnabled = await _biometricSignIn.isEnabledFor(
+        accountEmail,
+      );
       if (mounted) {
         setState(() => _biometric = biometricEnabled);
       }
@@ -1966,7 +1974,7 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
     if (!enabled) {
       setState(() => _biometricBusy = true);
       try {
-        await biometricSignIn.disable();
+        await _biometricSignIn.disable();
         if (mounted) setState(() => _biometric = false);
       } catch (error) {
         if (mounted) {
@@ -1993,7 +2001,7 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
 
     setState(() => _biometricBusy = true);
     try {
-      if (!await biometricSignIn.isAvailable) {
+      if (!await _biometricSignIn.isAvailable) {
         throw StateError(
           'Set up fingerprint or face recognition on this device first.',
         );
@@ -2007,12 +2015,12 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
       if (password.isEmpty) {
         throw StateError('Enter your current password to continue.');
       }
-      final authenticated = await biometricSignIn.authenticate(
+      final authenticated = await _biometricSignIn.authenticate(
         'Enable biometric sign-in for InfraTrack',
       );
       if (!authenticated) return;
       await ApiService.login(email, password);
-      await biometricSignIn.enable(email: email, password: password);
+      await _biometricSignIn.enable(email: email, password: password);
       if (mounted) {
         setState(() {
           _biometric = true;
@@ -2292,7 +2300,7 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
       }
       if (biometricWasEnabled) {
         try {
-          await biometricSignIn.disable();
+          await _biometricSignIn.disable();
           if (mounted) setState(() => _biometric = false);
         } catch (error) {
           if (mounted) {

@@ -545,15 +545,19 @@ class SplashPage extends StatelessWidget {
 }
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key, this.sessionNotice});
+  const LoginPage({super.key, this.sessionNotice, this.biometricService});
 
   final String? sessionNotice;
+  final BiometricSignInService? biometricService;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
 
 class _LoginPageState extends State<LoginPage> {
+  BiometricSignInService get _biometricSignIn =>
+      widget.biometricService ?? biometricSignIn;
+
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -578,7 +582,7 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> _loadBiometricSignIn() async {
     try {
-      final enabled = await biometricSignIn.isEnabled;
+      final enabled = await _biometricSignIn.isEnabled;
       if (mounted) setState(() => _hasBiometricSignIn = enabled);
     } catch (error) {
       if (mounted) {
@@ -593,11 +597,9 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoggingIn = true);
+    final email = _emailController.text.trim();
     try {
-      await ApiService.login(
-        _emailController.text.trim(),
-        _passwordController.text,
-      );
+      await ApiService.login(email, _passwordController.text);
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -611,6 +613,19 @@ class _LoginPageState extends State<LoginPage> {
         }
       });
       return;
+    }
+    try {
+      await _biometricSignIn.disableIfAccountMismatch(email);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Signed in, but saved biometric credentials could not be cleared: ${error.toString().replaceFirst('Exception: ', '')}',
+            ),
+          ),
+        );
+      }
     }
     if (!mounted) return;
 
@@ -627,13 +642,13 @@ class _LoginPageState extends State<LoginPage> {
       _loginErrorIsBan = false;
     });
     try {
-      final credentials = await biometricSignIn.readCredentials();
+      final credentials = await _biometricSignIn.readCredentials();
       if (credentials == null) {
         throw StateError(
           'Biometric sign-in details are unavailable. Sign in with your password and enable it again.',
         );
       }
-      final authenticated = await biometricSignIn.authenticate(
+      final authenticated = await _biometricSignIn.authenticate(
         'Sign in to InfraTrack',
       );
       if (!authenticated) return;
@@ -641,7 +656,7 @@ class _LoginPageState extends State<LoginPage> {
     } on ApiException catch (error) {
       String? cleanupError;
       try {
-        await biometricSignIn.disable();
+        await _biometricSignIn.disable();
       } catch (error) {
         cleanupError = error.toString().replaceFirst('Exception: ', '');
       }

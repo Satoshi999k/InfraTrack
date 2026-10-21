@@ -14,6 +14,7 @@ import { validateBarangayCoordinates } from "./barangay-boundaries.js";
 import {
   getAdvisoryReadScope,
   getAdvisoryScope,
+  getResidentScope,
   getReportScope,
 } from "./advisoryAccess.js";
 import { canManageSystemSettings } from "./permissions.js";
@@ -1418,11 +1419,12 @@ app.post("/api/admin/backup", async (req, res) => {
 app.get("/api/admin/export/:type", async (req, res) => {
   if (!["lgu", "admin", "barangay_staff"].includes(req.auth.role)) return res.status(403).json({ error: "Administrator access required" });
   if (!["issues", "users"].includes(req.params.type)) return res.status(400).json({ error: "Unsupported export type" });
-  const scope = req.auth.role === "barangay_staff" ? " WHERE r.location = ?" : "";
-  const params = scope ? [req.auth.barangay] : [];
+  const reportScope = getReportScope(req.auth, "r");
+  const issueWhere = reportScope.sql ? ` WHERE r.status <> 'Archived'${reportScope.sql}` : "";
+  const residentScope = getResidentScope(req.auth, "u.barangay");
   const [rows] = req.params.type === "issues"
-    ? await pool.query(`SELECT r.public_id, r.title, r.category, r.location, r.severity, r.status, u.name AS reporter, r.created_at FROM reports r LEFT JOIN users u ON u.id = r.reporter_id${scope} ORDER BY r.created_at DESC`, params)
-    : await pool.query(`SELECT u.name, u.email, u.barangay, u.standing, u.verification, u.created_at FROM users u WHERE u.role = 'resident'${req.auth.role === "barangay_staff" ? " AND u.barangay = ?" : ""} ORDER BY u.created_at DESC`, params);
+    ? await pool.query(`SELECT r.public_id, r.title, r.category, r.location, r.severity, r.status, u.name AS reporter, r.created_at FROM reports r LEFT JOIN users u ON u.id = r.reporter_id${issueWhere} ORDER BY r.created_at DESC`, reportScope.params)
+    : await pool.query(`SELECT u.name, u.email, u.barangay, u.standing, u.verification, u.created_at FROM users u WHERE u.role = 'resident'${residentScope.sql} ORDER BY u.created_at DESC`, residentScope.params);
   const headers = req.params.type === "issues" ? ["Public ID", "Title", "Category", "Barangay", "Severity", "Status", "Reporter", "Created"] : ["Name", "Email", "Barangay", "Standing", "Verification", "Created"];
   const values = rows.map((row) => Object.values(row).map(csvValue).join(","));
   await writeAuditLog(req, { actorId: req.auth.id, action: `export_${req.params.type}`, resourceType: req.params.type, details: { count: rows.length } });
@@ -1487,8 +1489,9 @@ app.get("/api/issues", async (req, res) => {
 });
 app.get("/api/overview", async (req, res) => {
   const viewer = req.auth;
-  const scope = viewer?.role === "barangay_staff" ? " AND location = ?" : "";
-  const scopeParams = scope ? [viewer.barangay] : [];
+  const reportScope = getReportScope(viewer, "reports");
+  const scope = reportScope.sql;
+  const scopeParams = reportScope.params;
   const [[summary]] = await pool.query(`SELECT COUNT(*) AS total,
     SUM(status IN ('Reported', 'Verified by inspector')) AS pending,
     SUM(status = 'Resolved') AS resolved,
@@ -1517,23 +1520,23 @@ app.get("/api/analytics", async (req, res) => {
     year: { interval: "1 YEAR", format: "%Y-%m", label: "Year" },
   }[period];
   const viewer = req.auth;
-  const where = `created_at >= DATE_SUB(NOW(), INTERVAL ${settings.interval})${viewer?.role === "barangay_staff" ? " AND location = ?" : ""}`;
-  const whereParams = viewer?.role === "barangay_staff" ? [viewer.barangay] : [];
+  const reportScope = getReportScope(viewer, "r");
+  const where = `r.created_at >= DATE_SUB(NOW(), INTERVAL ${settings.interval})${reportScope.sql}`;
+  const whereParams = reportScope.params;
   const [[summary]] = await pool.query(`SELECT COUNT(*) AS total,
     SUM(status = 'Reported') AS reported, SUM(status = 'In progress') AS in_progress,
-    SUM(status = 'Resolved') AS resolved FROM reports WHERE ${where}`, whereParams);
-  const [categories] = await pool.query(`SELECT category AS name, COUNT(*) AS count FROM reports WHERE ${where} GROUP BY category ORDER BY count DESC`, whereParams);
-  const [reportsForThemes] = await pool.query(`SELECT title, description, category FROM reports WHERE ${where}`, whereParams);
+    SUM(status = 'Resolved') AS resolved FROM reports r WHERE ${where}`, whereParams);
+  const [categories] = await pool.query(`SELECT r.category AS name, COUNT(*) AS count FROM reports r WHERE ${where} GROUP BY r.category ORDER BY count DESC`, whereParams);
+  const [reportsForThemes] = await pool.query(`SELECT r.title, r.description, r.category FROM reports r WHERE ${where}`, whereParams);
   const reportThemes = analyzeReportThemes(reportsForThemes);
-  const [hotspots] = await pool.query(`SELECT location AS name, category, COUNT(*) AS count FROM reports WHERE ${where} GROUP BY location, category ORDER BY count DESC LIMIT 5`, whereParams);
-  const [trend] = await pool.query(`SELECT DATE_FORMAT(created_at, ?) AS label, COUNT(*) AS count FROM reports WHERE ${where} GROUP BY label ORDER BY label`, [settings.format, ...whereParams]);
-  const ratingsWhere = where.replaceAll("created_at", "r.created_at").replaceAll("location", "r.location");
-  const [[ratings]] = await pool.query(`SELECT ROUND(AVG(rating), 1) AS average, COUNT(*) AS total FROM report_ratings rr JOIN reports r ON r.id = rr.report_id WHERE ${ratingsWhere}`, whereParams);
+  const [hotspots] = await pool.query(`SELECT r.location AS name, r.category, COUNT(*) AS count FROM reports r WHERE ${where} GROUP BY r.location, r.category ORDER BY count DESC LIMIT 5`, whereParams);
+  const [trend] = await pool.query(`SELECT DATE_FORMAT(r.created_at, ?) AS label, COUNT(*) AS count FROM reports r WHERE ${where} GROUP BY label ORDER BY label`, [settings.format, ...whereParams]);
+  const [[ratings]] = await pool.query(`SELECT ROUND(AVG(rr.rating), 1) AS average, COUNT(*) AS total FROM report_ratings rr JOIN reports r ON r.id = rr.report_id WHERE r.created_at >= DATE_SUB(NOW(), INTERVAL ${settings.interval})${reportScope.sql}`, whereParams);
   res.json({ period, periodLabel: settings.label, summary: { total: Number(summary.total || 0), reported: Number(summary.reported || 0), inProgress: Number(summary.in_progress || 0), resolved: Number(summary.resolved || 0) }, categories, themes: reportThemes, hotspots, trend, ratings: { average: Number(ratings.average || 0), total: Number(ratings.total || 0) } });
 });
 app.get("/api/users", async (req, res) => {
   const viewer = req.auth;
-  const barangayFilter = viewer?.role === "barangay_staff" ? " AND u.barangay = ?" : "";
+  const residentScope = getResidentScope(viewer, "u.barangay");
   const [users] = await pool.query(`SELECT u.id, u.name, u.email, u.barangay, u.standing, u.suspended_until, u.verification,
     DATE_FORMAT(u.created_at, '%b %Y') AS joined, COUNT(DISTINCT r.id) AS reports,
     MAX(CASE WHEN vd.document_type = 'selfie' THEN vd.file_path END) AS selfie_path,
@@ -1544,8 +1547,8 @@ app.get("/api/users", async (req, res) => {
     FROM users u
     LEFT JOIN reports r ON r.reporter_id = u.id
     LEFT JOIN verification_documents vd ON vd.user_id = u.id
-    WHERE u.role = 'resident'${barangayFilter}
-    GROUP BY u.id ORDER BY u.created_at DESC`, barangayFilter ? [viewer.barangay] : []);
+    WHERE u.role = 'resident'${residentScope.sql}
+    GROUP BY u.id ORDER BY u.created_at DESC`, residentScope.params);
   for (const user of users) {
     user.selfie_url = publicMediaUrl(req, user.selfie_path);
     user.id_front_url = publicMediaUrl(req, user.id_front_path || user.legacy_id_path);
@@ -1568,7 +1571,7 @@ app.get("/api/users/:id/reports", async (req, res) => {
     [userId],
   );
   if (!resident) return res.status(404).json({ error: "Resident account not found." });
-  if (req.auth?.role === "barangay_staff" && req.auth.barangay !== resident.barangay) {
+  if (!getResidentScope(req.auth).allows(resident)) {
     return res.status(403).json({ error: "You can only view residents in your barangay." });
   }
 
@@ -1964,7 +1967,7 @@ app.patch("/api/users/:id/moderation", async (req, res) => {
       return res.status(404).json({ error: "Resident account not found" });
     }
     const moderator = req.auth;
-    if (moderator?.role === "barangay_staff" && moderator.barangay !== targetUser.barangay) {
+    if (!getResidentScope(moderator).allows(targetUser)) {
       await connection.rollback();
       transactionStarted = false;
       return res.status(403).json({ error: "You can only manage members in your barangay" });
@@ -2027,7 +2030,7 @@ app.patch("/api/users/:id/verification", async (req, res) => {
     [Number(req.params.id)],
   );
   if (!targetUser) return res.status(404).json({ error: "Resident account not found" });
-  if (req.auth?.role === "barangay_staff" && req.auth.barangay !== targetUser.barangay) {
+  if (!getResidentScope(req.auth).allows(targetUser)) {
     return res.status(403).json({ error: "You can only review residents in your barangay." });
   }
 
@@ -2107,11 +2110,19 @@ app.patch("/api/issues/:id", async (req, res) => {
   const progress = Number.isFinite(parsedProgress)
     ? Math.min(100, Math.max(0, Math.round(parsedProgress)))
     : null;
-  const [rows] = await pool.query("SELECT * FROM reports WHERE public_id = ? OR id = ?", [req.params.id, Number(req.params.id)]);
+  const [rows] = await pool.query(
+    `SELECT r.*, u.barangay AS reporter_barangay
+      FROM reports r
+      LEFT JOIN users u ON u.id = r.reporter_id
+      WHERE r.public_id = ? OR r.id = ?`,
+    [req.params.id, Number(req.params.id)],
+  );
   const report = rows[0];
   if (!report) return res.status(404).json({ error: "Report not found" });
   const editor = req.auth;
-  if (editor?.role === "barangay_staff" && editor.barangay !== report.location) return res.status(403).json({ error: "You can only manage issues in your barangay" });
+  if (!getReportScope(editor).allows(report)) {
+    return res.status(403).json({ error: "You can only manage issues in your barangay" });
+  }
   const nextStatus = status ?? report.status;
   const progressError = progressUpdateError({
     currentStatus: report.status,

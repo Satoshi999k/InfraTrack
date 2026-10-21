@@ -1404,6 +1404,7 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
             barangay: widget.barangay!,
             password: widget.password!,
           );
+          await biometricSignIn.disableIfAccountMismatch(widget.email!);
         }
       }
       if (!ApiService.isSignedIn) {

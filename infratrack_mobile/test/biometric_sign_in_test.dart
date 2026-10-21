@@ -1,3 +1,5 @@
+import 'package:infatrack/biometric_sign_in.dart';
+import 'package:infatrack/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:infatrack/main.dart';
@@ -9,9 +11,16 @@ void main() {
   testWidgets('login offers biometric sign-in when the user enabled it', (
     WidgetTester tester,
   ) async {
-    SharedPreferences.setMockInitialValues({'biometric_sign_in_enabled': true});
+    SharedPreferences.setMockInitialValues({});
+    final service = BiometricSignInService(credentialStore: _MemoryStore());
+    await service.enable(
+      email: 'resident@example.test',
+      password: 'test-password',
+    );
 
-    await tester.pumpWidget(const MaterialApp(home: LoginPage()));
+    await tester.pumpWidget(
+      MaterialApp(home: LoginPage(biometricService: service)),
+    );
     await tester.pump();
 
     expect(find.text('Sign in with biometrics'), findsOneWidget);
@@ -30,6 +39,40 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  test(
+    'biometric enrollment only belongs to the account that enabled it',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final store = _MemoryStore();
+      final service = BiometricSignInService(credentialStore: store);
+      await service.enable(
+        email: 'first@example.test',
+        password: 'first-password',
+      );
+
+      expect(await service.isEnabledFor('first@example.test'), isTrue);
+      expect(await service.isEnabledFor('second@example.test'), isFalse);
+
+      await service.disableIfAccountMismatch('second@example.test');
+
+      expect(await service.isEnabled, isFalse);
+      expect(store.values, isEmpty);
+    },
+  );
+
+  test('same account sign-in preserves biometric enrollment', () async {
+    SharedPreferences.setMockInitialValues({});
+    final service = BiometricSignInService(credentialStore: _MemoryStore());
+    await service.enable(
+      email: 'resident@example.test',
+      password: 'test-password',
+    );
+
+    await service.disableIfAccountMismatch('RESIDENT@example.test');
+
+    expect(await service.isEnabledFor('resident@example.test'), isTrue);
+  });
+
   testWidgets('security settings use biometric sign-in instead of app lock', (
     WidgetTester tester,
   ) async {
@@ -42,4 +85,53 @@ void main() {
     expect(find.text('Biometric app lock'), findsNothing);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('a different account sees biometric sign-in turned off', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final service = BiometricSignInService(credentialStore: _MemoryStore());
+    await service.enable(
+      email: 'first@example.test',
+      password: 'first-password',
+    );
+    final originalUser = ApiService.currentUser;
+    ApiService.currentUser = {'email': 'second@example.test'};
+
+    try {
+      await tester.pumpWidget(
+        MaterialApp(home: PrivacySecurityPage(biometricService: service)),
+      );
+      await tester.pumpAndSettle();
+
+      final biometricTile = find.ancestor(
+        of: find.text('Biometric sign-in'),
+        matching: find.byType(ListTile),
+      );
+      final toggle = tester.widget<Switch>(
+        find.descendant(of: biometricTile, matching: find.byType(Switch)),
+      );
+      expect(toggle.value, isFalse);
+      expect(tester.takeException(), isNull);
+    } finally {
+      ApiService.currentUser = originalUser;
+    }
+  });
+}
+
+class _MemoryStore implements BiometricCredentialStore {
+  final values = <String, String>{};
+
+  @override
+  Future<void> delete(String key) async {
+    values.remove(key);
+  }
+
+  @override
+  Future<String?> read(String key) async => values[key];
+
+  @override
+  Future<void> write(String key, String value) async {
+    values[key] = value;
+  }
 }

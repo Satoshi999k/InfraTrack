@@ -13,19 +13,45 @@ class BiometricSignInService {
   BiometricSignInService({
     LocalAuthentication? authentication,
     FlutterSecureStorage? secureStorage,
+    BiometricCredentialStore? credentialStore,
   }) : _authentication = authentication ?? LocalAuthentication(),
-       _secureStorage = secureStorage ?? const FlutterSecureStorage();
+       _credentialStore =
+           credentialStore ??
+           _FlutterSecureCredentialStore(
+             secureStorage ?? const FlutterSecureStorage(),
+           );
 
   static const _enabledKey = 'biometric_sign_in_enabled';
   static const _emailKey = 'biometric_sign_in_email';
   static const _passwordKey = 'biometric_sign_in_password';
 
   final LocalAuthentication _authentication;
-  final FlutterSecureStorage _secureStorage;
+  final BiometricCredentialStore _credentialStore;
 
   Future<bool> get isEnabled async {
     final preferences = await SharedPreferences.getInstance();
-    return preferences.getBool(_enabledKey) ?? false;
+    if (!(preferences.getBool(_enabledKey) ?? false)) return false;
+    final email = await _credentialStore.read(_emailKey);
+    final password = await _credentialStore.read(_passwordKey);
+    if (email != null && password != null) return true;
+    await disable();
+    return false;
+  }
+
+  Future<bool> isEnabledFor(String? email) async {
+    if (email == null || email.trim().isEmpty || !await isEnabled) {
+      return false;
+    }
+    final ownerEmail = await _credentialStore.read(_emailKey);
+    return ownerEmail?.trim().toLowerCase() == email.trim().toLowerCase();
+  }
+
+  Future<void> disableIfAccountMismatch(String email) async {
+    if (!await isEnabled) return;
+    final ownerEmail = await _credentialStore.read(_emailKey);
+    if (ownerEmail?.trim().toLowerCase() != email.trim().toLowerCase()) {
+      await disable();
+    }
   }
 
   Future<bool> get isAvailable async {
@@ -44,8 +70,8 @@ class BiometricSignInService {
 
   Future<void> enable({required String email, required String password}) async {
     try {
-      await _secureStorage.write(key: _emailKey, value: email);
-      await _secureStorage.write(key: _passwordKey, value: password);
+      await _credentialStore.write(_emailKey, email);
+      await _credentialStore.write(_passwordKey, password);
       final preferences = await SharedPreferences.getInstance();
       await preferences.setBool(_enabledKey, true);
     } catch (_) {
@@ -55,8 +81,9 @@ class BiometricSignInService {
   }
 
   Future<BiometricCredentials?> readCredentials() async {
-    final email = await _secureStorage.read(key: _emailKey);
-    final password = await _secureStorage.read(key: _passwordKey);
+    if (!await isEnabled) return null;
+    final email = await _credentialStore.read(_emailKey);
+    final password = await _credentialStore.read(_passwordKey);
     if (email == null && password == null) {
       await disable();
       return null;
@@ -71,9 +98,31 @@ class BiometricSignInService {
   Future<void> disable() async {
     final preferences = await SharedPreferences.getInstance();
     await preferences.setBool(_enabledKey, false);
-    await _secureStorage.delete(key: _emailKey);
-    await _secureStorage.delete(key: _passwordKey);
+    await _credentialStore.delete(_emailKey);
+    await _credentialStore.delete(_passwordKey);
   }
+}
+
+abstract interface class BiometricCredentialStore {
+  Future<String?> read(String key);
+  Future<void> write(String key, String value);
+  Future<void> delete(String key);
+}
+
+class _FlutterSecureCredentialStore implements BiometricCredentialStore {
+  const _FlutterSecureCredentialStore(this._storage);
+
+  final FlutterSecureStorage _storage;
+
+  @override
+  Future<String?> read(String key) => _storage.read(key: key);
+
+  @override
+  Future<void> write(String key, String value) =>
+      _storage.write(key: key, value: value);
+
+  @override
+  Future<void> delete(String key) => _storage.delete(key: key);
 }
 
 final biometricSignIn = BiometricSignInService();

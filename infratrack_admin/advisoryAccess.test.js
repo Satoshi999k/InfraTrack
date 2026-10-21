@@ -4,12 +4,23 @@ import assert from "node:assert/strict";
 import {
   getAdvisoryReadScope,
   getAdvisoryScope,
+  getResidentScope,
   getReportScope,
 } from "./advisoryAccess.js";
 
 const reports = [
   { public_id: "CENTRAL-1", location: "Brgy. Central" },
   { public_id: "DAWAN-1", location: "Brgy. Dawan" },
+  {
+    public_id: "CENTRAL-GENERIC-1",
+    location: "Mati City",
+    reporter_barangay: "Barangay Central",
+  },
+  {
+    public_id: "DAWAN-GENERIC-1",
+    location: "Mati City",
+    reporter_barangay: "Barangay Dawan",
+  },
 ];
 
 const advisories = [
@@ -27,14 +38,18 @@ test("Central staff see Central reports and barangay-wide advisories only", () =
   const reportScope = getReportScope(staff, "r");
   const advisoryScope = getAdvisoryReadScope(staff, "a");
 
-  assert.equal(reportScope.sql, " AND r.location = ?");
-  assert.deepEqual(reportScope.params, ["Brgy. Central"]);
+  assert.match(reportScope.sql, /report_owner\.barangay/);
+  assert.deepEqual(reportScope.params, ["Brgy. Central", "Brgy. Central"]);
+  assert.equal((reportScope.sql.match(/\?/g) ?? []).length, reportScope.params.length);
   assert.equal(
     advisoryScope.sql,
     " AND (a.barangay = ? OR a.audience = 'All barangays')",
   );
   assert.deepEqual(advisoryScope.params, ["Brgy. Central"]);
-  assert.deepEqual(visibleRecords(reports, reportScope), [reports[0]]);
+  assert.deepEqual(
+    visibleRecords(reports, reportScope),
+    [reports[0], reports[2]],
+  );
   assert.deepEqual(visibleRecords(advisories, advisoryScope), [
     advisories[0],
     advisories[2],
@@ -46,10 +61,13 @@ test("Dawan staff see Dawan reports and barangay-wide advisories only", () => {
   const reportScope = getReportScope(staff, "r");
   const advisoryScope = getAdvisoryReadScope(staff, "a");
 
-  assert.equal(reportScope.sql, " AND r.location = ?");
-  assert.deepEqual(reportScope.params, ["Brgy. Dawan"]);
+  assert.match(reportScope.sql, /report_owner\.barangay/);
+  assert.deepEqual(reportScope.params, ["Brgy. Dawan", "Brgy. Dawan"]);
   assert.deepEqual(advisoryScope.params, ["Brgy. Dawan"]);
-  assert.deepEqual(visibleRecords(reports, reportScope), [reports[1]]);
+  assert.deepEqual(
+    visibleRecords(reports, reportScope),
+    [reports[1], reports[3]],
+  );
   assert.deepEqual(visibleRecords(advisories, advisoryScope), [
     advisories[1],
     advisories[2],
@@ -89,4 +107,35 @@ test("LGU administrators retain city-wide advisory access", () => {
   assert.deepEqual(adminScope.params, []);
   assert.deepEqual(visibleRecords(advisories, adminScope), advisories);
   assert.equal(getReportScope(staff).params[0], staff.barangay);
+});
+
+test("barangay staff see resident accounts despite label prefix differences", () => {
+  const scope = getResidentScope({
+    role: "barangay_staff",
+    barangay: "Brgy. Central",
+  });
+
+  assert.match(scope.sql, /u\.barangay/);
+  assert.deepEqual(scope.params, ["Brgy. Central"]);
+  assert.equal((scope.sql.match(/\?/g) ?? []).length, scope.params.length);
+  assert.equal(scope.allows({ barangay: "Barangay Central" }), true);
+  assert.equal(scope.allows({ barangay: "Central" }), true);
+  assert.equal(scope.allows({ barangay: "Brgy. Dawan" }), false);
+});
+
+test("report matching uses reporter barangay only for generic city locations", () => {
+  const scope = getReportScope({
+    role: "barangay_staff",
+    barangay: "Central",
+  });
+
+  assert.equal(scope.allows(reports[2]), true);
+  assert.equal(scope.allows(reports[3]), false);
+  assert.equal(
+    scope.allows({
+      location: "Brgy. Dawan",
+      reporter_barangay: "Barangay Central",
+    }),
+    false,
+  );
 });
