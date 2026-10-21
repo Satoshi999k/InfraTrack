@@ -1927,6 +1927,7 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
   bool _location = true;
   bool _notifications = true;
   bool _biometric = false;
+  bool _biometricBusy = false;
   String? _preferencesError;
 
   @override
@@ -1936,15 +1937,18 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
   }
 
   Future<void> _loadPreferences() async {
-    if (!ApiService.isSignedIn) return;
     try {
-      final preferences = await ApiService.preferences();
+      final biometricEnabled = await biometricSignIn.isEnabled;
       if (mounted) {
-        setState(() {
-          _location = preferences['showLocationOnReports'] as bool;
-          _notifications = preferences['allowNotifications'] as bool;
-        });
+        setState(() => _biometric = biometricEnabled);
       }
+      if (!ApiService.isSignedIn) return;
+      final preferences = await ApiService.preferences();
+      if (!mounted) return;
+      setState(() {
+        _location = preferences['showLocationOnReports'] as bool;
+        _notifications = preferences['allowNotifications'] as bool;
+      });
     } catch (error) {
       if (mounted) {
         setState(
@@ -1954,6 +1958,117 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _setBiometricSignIn(bool enabled) async {
+    if (_biometricBusy) return;
+    if (!enabled) {
+      setState(() => _biometricBusy = true);
+      try {
+        await biometricSignIn.disable();
+        if (mounted) setState(() => _biometric = false);
+      } catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Could not disable biometric sign-in: ${error.toString().replaceFirst('Exception: ', '')}',
+              ),
+            ),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _biometricBusy = false);
+      }
+      return;
+    }
+
+    if (!ApiService.isSignedIn) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sign in to enable biometric sign-in.')),
+      );
+      return;
+    }
+
+    setState(() => _biometricBusy = true);
+    try {
+      if (!await biometricSignIn.isAvailable) {
+        throw StateError(
+          'Set up fingerprint or face recognition on this device first.',
+        );
+      }
+      final email = ApiService.currentUser?['email']?.toString().trim() ?? '';
+      if (email.isEmpty) {
+        throw StateError('Your account email is unavailable. Sign in again.');
+      }
+      final password = await _requestBiometricPassword();
+      if (password == null) return;
+      if (password.isEmpty) {
+        throw StateError('Enter your current password to continue.');
+      }
+      final authenticated = await biometricSignIn.authenticate(
+        'Enable biometric sign-in for InfraTrack',
+      );
+      if (!authenticated) return;
+      await ApiService.login(email, password);
+      await biometricSignIn.enable(email: email, password: password);
+      if (mounted) {
+        setState(() {
+          _biometric = true;
+          _preferencesError = null;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Biometric sign-in is enabled.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Could not enable biometric sign-in: ${error.toString().replaceFirst('Exception: ', '')}',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _biometricBusy = false);
+    }
+  }
+
+  Future<String?> _requestBiometricPassword() async {
+    final controller = TextEditingController();
+    try {
+      return await showDialog<String>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Confirm your password'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            obscureText: true,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (value) => Navigator.of(dialogContext).pop(value),
+            decoration: const InputDecoration(
+              labelText: 'Current password',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(controller.text),
+              child: const Text('Continue'),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      controller.dispose();
     }
   }
 
@@ -2159,16 +2274,12 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
     next.dispose();
     confirm.dispose();
     if (updated == true) {
+      final biometricWasEnabled = _biometric;
       try {
         await ApiService.changePassword(
           currentPassword: currentPassword,
           newPassword: newPassword,
         );
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Password updated successfully.')),
-          );
-        }
       } catch (error) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -2177,6 +2288,35 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
             ),
           );
         }
+        return;
+      }
+      if (biometricWasEnabled) {
+        try {
+          await biometricSignIn.disable();
+          if (mounted) setState(() => _biometric = false);
+        } catch (error) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Password updated, but biometric credentials could not be cleared: ${error.toString().replaceFirst('Exception: ', '')}',
+                ),
+              ),
+            );
+          }
+          return;
+        }
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              biometricWasEnabled
+                  ? 'Password updated. Enable biometric sign-in again to use the new password.'
+                  : 'Password updated successfully.',
+            ),
+          ),
+        );
       }
     }
   }
@@ -2319,10 +2459,10 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
               _PrivacySettingTile(
                 icon: Icons.fingerprint,
                 color: navy,
-                title: 'Biometric app lock',
-                subtitle: 'Use device biometrics when available',
+                title: 'Biometric sign-in',
+                subtitle: 'Use fingerprint or face recognition to sign in',
                 value: _biometric,
-                onChanged: (value) => setState(() => _biometric = value),
+                onChanged: _biometricBusy ? null : _setBiometricSignIn,
               ),
               _ActionSettingTile(
                 icon: Icons.key_outlined,
@@ -2348,7 +2488,7 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'These settings apply on this device. Your credentials and identity documents remain private.',
+                    'Your password is stored in encrypted device storage for biometric sign-in. Face and fingerprint data stay on your device.',
                     style: TextStyle(color: inkSoft, fontSize: 11, height: 1.5),
                   ),
                 ),
@@ -2519,7 +2659,7 @@ class _PrivacySettingTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final bool value;
-  final ValueChanged<bool> onChanged;
+  final ValueChanged<bool>? onChanged;
 
   @override
   Widget build(BuildContext context) => ListTile(

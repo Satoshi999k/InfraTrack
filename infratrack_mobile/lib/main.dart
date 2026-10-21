@@ -16,6 +16,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:video_player/video_player.dart';
 
 import 'api_service.dart';
+import 'biometric_sign_in.dart';
 
 part 'loading_skeleton.dart';
 part 'screens/home_page.dart';
@@ -558,14 +559,35 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isLoggingIn = false;
+  bool _hasBiometricSignIn = false;
   String? _loginError;
   bool _loginErrorIsBan = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadBiometricSignIn());
+  }
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadBiometricSignIn() async {
+    try {
+      final enabled = await biometricSignIn.isEnabled;
+      if (mounted) setState(() => _hasBiometricSignIn = enabled);
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () => _loginError =
+              'Biometric sign-in could not be loaded: ${error.toString().replaceFirst('Exception: ', '')}',
+        );
+      }
+    }
   }
 
   Future<void> _login() async {
@@ -592,6 +614,62 @@ class _LoginPageState extends State<LoginPage> {
     }
     if (!mounted) return;
 
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const MainShell()),
+      (_) => false,
+    );
+  }
+
+  Future<void> _loginWithBiometrics() async {
+    setState(() {
+      _isLoggingIn = true;
+      _loginError = null;
+      _loginErrorIsBan = false;
+    });
+    try {
+      final credentials = await biometricSignIn.readCredentials();
+      if (credentials == null) {
+        throw StateError(
+          'Biometric sign-in details are unavailable. Sign in with your password and enable it again.',
+        );
+      }
+      final authenticated = await biometricSignIn.authenticate(
+        'Sign in to InfraTrack',
+      );
+      if (!authenticated) return;
+      await ApiService.login(credentials.email, credentials.password);
+    } on ApiException catch (error) {
+      String? cleanupError;
+      try {
+        await biometricSignIn.disable();
+      } catch (error) {
+        cleanupError = error.toString().replaceFirst('Exception: ', '');
+      }
+      if (mounted) {
+        setState(() {
+          _hasBiometricSignIn = false;
+          _loginErrorIsBan = error.code == 'ACCOUNT_BANNED';
+          _loginError = _loginErrorIsBan ? error.message : 'Biometric sign-in was rejected. Sign in with your password and enable it again.';
+          if (cleanupError != null) {
+            _loginError =
+                '$_loginError Saved credentials could not be cleared: $cleanupError';
+          }
+        });
+      }
+      return;
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          if (error is StateError) _hasBiometricSignIn = false;
+          _loginErrorIsBan = false;
+          _loginError = error.toString().replaceFirst('Exception: ', '');
+        });
+      }
+      return;
+    } finally {
+      if (mounted) setState(() => _isLoggingIn = false);
+    }
+    if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const MainShell()),
       (_) => false,
@@ -840,6 +918,33 @@ class _LoginPageState extends State<LoginPage> {
                                   Expanded(child: Divider(color: line)),
                                 ],
                               ),
+                              if (_hasBiometricSignIn) ...[
+                                const SizedBox(height: 10),
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 42,
+                                  child: OutlinedButton.icon(
+                                    onPressed: _isLoggingIn
+                                        ? null
+                                        : _loginWithBiometrics,
+                                    icon: const Icon(Icons.fingerprint),
+                                    label: const Text(
+                                      'Sign in with biometrics',
+                                    ),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: navy,
+                                      side: const BorderSide(color: line),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(11),
+                                      ),
+                                      textStyle: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                               TextButton.icon(
                                 onPressed: _continueAsTourist,
                                 style: TextButton.styleFrom(

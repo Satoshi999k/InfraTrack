@@ -8,6 +8,8 @@
 	<string>InfraTrack uses the camera to capture a selfie for identity verification.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>InfraTrack uses your photo library to verify your ID and selfie.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Use Face ID to sign in to your InfraTrack account.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
