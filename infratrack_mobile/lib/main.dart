@@ -243,30 +243,48 @@ class AppLoadingPage extends StatefulWidget {
 
 class _AppLoadingPageState extends State<AppLoadingPage>
     with SingleTickerProviderStateMixin {
+  static const _minimumDisplayDuration = Duration(milliseconds: 420);
+
   bool _sessionReady = false;
+  bool? _reduceMotion;
+  late final Stopwatch _startupTimer = Stopwatch()..start();
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 1800),
-  )..forward();
+    duration: const Duration(milliseconds: 2400),
+  );
 
   @override
   void initState() {
     super.initState();
-    ApiService.restoreSession().whenComplete(() {
-      if (mounted) {
-        setState(() => _sessionReady = true);
-        _navigateWhenReady();
-      }
-    });
-    _controller.addStatusListener((status) {
-      if (status == AnimationStatus.completed && mounted) {
-        _navigateWhenReady();
-      }
-    });
+    unawaited(_restoreSession());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
+    if (_reduceMotion == reduceMotion) return;
+    _reduceMotion = reduceMotion;
+    if (reduceMotion) {
+      _controller
+        ..stop()
+        ..value = .38;
+    } else {
+      _controller.repeat();
+    }
+  }
+
+  Future<void> _restoreSession() async {
+    await ApiService.restoreSession();
+    final remaining = _minimumDisplayDuration - _startupTimer.elapsed;
+    if (remaining > Duration.zero) await Future<void>.delayed(remaining);
+    if (!mounted) return;
+    setState(() => _sessionReady = true);
+    _navigateWhenReady();
   }
 
   void _navigateWhenReady() {
-    if (!_sessionReady || !_controller.isCompleted || !mounted) return;
+    if (!_sessionReady || !mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) {
@@ -289,147 +307,176 @@ class _AppLoadingPageState extends State<AppLoadingPage>
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: deepNavy,
     body: SafeArea(
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, child) => Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 36),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                SizedBox(
-                  width: 170,
-                  height: 170,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Container(
-                        width: 164,
-                        height: 164,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white12),
-                        ),
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: RadialGradient(
+            center: Alignment(0, -.12),
+            radius: 1.2,
+            colors: [Color(0xFF104252), deepNavy],
+            stops: [0, .82],
+          ),
+        ),
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: AnimatedBuilder(
+                animation: _controller,
+                builder: (context, child) {
+                  final progress = _controller.value;
+                  final markScale = _reduceMotion == true
+                      ? 1.0
+                      : 1 + math.sin(progress * math.pi * 2) * .025;
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 30,
+                        vertical: 32,
                       ),
-                      Container(
-                        width: 130,
-                        height: 130,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: teal.withValues(alpha: .18),
-                          ),
-                        ),
-                      ),
-                      Transform.rotate(
-                        angle: _controller.value * math.pi * 2,
-                        child: SizedBox(
-                          width: 164,
-                          height: 164,
-                          child: Stack(
-                            children: [
-                              Positioned(
-                                top: 3,
-                                left: 79,
-                                child: Container(
-                                  width: 7,
-                                  height: 7,
-                                  decoration: const BoxDecoration(
-                                    color: teal,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 176,
+                            height: 176,
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Container(
+                                  width: 168,
+                                  height: 168,
+                                  decoration: BoxDecoration(
                                     shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white.withValues(
+                                        alpha: .09,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
-                              Positioned(
-                                right: 15,
-                                bottom: 29,
-                                child: Container(
-                                  width: 5,
-                                  height: 5,
-                                  decoration: const BoxDecoration(
-                                    color: amber,
+                                Container(
+                                  width: 132,
+                                  height: 132,
+                                  decoration: BoxDecoration(
                                     shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: teal.withValues(alpha: .16),
+                                    ),
                                   ),
                                 ),
+                                Transform.rotate(
+                                  angle: progress * math.pi * 2,
+                                  child: CustomPaint(
+                                    size: const Size(156, 156),
+                                    painter: _StartupOrbitPainter(),
+                                  ),
+                                ),
+                                Transform.scale(
+                                  scale: markScale,
+                                  child: Container(
+                                    width: 92,
+                                    height: 92,
+                                    decoration: BoxDecoration(
+                                      color: clay,
+                                      borderRadius: BorderRadius.circular(27),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: clay.withValues(alpha: .28),
+                                          blurRadius: 24,
+                                          spreadRadius: 1,
+                                        ),
+                                      ],
+                                    ),
+                                    child: const Icon(
+                                      Icons.add_location_alt,
+                                      color: Colors.white,
+                                      size: 43,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          const Text(
+                            'InfraTrack',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 30,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -.4,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            'MATI CITY · DAVAO ORIENTAL',
+                            style: TextStyle(
+                              color: Color(0xFF9BBCC2),
+                              fontSize: 10,
+                              letterSpacing: 1.2,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 30),
+                          Semantics(
+                            liveRegion: true,
+                            child: Text(
+                              _sessionReady
+                                  ? 'Opening your community dashboard…'
+                                  : 'Restoring your session…',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Color(0xFFB2CCD0),
+                                fontSize: 13,
+                                letterSpacing: .1,
                               ),
-                            ],
+                            ),
                           ),
-                        ),
+                        ],
                       ),
-                      SizedBox(
-                        width: 154,
-                        height: 154,
-                        child: CircularProgressIndicator(
-                          value: _controller.value,
-                          strokeWidth: 4,
-                          backgroundColor: Colors.white12,
-                          valueColor: const AlwaysStoppedAnimation<Color>(teal),
-                        ),
-                      ),
-                      Transform.scale(
-                        scale: Curves.easeOutBack.transform(
-                          (_controller.value / .72).clamp(0.0, 1.0),
-                        ),
-                        child: Container(
-                          width: 92,
-                          height: 92,
-                          decoration: BoxDecoration(
-                            color: clay,
-                            borderRadius: BorderRadius.circular(27),
-                            boxShadow: [
-                              BoxShadow(
-                                color: clay.withValues(alpha: .32),
-                                blurRadius: 24,
-                                spreadRadius: 2,
-                              ),
-                            ],
-                          ),
-                          child: const Icon(
-                            Icons.add_location_alt,
-                            color: Colors.white,
-                            size: 43,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 22),
-                const Text(
-                  'InfraTrack',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 29,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -.4,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                const Text(
-                  'MATI CITY · DAVAO ORIENTAL',
-                  style: TextStyle(
-                    color: Color(0xFF8FB4BB),
-                    fontSize: 10,
-                    letterSpacing: 1.2,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 28),
-                const Text(
-                  'Preparing your community dashboard',
-                  style: TextStyle(
-                    color: Color(0xFF8FB4BB),
-                    fontSize: 11,
-                    letterSpacing: .15,
-                  ),
-                ),
-              ],
+                    ),
+                  );
+                },
+              ),
             ),
           ),
         ),
       ),
     ),
   );
+}
+
+class _StartupOrbitPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final trackPaint = Paint()
+      ..color = Colors.white.withValues(alpha: .12)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3;
+    final orbitPaint = Paint()
+      ..color = teal
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.5
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(rect.deflate(2), 0, math.pi * 2, false, trackPaint);
+    canvas.drawArc(
+      rect.deflate(2),
+      -math.pi / 2,
+      math.pi * 1.05,
+      false,
+      orbitPaint,
+    );
+    final accentPaint = Paint()..color = amber;
+    canvas.drawCircle(
+      Offset(size.width * .07, size.height * .28),
+      3,
+      accentPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _StartupOrbitPainter oldDelegate) => false;
 }
 
 class SplashPage extends StatelessWidget {
