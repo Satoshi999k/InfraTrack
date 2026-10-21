@@ -515,28 +515,6 @@ class _LoginPageState extends State<LoginPage> {
   bool _loginErrorIsBan = false;
 
   @override
-  void initState() {
-    super.initState();
-    if (widget.sessionNotice != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: _SessionNoticeContent(message: widget.sessionNotice!),
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              padding: EdgeInsets.zero,
-              margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 8),
-            ),
-          );
-        }
-      });
-    }
-  }
-
-  @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
@@ -676,6 +654,12 @@ class _LoginPageState extends State<LoginPage> {
                                   height: 1.45,
                                 ),
                               ),
+                              if (widget.sessionNotice != null) ...[
+                                const SizedBox(height: 17),
+                                _SessionNoticeContent(
+                                  message: widget.sessionNotice!,
+                                ),
+                              ],
                               const SizedBox(height: 22),
                               _LoginField(
                                 label: 'Email address',
@@ -1405,29 +1389,24 @@ class _SessionNoticeContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+    width: double.infinity,
+    padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
     decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(18),
-      border: Border.all(color: teal.withValues(alpha: .25)),
-      boxShadow: [
-        BoxShadow(
-          color: deepNavy.withValues(alpha: .18),
-          blurRadius: 18,
-          offset: const Offset(0, 8),
-        ),
-      ],
+      color: const Color(0xFFF0F7F5),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: teal.withValues(alpha: .20)),
     ),
     child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          width: 40,
-          height: 40,
+          width: 38,
+          height: 38,
           decoration: BoxDecoration(
             color: teal.withValues(alpha: .12),
-            shape: BoxShape.circle,
+            borderRadius: BorderRadius.circular(12),
           ),
-          child: const Icon(Icons.lock_clock_rounded, color: teal, size: 21),
+          child: const Icon(Icons.lock_clock_rounded, color: teal, size: 20),
         ),
         const SizedBox(width: 11),
         Expanded(
@@ -1435,21 +1414,29 @@ class _SessionNoticeContent extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Session expired',
+                'Your session has ended',
                 style: infraHeading(
                   color: navy,
-                  fontSize: 13.5,
+                  fontSize: 13,
                   weight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 4),
               Text(
                 message,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: inkSoft,
-                  fontSize: 11.5,
+                  fontSize: 10.5,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 7),
+              const Text(
+                'Your reports and account details are safe. Sign in again to continue.',
+                style: TextStyle(
+                  color: navy,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
                   height: 1.35,
                 ),
               ),
@@ -1588,128 +1575,6 @@ class _AccountBannedDialog extends StatelessWidget {
   );
 }
 
-class _SessionExpiredDialog extends StatelessWidget {
-  const _SessionExpiredDialog({
-    required this.message,
-    required this.onContinue,
-  });
-
-  final String message;
-  final VoidCallback onContinue;
-
-  @override
-  Widget build(BuildContext context) => Dialog(
-    backgroundColor: Colors.transparent,
-    insetPadding: const EdgeInsets.symmetric(horizontal: 22),
-    child: Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: sand,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: Colors.white.withValues(alpha: .85)),
-        boxShadow: [
-          BoxShadow(
-            color: deepNavy.withValues(alpha: .25),
-            blurRadius: 32,
-            offset: const Offset(0, 16),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 22),
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [deepNavy, navy],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: Column(
-              children: [
-                Container(
-                  width: 66,
-                  height: 66,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: .14),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: .24),
-                    ),
-                  ),
-                  child: const Icon(
-                    Icons.lock_clock_rounded,
-                    color: Colors.white,
-                    size: 32,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  'Your session has ended',
-                  textAlign: TextAlign.center,
-                  style: infraHeading(
-                    color: Colors.white,
-                    fontSize: 21,
-                    weight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'This keeps your InfraTrack account protected.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white70, fontSize: 12.5),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(22, 20, 22, 22),
-            child: Column(
-              children: [
-                Text(
-                  message,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: ink,
-                    fontSize: 13,
-                    height: 1.45,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  'Your account data is safe. Sign in again to continue.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: inkSoft, fontSize: 12, height: 1.4),
-                ),
-                const SizedBox(height: 18),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: onContinue,
-                    icon: const Icon(Icons.login_rounded, size: 19),
-                    label: const Text('Sign in again'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: teal,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
 
@@ -1779,17 +1644,11 @@ class _MainShellState extends State<MainShell> {
         'Your session has expired. Please sign in again to continue.';
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      await showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (dialogContext) => _SessionExpiredDialog(
-          message: notice,
-          onContinue: () => Navigator.of(dialogContext).pop(),
-        ),
-      );
+      await ApiService.signOutForExpiredSession();
       if (!mounted) return;
+      ScaffoldMessenger.of(context).clearSnackBars();
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const LoginPage()),
+        MaterialPageRoute(builder: (_) => LoginPage(sessionNotice: notice)),
         (_) => false,
       );
     });

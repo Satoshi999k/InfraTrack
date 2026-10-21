@@ -127,13 +127,14 @@ class ReportFeedSkeleton extends StatelessWidget {
 }
 
 class NewsFeedSkeleton extends StatelessWidget {
-  const NewsFeedSkeleton({super.key, this.count = 3});
+  const NewsFeedSkeleton({super.key, this.count = 3, this.animated = true});
 
   final int count;
+  final bool animated;
 
   @override
-  Widget build(BuildContext context) => SkeletonShimmer(
-    child: Column(
+  Widget build(BuildContext context) {
+    final content = Column(
       children: [
         for (var index = 0; index < count; index++)
           Container(
@@ -170,8 +171,9 @@ class NewsFeedSkeleton extends StatelessWidget {
             ),
           ),
       ],
-    ),
-  );
+    );
+    return animated ? SkeletonShimmer(child: content) : content;
+  }
 }
 
 class NotificationFeedSkeleton extends StatelessWidget {
