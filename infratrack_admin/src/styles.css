@@ -5171,17 +5171,18 @@ tbody tr:last-child td {
   height: 40px;
   border: 3px solid var(--pin-color);
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 2px 6px #09273238, inset 0 0 0 2px #fff;
+  background: transparent;
+  box-shadow: 0 2px 6px #09273238;
 }
 .leaflet-pin-photo {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
   display: block;
+  width: 34px;
+  height: 34px;
   overflow: hidden;
   border-radius: 50%;
-  background-position: center;
-  background-size: cover;
   background-color: var(--sand);
   color: var(--navy);
   font-size: 13px;

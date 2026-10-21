@@ -901,16 +901,22 @@ class _ReportMarker extends StatelessWidget {
                 shape: BoxShape.circle,
                 border: Border.all(color: color, width: 2),
               ),
-              clipBehavior: Clip.antiAlias,
-              child:
-                  mediaUrl == null || mediaUrl!.isEmpty || mediaKind == 'video'
-                  ? Icon(icon, color: color, size: 14)
-                  : Image.network(
-                      mediaUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) =>
-                          Icon(icon, color: color, size: 14),
-                    ),
+              child: ClipOval(
+                child:
+                    mediaUrl == null ||
+                        mediaUrl!.isEmpty ||
+                        mediaKind == 'video'
+                    ? Icon(icon, color: color, size: 14)
+                    : Image.network(
+                        mediaUrl!,
+                        width: 20,
+                        height: 20,
+                        fit: BoxFit.cover,
+                        alignment: Alignment.center,
+                        errorBuilder: (_, _, _) =>
+                            Icon(icon, color: color, size: 14),
+                      ),
+              ),
             ),
           ),
         ],
