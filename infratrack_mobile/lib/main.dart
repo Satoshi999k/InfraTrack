@@ -243,7 +243,7 @@ class AppLoadingPage extends StatefulWidget {
 
 class _AppLoadingPageState extends State<AppLoadingPage>
     with SingleTickerProviderStateMixin {
-  static const _minimumDisplayDuration = Duration(milliseconds: 420);
+  static const _minimumDisplayDuration = Duration(seconds: 3);
 
   bool _sessionReady = false;
   bool? _reduceMotion;

@@ -19,7 +19,10 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(find.byType(AppLoadingPage), findsOneWidget);
 
-    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 2800));
+    expect(find.byType(AppLoadingPage), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 150));
     await tester.pumpAndSettle();
 
     expect(find.byType(AppLoadingPage), findsNothing);
@@ -45,7 +48,10 @@ void main() {
     expect(find.text('Restoring your session…'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
-    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 2800));
+    expect(find.byType(AppLoadingPage), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
     expect(find.byType(AppLoadingPage), findsNothing);
   });
