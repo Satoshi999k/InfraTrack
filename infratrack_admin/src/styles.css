@@ -1625,6 +1625,50 @@ a:focus-visible,
   color: var(--muted);
   text-align: center;
 }
+.residents-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 58px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--line);
+}
+.residents-pagination-range,
+.residents-pagination-current {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+.residents-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.residents-pagination-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--navy);
+  font: 700 11px "DM Sans", sans-serif;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+.residents-pagination-button:hover:not(:disabled) {
+  border-color: var(--teal);
+  background: #f1f8f6;
+  color: var(--teal);
+}
+.residents-pagination-button:disabled {
+  color: #a7b0ad;
+  cursor: not-allowed;
+}
 .queue-card {
   padding: 18px 16px 14px;
 }
@@ -3794,6 +3838,14 @@ tbody tr:last-child td {
   .residents-search-field {
     width: 100%;
     box-sizing: border-box;
+  }
+  .residents-pagination {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .residents-pagination-controls {
+    width: 100%;
+    justify-content: space-between;
   }
   .staff-form {
     gap: 16px;

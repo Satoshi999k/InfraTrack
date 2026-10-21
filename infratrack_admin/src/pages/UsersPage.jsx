@@ -1,10 +1,11 @@
 import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
-import { Ban, CheckCircle2, Eye, Hourglass, Search, ShieldCheck, UserPlus, X } from "lucide-react";
+import { Ban, CheckCircle2, ChevronLeft, ChevronRight, Eye, Hourglass, Search, ShieldCheck, UserPlus, X } from "lucide-react";
 import { apiFetch } from "../api";
-import { filterResidents } from "../../residentSearch.js";
+import { filterResidents, paginateResidents } from "../../residentSearch.js";
 
 export default function UsersPage({ users, onOpenUser, user }) {
+  const [residentPage, setResidentPage] = useState(1);
   const [residentSearch, setResidentSearch] = useState("");
   const [staff, setStaff] = useState([]);
   const [showStaffForm, setShowStaffForm] = useState(false);
@@ -14,6 +15,7 @@ export default function UsersPage({ users, onOpenUser, user }) {
   const [passwordModal, setPasswordModal] = useState({ open: false, account: null, value: "", confirm: "", error: "" });
   const canManageStaff = ["lgu", "admin"].includes(user?.role);
   const visibleResidents = filterResidents(users, residentSearch);
+  const residentPageData = paginateResidents(visibleResidents, residentPage);
 
   const loadStaff = () => apiFetch("/staff").then(async (response) => {
     const data = await response.json();
@@ -182,14 +184,20 @@ export default function UsersPage({ users, onOpenUser, user }) {
             aria-label="Search residents"
             placeholder="Search residents by name, email, or barangay"
             value={residentSearch}
-            onChange={(event) => setResidentSearch(event.target.value)}
+            onChange={(event) => {
+              setResidentSearch(event.target.value);
+              setResidentPage(1);
+            }}
           />
           {residentSearch && (
             <button
               type="button"
               className="residents-search-clear"
               aria-label="Clear resident search"
-              onClick={() => setResidentSearch("")}
+              onClick={() => {
+                setResidentSearch("");
+                setResidentPage(1);
+              }}
             >
               <X size={16} />
             </button>
@@ -213,7 +221,7 @@ export default function UsersPage({ users, onOpenUser, user }) {
             </tr>
           </thead>
           <tbody>
-            {visibleResidents.length === 0 ? (
+            {residentPageData.total === 0 ? (
               <tr>
                 <td colSpan={7} className="residents-empty-result">
                   {residentSearch.trim()
@@ -221,7 +229,7 @@ export default function UsersPage({ users, onOpenUser, user }) {
                     : "No residents to display."}
                 </td>
               </tr>
-            ) : visibleResidents.map((resident) => {
+            ) : residentPageData.items.map((resident) => {
               const { id, name, email, barangay, reports, standing, verification, joined } = resident;
               return (
               <tr key={email} onClick={() => onOpenUser(resident)}>
@@ -284,6 +292,48 @@ export default function UsersPage({ users, onOpenUser, user }) {
           </tbody>
         </table>
       </div>
+      {residentPageData.total > 10 && (
+        <div className="residents-pagination" aria-label="Resident pages">
+          <span className="residents-pagination-range">
+            Showing {residentPageData.start}–{residentPageData.end} of{" "}
+            {residentPageData.total} residents
+          </span>
+          <div className="residents-pagination-controls">
+            <button
+              type="button"
+              className="residents-pagination-button"
+              aria-label="Previous residents page"
+              disabled={residentPageData.page === 1}
+              onClick={() =>
+                setResidentPage(Math.max(1, residentPageData.page - 1))
+              }
+            >
+              <ChevronLeft size={16} />
+              <span>Previous</span>
+            </button>
+            <span className="residents-pagination-current">
+              Page {residentPageData.page} of {residentPageData.pageCount}
+            </span>
+            <button
+              type="button"
+              className="residents-pagination-button"
+              aria-label="Next residents page"
+              disabled={residentPageData.page === residentPageData.pageCount}
+              onClick={() =>
+                setResidentPage(
+                  Math.min(
+                    residentPageData.pageCount,
+                    residentPageData.page + 1,
+                  ),
+                )
+              }
+            >
+              <span>Next</span>
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
       </div>
     </div>
   );

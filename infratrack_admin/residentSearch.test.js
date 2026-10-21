@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { filterResidents } from "./residentSearch.js";
+import { filterResidents, paginateResidents } from "./residentSearch.js";
 
 const residents = [
   {
@@ -31,4 +31,32 @@ test("resident search matches name, email, and barangay without case sensitivity
 
 test("blank resident search returns all residents", () => {
   assert.deepEqual(filterResidents(residents, "  "), residents);
+});
+
+test("resident pagination returns a bounded page and range", () => {
+  const accounts = Array.from({ length: 23 }, (_, index) => ({
+    name: `Resident ${index + 1}`,
+  }));
+
+  assert.deepEqual(paginateResidents(accounts, 2), {
+    items: accounts.slice(10, 20),
+    page: 2,
+    pageCount: 3,
+    start: 11,
+    end: 20,
+    total: 23,
+  });
+  assert.deepEqual(paginateResidents(accounts, 3).items, accounts.slice(20));
+});
+
+test("resident pagination clamps pages and handles empty results", () => {
+  assert.equal(paginateResidents(residents, 99).page, 1);
+  assert.deepEqual(paginateResidents([], 1), {
+    items: [],
+    page: 1,
+    pageCount: 1,
+    start: 0,
+    end: 0,
+    total: 0,
+  });
 });
