@@ -50,7 +50,14 @@ void main() {
         }
 
         if (request.url.path.endsWith('/mobile/reports')) {
-          return http.Response(jsonEncode({'reports': []}), 200);
+          return http.Response(
+            jsonEncode({
+              'reports': [
+                {'id': 101, 'status': 'Resolved'},
+              ],
+            }),
+            200,
+          );
         }
 
         if (request.url.path.endsWith('/mobile/notifications')) {
@@ -72,7 +79,9 @@ void main() {
         expect(find.text('Active account'), findsOneWidget);
         expect(find.text('Verification in review'), findsOneWidget);
         expect(find.text('IN REVIEW'), findsOneWidget);
-        expect(find.text('YOUR COMMUNITY IMPACT'), findsNothing);
+        expect(find.text('YOUR ACTIVITY'), findsOneWidget);
+        expect(find.text('YOUR COMMUNITY IMPACT'), findsOneWidget);
+        expect(find.text('1 report resolved'), findsOneWidget);
         expect(tester.takeException(), isNull);
 
         tester.view.resetPhysicalSize();

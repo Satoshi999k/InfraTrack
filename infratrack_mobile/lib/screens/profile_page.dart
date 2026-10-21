@@ -753,43 +753,11 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
               final resolved = _reports
                   .where((report) => report['status'] == 'Resolved')
                   .length;
-              final open = _reports
-                  .where(
-                    (report) => ![
-                      'Resolved',
-                      'Rejected',
-                      'Archived',
-                    ].contains(report['status']),
-                  )
-                  .length;
-              return Row(
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(
-                    child: _ProfileStat(
-                      number: '${_reports.length}',
-                      label: 'Filed',
-                      icon: Icons.description_outlined,
-                      color: teal,
-                    ),
-                  ),
-                  const SizedBox(width: 9),
-                  Expanded(
-                    child: _ProfileStat(
-                      number: '$resolved',
-                      label: 'Resolved',
-                      icon: Icons.check_circle_outline,
-                      color: green,
-                    ),
-                  ),
-                  const SizedBox(width: 9),
-                  Expanded(
-                    child: _ProfileStat(
-                      number: '$open',
-                      label: 'Open',
-                      icon: Icons.pending_actions_outlined,
-                      color: amber,
-                    ),
-                  ),
+                  const _ProfileSectionTitle(title: 'YOUR ACTIVITY'),
+                  _CommunityImpactCard(resolvedCount: resolved),
                 ],
               );
             },
@@ -809,7 +777,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
             },
           ),
           const SizedBox(height: 20),
-          const _ProfileSectionTitle(title: 'YOUR ACTIVITY'),
+          const _ProfileSectionTitle(title: 'QUICK ACCESS'),
           _SettingsGroup(
             reportCount: _reports.length,
             openReportCount: _reports
@@ -1160,68 +1128,110 @@ class _ProfileSectionTitle extends StatelessWidget {
   );
 }
 
-class _ProfileStat extends StatelessWidget {
-  const _ProfileStat({
-    required this.number,
-    required this.label,
-    required this.icon,
-    required this.color,
-  });
-  final String number, label;
-  final IconData icon;
-  final Color color;
+class _CommunityImpactCard extends StatelessWidget {
+  const _CommunityImpactCard({required this.resolvedCount});
+
+  final int resolvedCount;
+
   @override
   Widget build(BuildContext context) => Container(
-    constraints: const BoxConstraints(minHeight: 78),
-    padding: const EdgeInsets.fromLTRB(12, 11, 12, 10),
+    clipBehavior: Clip.antiAlias,
+    padding: const EdgeInsets.symmetric(horizontal: 19, vertical: 20),
     decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(17),
-      border: Border.all(color: line.withValues(alpha: .8)),
+      gradient: const LinearGradient(
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+        colors: [teal, navy],
+      ),
+      borderRadius: BorderRadius.circular(25),
       boxShadow: [
         BoxShadow(
-          color: navy.withValues(alpha: .035),
-          blurRadius: 10,
-          offset: const Offset(0, 3),
+          color: navy.withValues(alpha: .16),
+          blurRadius: 18,
+          offset: const Offset(0, 8),
         ),
       ],
     ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    child: Stack(
       children: [
+        Positioned(
+          right: -50,
+          top: -64,
+          child: Container(
+            width: 150,
+            height: 150,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withValues(alpha: .045),
+            ),
+          ),
+        ),
         Row(
           children: [
             Expanded(
-              child: Text(
-                number,
-                style: infraHeading(
-                  color: navy,
-                  fontSize: 22,
-                  weight: FontWeight.w800,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'YOUR COMMUNITY IMPACT',
+                    style: TextStyle(
+                      color: Color(0xFFD4E9E4),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: '$resolvedCount ',
+                            style: infraHeading(
+                              color: Colors.white,
+                              fontSize: 27,
+                              weight: FontWeight.w800,
+                            ),
+                          ),
+                          TextSpan(
+                            text: resolvedCount == 1
+                                ? 'report resolved'
+                                : 'reports resolved',
+                            style: infraHeading(
+                              color: Colors.white,
+                              fontSize: 17,
+                              weight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      maxLines: 1,
+                      softWrap: false,
+                    ),
+                  ),
+                ],
               ),
             ),
+            const SizedBox(width: 12),
             Container(
-              width: 28,
-              height: 28,
+              width: 66,
+              height: 66,
               decoration: BoxDecoration(
-                color: color.withValues(alpha: .11),
-                borderRadius: BorderRadius.circular(9),
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: .16),
+                border: Border.all(color: Colors.white.withValues(alpha: .16)),
               ),
-              child: Icon(icon, color: color, size: 16),
+              child: const Icon(
+                Icons.volunteer_activism_outlined,
+                color: Colors.white,
+                size: 32,
+              ),
             ),
           ],
-        ),
-        const SizedBox(height: 5),
-        Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: inkSoft,
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-          ),
         ),
       ],
     ),

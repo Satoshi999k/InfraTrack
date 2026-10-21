@@ -77,6 +77,80 @@ void main() {
     }
   });
 
+  testWidgets('map report pins use distinct colors for each category', (
+    tester,
+  ) async {
+    final originalClientFactory = ApiService.httpClientFactory;
+    ApiService.httpClientFactory = () => MockClient((request) async {
+      if (request.url.path.endsWith('/mobile/issues')) {
+        return http.Response(
+          jsonEncode({
+            'issues': [
+              _issue(
+                id: 1,
+                title: 'Road damage',
+                category: 'Roads',
+                latitude: 6.953,
+                longitude: 126.228,
+              ),
+              _issue(
+                id: 2,
+                title: 'Broken water pipe',
+                category: 'Water',
+                latitude: 6.953,
+                longitude: 126.228,
+              ),
+              _issue(
+                id: 3,
+                title: 'Blocked drainage',
+                category: 'Drainage',
+                latitude: 6.953,
+                longitude: 126.228,
+              ),
+              _issue(
+                id: 4,
+                title: 'Streetlight outage',
+                category: 'Lighting',
+                latitude: 6.953,
+                longitude: 126.228,
+              ),
+            ],
+          }),
+          200,
+        );
+      }
+      return http.Response('Not found', 404);
+    });
+
+    try {
+      await tester.pumpWidget(const MaterialApp(home: MapPage()));
+      await tester.pumpAndSettle();
+
+      expect(find.text('4 matching reports'), findsOneWidget);
+      final pinColors = tester
+          .widgetList<Icon>(find.byIcon(Icons.location_on))
+          .map((icon) => icon.color)
+          .toSet();
+      expect(
+        pinColors,
+        containsAll({
+          const Color(0xFFC1592B),
+          const Color(0xFF176B87),
+          const Color(0xFF1B8A83),
+          const Color(0xFF7450A1),
+        }),
+      );
+      expect(pinColors.length, 4);
+      expect(find.byIcon(Icons.add_road_rounded), findsWidgets);
+      expect(find.byIcon(Icons.water_drop_outlined), findsWidgets);
+      expect(find.byIcon(Icons.water_damage_outlined), findsWidgets);
+      expect(find.byIcon(Icons.lightbulb_outline_rounded), findsWidgets);
+      expect(tester.takeException(), isNull);
+    } finally {
+      ApiService.httpClientFactory = originalClientFactory;
+    }
+  });
+
   testWidgets('map report loading error offers retry', (tester) async {
     final originalClientFactory = ApiService.httpClientFactory;
     var issueRequests = 0;
@@ -126,6 +200,8 @@ Map<String, dynamic> _issue({
   required int id,
   required String title,
   required String category,
+  double latitude = 6.9612515,
+  double longitude = 126.2069944,
 }) => {
   'id': id,
   'title': title,
@@ -134,7 +210,7 @@ Map<String, dynamic> _issue({
   'location': 'Barangay Central',
   'status': 'Reported',
   'severity': 'Medium',
-  'latitude': 6.9612515,
-  'longitude': 126.2069944,
+  'latitude': latitude,
+  'longitude': longitude,
   'created_at': '2026-10-20T10:00:00.000Z',
 };

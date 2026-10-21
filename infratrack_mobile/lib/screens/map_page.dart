@@ -147,7 +147,7 @@ class _MapPageState extends State<MapPage> {
       createdAt: issue['created_at']?.toString() ?? '',
       mediaUrl: publicMediaUrl(issue['media_url'] as String?),
       mediaKind: issue['media_kind'] as String? ?? 'photo',
-      color: _issueColor(issue),
+      color: _categoryColor(issue['category'] as String? ?? 'Other'),
       point: LatLng(latitude, longitude),
     );
   }
@@ -165,18 +165,13 @@ class _MapPageState extends State<MapPage> {
     }
   }
 
-  Color _issueColor(Map<String, dynamic> issue) {
-    switch ((issue['severity'] as String? ?? '').toLowerCase()) {
-      case 'critical':
-        return red;
-      case 'high':
-        return clay;
-      case 'medium':
-        return amber;
-      default:
-        return teal;
-    }
-  }
+  Color _categoryColor(String category) => switch (category.toLowerCase()) {
+    'road' || 'roads' => clay,
+    'water' => const Color(0xFF176B87),
+    'drainage' => teal,
+    'lighting' => const Color(0xFF7450A1),
+    _ => inkSoft,
+  };
 
   @override
   void dispose() {
@@ -255,6 +250,7 @@ class _MapPageState extends State<MapPage> {
                     child: GestureDetector(
                       onTap: () => _showReportDetails(report),
                       child: _ReportMarker(
+                        icon: _categoryIcon(report.category),
                         color: report.color,
                         selected: _selectedReport == report.title,
                         mediaUrl: report.mediaUrl,
@@ -337,6 +333,9 @@ class _MapPageState extends State<MapPage> {
                     child: _MapFilterChip(
                       label: category,
                       icon: _categoryIcon(category),
+                      color: category == 'All'
+                          ? navy
+                          : _categoryColor(category),
                       selected: _activeCategory == category,
                       onTap: () => setState(() {
                         _activeCategory = category;
@@ -503,6 +502,7 @@ class _MapPageState extends State<MapPage> {
                           _MapLegendRow(
                             label: item.$1,
                             color: item.$2,
+                            icon: _categoryIcon(item.$1),
                             count: item.$3,
                             selected: _activeCategory == item.$1,
                             onTap: () => setState(() {
@@ -528,7 +528,7 @@ class _MapPageState extends State<MapPage> {
       if (_reports.any((report) => report.category == category))
         (
           category,
-          _reports.firstWhere((report) => report.category == category).color,
+          _categoryColor(category),
           _reports.where((report) => report.category == category).length,
         ),
   ];
@@ -574,23 +574,25 @@ class _MapFilterChip extends StatelessWidget {
   const _MapFilterChip({
     required this.label,
     required this.icon,
+    required this.color,
     required this.selected,
     required this.onTap,
   });
 
   final String label;
   final IconData icon;
+  final Color color;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) => Material(
-    color: selected ? navy : Colors.white.withValues(alpha: .96),
+    color: selected ? color : Colors.white.withValues(alpha: .96),
     elevation: selected ? 3 : 1,
     shadowColor: navy.withValues(alpha: .12),
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(20),
-      side: BorderSide(color: selected ? navy : navy.withValues(alpha: .08)),
+      side: BorderSide(color: selected ? color : color.withValues(alpha: .22)),
     ),
     child: InkWell(
       onTap: onTap,
@@ -600,7 +602,7 @@ class _MapFilterChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 15, color: selected ? Colors.white : teal),
+            Icon(icon, size: 15, color: selected ? Colors.white : color),
             const SizedBox(width: 6),
             Text(
               label,
@@ -763,6 +765,7 @@ class _MapLegendRow extends StatelessWidget {
   const _MapLegendRow({
     required this.label,
     required this.color,
+    required this.icon,
     required this.count,
     required this.selected,
     required this.onTap,
@@ -770,6 +773,7 @@ class _MapLegendRow extends StatelessWidget {
 
   final String label;
   final Color color;
+  final IconData icon;
   final int count;
   final bool selected;
   final VoidCallback onTap;
@@ -785,11 +789,15 @@ class _MapLegendRow extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: 11,
-              height: 11,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              width: 26,
+              height: 26,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: .11),
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Icon(icon, color: color, size: 15),
             ),
-            const SizedBox(width: 9),
+            const SizedBox(width: 10),
             Expanded(
               child: Text(
                 label,
@@ -856,12 +864,14 @@ class _UserLocationMarker extends StatelessWidget {
 
 class _ReportMarker extends StatelessWidget {
   const _ReportMarker({
+    required this.icon,
     required this.color,
     required this.selected,
     required this.mediaUrl,
     required this.mediaKind,
   });
 
+  final IconData icon;
   final Color color;
   final bool selected;
   final String? mediaUrl;
@@ -894,15 +904,12 @@ class _ReportMarker extends StatelessWidget {
               clipBehavior: Clip.antiAlias,
               child:
                   mediaUrl == null || mediaUrl!.isEmpty || mediaKind == 'video'
-                  ? Icon(Icons.warning_amber_rounded, color: color, size: 15)
+                  ? Icon(icon, color: color, size: 14)
                   : Image.network(
                       mediaUrl!,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => Icon(
-                        Icons.warning_amber_rounded,
-                        color: color,
-                        size: 15,
-                      ),
+                      errorBuilder: (_, _, _) =>
+                          Icon(icon, color: color, size: 14),
                     ),
             ),
           ),

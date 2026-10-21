@@ -2,6 +2,8 @@ part of '../main.dart';
 
 enum _CaptureMode { photo, video }
 
+enum _ReportSubmissionStage { locating, uploadingEvidence, submitting, success }
+
 class ReportPage extends StatefulWidget {
   const ReportPage({super.key});
   @override
@@ -22,6 +24,7 @@ class _ReportPageState extends State<ReportPage> {
   bool _verificationLoading = true;
   bool _checkingVerification = false;
   String? _verificationError;
+  bool _submitting = false;
 
   bool get _isVerified => _verification.toLowerCase() == 'verified';
 
@@ -40,35 +43,39 @@ class _ReportPageState extends State<ReportPage> {
   }
 
   Future<void> _submitReport() async {
-    if (!_isVerified || _verificationLoading) return;
+    if (!_isVerified || _verificationLoading || _submitting) return;
     if (_descriptionController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please add a description first')),
       );
       return;
     }
-    if (_position == null) {
-      await _refreshLocation();
+
+    setState(() => _submitting = true);
+    final stage = ValueNotifier(_ReportSubmissionStage.locating);
+    final dialogResult = showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _ReportSubmissionDialog(
+        stage: stage,
+        hasEvidence: _capturedMedia != null,
+      ),
+    );
+    try {
       if (_position == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                _locationError ?? 'Please enable location before submitting.',
-              ),
-            ),
+        stage.value = _ReportSubmissionStage.locating;
+        await _refreshLocation();
+        if (_position == null) {
+          throw Exception(
+            _locationError ?? 'Please enable location before submitting.',
           );
         }
-        return;
       }
-    }
-    try {
+
       final mediaUrl = _capturedMedia == null
           ? null
-          : await ApiService.uploadMedia(
-              File(_capturedMedia!.path),
-              isVideo: _capturedVideo,
-            );
+          : await _uploadEvidence(stage);
+      stage.value = _ReportSubmissionStage.submitting;
       await ApiService.createReport(
         title:
             '${category == 'Road' ? 'Road' : category} issue reported by resident',
@@ -86,10 +93,15 @@ class _ReportPageState extends State<ReportPage> {
         _capturedMedia = null;
         _capturedVideo = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Report submitted successfully')),
-      );
+      stage.value = _ReportSubmissionStage.success;
+      final openReports = await dialogResult;
+      if (!mounted || openReports != true) return;
+      await Navigator.of(context)
+          .push(MaterialPageRoute(builder: (_) => const MyReportsPage()));
     } catch (error) {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
       if (mounted) {
         if (error is ApiException && error.code == 'REPORTING_SUSPENDED') {
           setState(() {});
@@ -106,11 +118,29 @@ class _ReportPageState extends State<ReportPage> {
         if (error is ApiException && error.code == 'ACCOUNT_BANNED') return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(error.toString().replaceFirst('Exception: ', '')),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: deepNavy,
+            content: Text(
+              error.toString().replaceFirst('Exception: ', ''),
+              style: const TextStyle(color: Colors.white),
+            ),
           ),
         );
       }
+    } finally {
+      stage.dispose();
+      if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  Future<String> _uploadEvidence(
+    ValueNotifier<_ReportSubmissionStage> stage,
+  ) async {
+    stage.value = _ReportSubmissionStage.uploadingEvidence;
+    return ApiService.uploadMedia(
+      File(_capturedMedia!.path),
+      isVideo: _capturedVideo,
+    );
   }
 
   Future<void> _refreshAccess() async {
@@ -281,21 +311,32 @@ class _ReportPageState extends State<ReportPage> {
             const AppHeader(
               eyebrow: 'NEW SUBMISSION',
               title: 'Report an issue',
+              subtitle:
+                  'Help improve Mati City by sharing a clear, accurate report.',
+            ),
+            const _ReportIntroCard(),
+            const SizedBox(height: 20),
+            const _ReportSectionHeading(
+              step: '01',
+              title: 'Add evidence',
+              detail: 'Optional, but a photo helps the team assess the issue.',
             ),
             Card(
               margin: EdgeInsets.zero,
               clipBehavior: Clip.antiAlias,
-              color: Colors.white.withValues(alpha: .78),
+              color: Colors.white,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(22),
-                side: BorderSide(color: Colors.white.withValues(alpha: .9)),
+                borderRadius: BorderRadius.circular(20),
+                side: const BorderSide(color: line),
               ),
               child: InkWell(
-                onTap: _isReportingSuspended ? null : _openCamera,
-                borderRadius: BorderRadius.circular(22),
+                onTap: _isReportingSuspended || _submitting
+                    ? null
+                    : _openCamera,
+                borderRadius: BorderRadius.circular(20),
                 child: _capturedMedia == null
                     ? SizedBox(
-                        height: 158,
+                        height: 148,
                         width: double.infinity,
                         child: _AddMediaPlaceholder(),
                       )
@@ -305,90 +346,109 @@ class _ReportPageState extends State<ReportPage> {
                       ),
               ),
             ),
-            const SizedBox(height: 18),
-            const Text(
-              'CATEGORY',
-              style: TextStyle(
-                color: inkSoft,
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-              ),
+            const SizedBox(height: 22),
+            const _ReportSectionHeading(
+              step: '02',
+              title: 'Choose a category',
+              detail: 'Pick the type that best describes the issue.',
             ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 9,
+              crossAxisSpacing: 9,
+              childAspectRatio: 2.55,
               children: [
                 _CategoryButton(
-                  label: 'Road',
-                  icon: Icons.construction_outlined,
+                  label: 'Roads',
+                  icon: Icons.add_road_rounded,
                   color: clay,
                   selected: category == 'Road',
-                  onTap: () => setState(() => category = 'Road'),
+                  onTap: _submitting
+                      ? null
+                      : () => setState(() => category = 'Road'),
                 ),
                 _CategoryButton(
                   label: 'Water',
                   icon: Icons.water_drop_outlined,
                   color: teal,
                   selected: category == 'Water',
-                  onTap: () => setState(() => category = 'Water'),
+                  onTap: _submitting
+                      ? null
+                      : () => setState(() => category = 'Water'),
                 ),
                 _CategoryButton(
                   label: 'Drainage',
                   icon: Icons.water_damage_outlined,
                   color: amber,
                   selected: category == 'Drainage',
-                  onTap: () => setState(() => category = 'Drainage'),
+                  onTap: _submitting
+                      ? null
+                      : () => setState(() => category = 'Drainage'),
                 ),
                 _CategoryButton(
                   label: 'Lighting',
-                  icon: Icons.lightbulb_outline,
+                  icon: Icons.lightbulb_outline_rounded,
                   color: navy,
                   selected: category == 'Lighting',
-                  onTap: () => setState(() => category = 'Lighting'),
+                  onTap: _submitting
+                      ? null
+                      : () => setState(() => category = 'Lighting'),
                 ),
               ],
             ),
-            const SizedBox(height: 18),
-            const Text(
-              'LOCATION',
-              style: TextStyle(
-                color: inkSoft,
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-              ),
+            const SizedBox(height: 22),
+            const _ReportSectionHeading(
+              step: '03',
+              title: 'Confirm the location',
+              detail: 'Your current location helps crews find the issue.',
             ),
-            const SizedBox(height: 8),
             _CoordinatesCard(
               position: _position,
               loading: _locating,
               error: _locationError,
-              onRefresh: _refreshLocation,
+              onRefresh: _submitting ? null : _refreshLocation,
             ),
-            const SizedBox(height: 20),
-            const Text(
-              'DESCRIPTION',
-              style: TextStyle(
-                color: inkSoft,
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
+            const SizedBox(height: 22),
+            const _ReportSectionHeading(
+              step: '04',
+              title: 'Describe the issue',
+              detail:
+                  'Include what happened and a nearby landmark if possible.',
+            ),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: line),
               ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _descriptionController,
-              maxLines: 4,
-              decoration: InputDecoration(
-                hintText: 'Describe what you saw — size, severity, and any safety risk...',
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: EdgeInsets.all(16),
-                hintStyle: TextStyle(color: inkSoft, fontSize: 12),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(14)),
-                  borderSide: BorderSide.none,
+              child: TextField(
+                controller: _descriptionController,
+                readOnly: _submitting,
+                maxLines: 5,
+                minLines: 4,
+                maxLength: 1000,
+                decoration: InputDecoration(
+                  hintText: 'What needs attention? Add details such as the condition, size, or a nearby landmark.',
+                  filled: true,
+                  fillColor: Colors.transparent,
+                  contentPadding: const EdgeInsets.all(16),
+                  hintStyle: const TextStyle(
+                    color: inkSoft,
+                    fontSize: 12,
+                    height: 1.45,
+                  ),
+                  counterStyle: const TextStyle(color: inkSoft, fontSize: 10),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(18),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
             ),
+            const SizedBox(height: 12),
+            const _ReportPrivacyNote(),
             const SizedBox(height: 18),
             SizedBox(
               width: double.infinity,
@@ -402,8 +462,29 @@ class _ReportPageState extends State<ReportPage> {
                   ),
                   elevation: 3,
                 ),
-                onPressed: _isReportingSuspended ? null : _submitReport,
-                child: const Text('Submit report'),
+                onPressed: _isReportingSuspended || _submitting
+                    ? null
+                    : _submitReport,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      _submitting
+                          ? Icons.hourglass_top_rounded
+                          : Icons.send_rounded,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 9),
+                    Text(_submitting ? 'Submitting report…' : 'Submit report'),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Center(
+              child: Text(
+                'Please submit accurate, respectful reports.',
+                style: TextStyle(color: inkSoft, fontSize: 10),
               ),
             ),
           ],
@@ -411,6 +492,442 @@ class _ReportPageState extends State<ReportPage> {
       ),
     );
   }
+}
+
+class _ReportIntroCard extends StatelessWidget {
+  const _ReportIntroCard();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(15),
+    decoration: BoxDecoration(
+      gradient: const LinearGradient(
+        colors: [deepNavy, navy, Color(0xFF155B66)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      borderRadius: BorderRadius.circular(20),
+      boxShadow: [
+        BoxShadow(
+          color: navy.withValues(alpha: .13),
+          blurRadius: 16,
+          offset: const Offset(0, 6),
+        ),
+      ],
+    ),
+    child: Row(
+      children: [
+        Container(
+          width: 43,
+          height: 43,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: .13),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: const Icon(
+            Icons.campaign_outlined,
+            color: Color(0xFF9FE1D7),
+            size: 23,
+          ),
+        ),
+        const SizedBox(width: 12),
+        const Expanded(
+          child: Text(
+            'Your report helps the right city team understand what needs attention.',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              height: 1.45,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _ReportSectionHeading extends StatelessWidget {
+  const _ReportSectionHeading({
+    required this.step,
+    required this.title,
+    required this.detail,
+  });
+
+  final String step;
+  final String title;
+  final String detail;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 9),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 27,
+          height: 27,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: teal.withValues(alpha: .10),
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: Text(
+            step,
+            style: const TextStyle(
+              color: teal,
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: infraHeading(
+                  color: navy,
+                  fontSize: 14,
+                  weight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                detail,
+                style: const TextStyle(
+                  color: inkSoft,
+                  fontSize: 10.5,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _ReportPrivacyNote extends StatelessWidget {
+  const _ReportPrivacyNote();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    decoration: BoxDecoration(
+      color: teal.withValues(alpha: .07),
+      borderRadius: BorderRadius.circular(13),
+      border: Border.all(color: teal.withValues(alpha: .13)),
+    ),
+    child: const Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.shield_outlined, color: teal, size: 17),
+        SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            'Your location is shared with the city team only to help assess this report.',
+            style: TextStyle(color: navy, fontSize: 10.5, height: 1.4),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _ReportSubmissionDialog extends StatelessWidget {
+  const _ReportSubmissionDialog({
+    required this.stage,
+    required this.hasEvidence,
+  });
+
+  final ValueNotifier<_ReportSubmissionStage> stage;
+  final bool hasEvidence;
+
+  @override
+  Widget build(BuildContext context) =>
+      ValueListenableBuilder<_ReportSubmissionStage>(
+        valueListenable: stage,
+        builder: (context, currentStage, _) {
+          final success = currentStage == _ReportSubmissionStage.success;
+          return PopScope(
+            canPop: success,
+            child: Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 26),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(22, 23, 22, 20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(25),
+                  boxShadow: [
+                    BoxShadow(
+                      color: deepNavy.withValues(alpha: .18),
+                      blurRadius: 28,
+                      offset: const Offset(0, 12),
+                    ),
+                  ],
+                ),
+                child: success
+                    ? _ReportSubmissionSuccess(
+                        onDone: () => Navigator.of(context).pop(false),
+                        onViewReports: () => Navigator.of(context).pop(true),
+                      )
+                    : _ReportSubmissionProgress(
+                        stage: currentStage,
+                        hasEvidence: hasEvidence,
+                      ),
+              ),
+            ),
+          );
+        },
+      );
+}
+
+class _ReportSubmissionProgress extends StatelessWidget {
+  const _ReportSubmissionProgress({
+    required this.stage,
+    required this.hasEvidence,
+  });
+
+  final _ReportSubmissionStage stage;
+  final bool hasEvidence;
+
+  @override
+  Widget build(BuildContext context) {
+    final uploading = stage == _ReportSubmissionStage.uploadingEvidence;
+    final locating = stage == _ReportSubmissionStage.locating;
+    final title = locating
+        ? 'Confirming report location'
+        : uploading
+        ? 'Uploading your evidence'
+        : 'Submitting your report';
+    final detail = locating
+        ? 'Getting the latest location so the team can find the issue.'
+        : uploading
+        ? 'Your photo or video is being securely uploaded.'
+        : 'Sending your report to the city team. Please keep this screen open.';
+    final activeStep = locating
+        ? 0
+        : uploading
+        ? 1
+        : hasEvidence
+        ? 2
+        : 1;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            color: teal.withValues(alpha: .10),
+            shape: BoxShape.circle,
+          ),
+          child: const Center(
+            child: SizedBox(
+              width: 29,
+              height: 29,
+              child: CircularProgressIndicator(strokeWidth: 3, color: teal),
+            ),
+          ),
+        ),
+        const SizedBox(height: 18),
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: infraHeading(
+            color: navy,
+            fontSize: 18,
+            weight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 7),
+        Text(
+          detail,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: inkSoft, fontSize: 12, height: 1.45),
+        ),
+        const SizedBox(height: 20),
+        _SubmissionStep(
+          label: 'Confirm location',
+          state: activeStep > 0
+              ? _SubmissionStepState.complete
+              : activeStep == 0
+              ? _SubmissionStepState.active
+              : _SubmissionStepState.waiting,
+        ),
+        const SizedBox(height: 10),
+        if (hasEvidence) ...[
+          const SizedBox(height: 10),
+          _SubmissionStep(
+            label: 'Upload evidence',
+            state: activeStep > 1
+                ? _SubmissionStepState.complete
+                : activeStep == 1
+                ? _SubmissionStepState.active
+                : _SubmissionStepState.waiting,
+          ),
+        ],
+        const SizedBox(height: 10),
+        _SubmissionStep(
+          label: 'Send report',
+          state:
+              (hasEvidence && activeStep == 2) ||
+                  (!hasEvidence && activeStep == 1)
+              ? _SubmissionStepState.active
+              : _SubmissionStepState.waiting,
+        ),
+        const SizedBox(height: 17),
+        const LinearProgressIndicator(
+          minHeight: 3,
+          borderRadius: BorderRadius.all(Radius.circular(3)),
+          color: teal,
+          backgroundColor: Color(0xFFE7EFEC),
+        ),
+        const SizedBox(height: 9),
+        const Text(
+          'This may take a moment on a slow connection.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: inkSoft, fontSize: 10),
+        ),
+      ],
+    );
+  }
+}
+
+enum _SubmissionStepState { waiting, active, complete }
+
+class _SubmissionStep extends StatelessWidget {
+  const _SubmissionStep({required this.label, required this.state});
+
+  final String label;
+  final _SubmissionStepState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final complete = state == _SubmissionStepState.complete;
+    final active = state == _SubmissionStepState.active;
+    final color = complete
+        ? green
+        : active
+        ? teal
+        : inkSoft.withValues(alpha: .55);
+    return Row(
+      children: [
+        Container(
+          width: 22,
+          height: 22,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: .11),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            complete
+                ? Icons.check_rounded
+                : active
+                ? Icons.more_horiz
+                : Icons.circle,
+            color: color,
+            size: complete
+                ? 15
+                : active
+                ? 16
+                : 7,
+          ),
+        ),
+        const SizedBox(width: 9),
+        Text(
+          label,
+          style: TextStyle(
+            color: state == _SubmissionStepState.waiting ? inkSoft : navy,
+            fontSize: 11,
+            fontWeight: active || complete ? FontWeight.w700 : FontWeight.w500,
+          ),
+        ),
+        const Spacer(),
+        if (active)
+          const Text(
+            'IN PROGRESS',
+            style: TextStyle(
+              color: teal,
+              fontSize: 8,
+              fontWeight: FontWeight.w800,
+              letterSpacing: .5,
+            ),
+          ),
+        if (complete)
+          const Text(
+            'DONE',
+            style: TextStyle(
+              color: green,
+              fontSize: 8,
+              fontWeight: FontWeight.w800,
+              letterSpacing: .5,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _ReportSubmissionSuccess extends StatelessWidget {
+  const _ReportSubmissionSuccess({
+    required this.onDone,
+    required this.onViewReports,
+  });
+
+  final VoidCallback onDone;
+  final VoidCallback onViewReports;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(
+        width: 68,
+        height: 68,
+        decoration: BoxDecoration(
+          color: green.withValues(alpha: .11),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(Icons.check_rounded, color: green, size: 36),
+      ),
+      const SizedBox(height: 17),
+      Text(
+        'Report submitted',
+        style: infraHeading(color: navy, fontSize: 20, weight: FontWeight.w800),
+      ),
+      const SizedBox(height: 7),
+      const Text(
+        'Your report is now with the city team. You can follow its progress in My Reports.',
+        textAlign: TextAlign.center,
+        style: TextStyle(color: inkSoft, fontSize: 12, height: 1.5),
+      ),
+      const SizedBox(height: 20),
+      SizedBox(
+        width: double.infinity,
+        child: FilledButton.icon(
+          onPressed: onViewReports,
+          icon: const Icon(Icons.description_outlined, size: 18),
+          label: const Text('View my reports'),
+          style: FilledButton.styleFrom(
+            backgroundColor: navy,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 13),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+        ),
+      ),
+      TextButton(onPressed: onDone, child: const Text('Done')),
+    ],
+  );
 }
 
 class _ReportVerificationNotice extends StatelessWidget {
@@ -865,92 +1382,105 @@ class _CoordinatesCard extends StatelessWidget {
   final Position? position;
   final bool loading;
   final String? error;
-  final VoidCallback onRefresh;
+  final VoidCallback? onRefresh;
 
   @override
   Widget build(BuildContext context) => Container(
     width: double.infinity,
-    padding: const EdgeInsets.all(16),
+    padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(
-      color: navy,
-      borderRadius: BorderRadius.circular(20),
-      boxShadow: [
-        BoxShadow(
-          color: navy.withValues(alpha: .16),
-          blurRadius: 16,
-          offset: const Offset(0, 7),
-        ),
-      ],
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: line),
     ),
     child: LayoutBuilder(
-      builder: (context, constraints) {
+      builder: (context, _) {
         final coordinateText = position == null
-            ? 'Location unavailable'
+            ? error == null
+                  ? 'Waiting for location'
+                  : 'Location unavailable'
             : '${position!.latitude.toStringAsFixed(5)}° N, '
                   '${position!.longitude.toStringAsFixed(5)}° E';
-        final details = Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        final details = Row(
           children: [
-            Text(
-              'DETECTED COORDINATES',
-              style: TextStyle(color: Color(0xFF9FC2C9), fontSize: 9),
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: (position == null ? amber : teal).withValues(alpha: .11),
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Icon(
+                position == null
+                    ? Icons.location_searching_rounded
+                    : Icons.my_location_rounded,
+                color: position == null ? amber : teal,
+                size: 20,
+              ),
             ),
-            SizedBox(height: 4),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                coordinateText,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontFamily: 'monospace',
-                  fontSize: 12,
-                ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    position == null ? 'Location status' : 'Current location',
+                    style: const TextStyle(
+                      color: navy,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    coordinateText,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: inkSoft,
+                      fontFamily: 'monospace',
+                      fontSize: 10,
+                    ),
+                  ),
+                  if (error != null) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      error!,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: clay, fontSize: 9.5),
+                    ),
+                  ],
+                ],
               ),
             ),
           ],
         );
-        final refresh = FilledButton.tonalIcon(
+        final refresh = IconButton(
+          tooltip: position == null
+              ? 'Get current location'
+              : 'Refresh location',
           onPressed: loading ? null : onRefresh,
-          style: FilledButton.styleFrom(
-            backgroundColor: Colors.white12,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-            minimumSize: Size.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          style: IconButton.styleFrom(
+            backgroundColor: sand,
+            foregroundColor: navy,
+            minimumSize: const Size(42, 42),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
           icon: loading
               ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  width: 17,
+                  height: 17,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: teal),
                 )
-              : const Icon(Icons.refresh, color: Colors.white, size: 20),
-          label: Text(
-            loading
-                ? 'Locating…'
-                : error == null
-                ? 'Refresh'
-                : 'Try again',
-            style: const TextStyle(color: Colors.white, fontSize: 13),
-          ),
+              : const Icon(Icons.refresh_rounded, size: 20),
         );
-
-        if (constraints.maxWidth < 350) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              details,
-              const SizedBox(height: 12),
-              Align(alignment: Alignment.centerRight, child: refresh),
-            ],
-          );
-        }
 
         return Row(
           children: [
             Expanded(child: details),
-            const SizedBox(width: 10),
             refresh,
           ],
         );
@@ -972,49 +1502,54 @@ class _CategoryButton extends StatelessWidget {
   final IconData icon;
   final Color color;
   final bool selected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: AnimatedScale(
-      scale: selected ? 1 : .94,
-      duration: const Duration(milliseconds: 180),
-      child: Column(
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            width: 72,
-            height: 56,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              color: selected ? color : Colors.white.withValues(alpha: .72),
-              border: Border.all(
-                color: selected ? color : line,
-                width: selected ? 2.5 : 1,
+  Widget build(BuildContext context) => Material(
+    color: selected ? color.withValues(alpha: .09) : Colors.white,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+      side: BorderSide(
+        color: selected ? color.withValues(alpha: .7) : line,
+        width: selected ? 1.5 : 1,
+      ),
+    ),
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 11),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: selected
+                    ? color.withValues(alpha: .15)
+                    : sand.withValues(alpha: .75),
+                borderRadius: BorderRadius.circular(11),
               ),
-              boxShadow: selected
-                  ? [
-                      BoxShadow(
-                        color: color.withValues(alpha: .24),
-                        blurRadius: 12,
-                        offset: const Offset(0, 5),
-                      ),
-                    ]
-                  : null,
+              child: Icon(icon, color: color, size: 19),
             ),
-            child: Icon(icon, color: selected ? Colors.white : color, size: 23),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: selected ? navy : inkSoft,
-              fontSize: 10,
-              fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: navy,
+                  fontSize: 11,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                ),
+              ),
             ),
-          ),
-        ],
+            if (selected)
+              Icon(Icons.check_circle_rounded, color: color, size: 17),
+          ],
+        ),
       ),
     ),
   );
