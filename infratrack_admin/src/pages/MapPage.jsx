@@ -151,6 +151,14 @@ function issueCoordinates(issue) {
   return [latitude, longitude];
 }
 
+function markersShareCoordinates(markers) {
+  const firstPosition = markers[0]?.getLatLng();
+  return Boolean(
+    firstPosition &&
+      markers.every((marker) => marker.getLatLng().equals(firstPosition)),
+  );
+}
+
 function ClusteredIssues({ issues, onOpenIssue }) {
   const map = useMap();
   const [clusterUnavailable, setClusterUnavailable] = useState(false);
@@ -163,6 +171,8 @@ function ClusteredIssues({ issues, onOpenIssue }) {
   useEffect(() => {
     let active = true;
     let clusterGroup;
+    let locationAnchor;
+    let pendingSpiderfy;
     setClusterUnavailable(false);
 
     loadMarkerClusterPlugin()
@@ -170,10 +180,78 @@ function ClusteredIssues({ issues, onOpenIssue }) {
         if (!active) return;
         clusterGroup = L.markerClusterGroup({
           maxClusterRadius: 44,
-          spiderfyOnMaxZoom: true,
-          zoomToBoundsOnClick: true,
+          spiderfyOnMaxZoom: false,
+          zoomToBoundsOnClick: false,
           showCoverageOnHover: false,
           iconCreateFunction: issueClusterIcon,
+        });
+        clusterGroup.on("clusterclick", ({ layer }) => {
+          const markers = layer.getAllChildMarkers();
+          if (markersShareCoordinates(markers)) {
+            const position = markers[0].getLatLng();
+            const targetZoom = Math.min(Math.max(map.getZoom() + 2, 16), 17);
+            const spiderfy = () => {
+              pendingSpiderfy = null;
+              if (active && clusterGroup.hasLayer(layer)) layer.spiderfy();
+            };
+
+            if (
+              map.getZoom() === targetZoom &&
+              map.getCenter().equals(position)
+            ) {
+              spiderfy();
+            } else {
+              pendingSpiderfy = spiderfy;
+              map.once("moveend", spiderfy);
+              map.flyTo(position, targetZoom, { duration: 0.5 });
+            }
+            return;
+          }
+
+          if (pendingSpiderfy) map.off("moveend", pendingSpiderfy);
+          const spiderfyAtMaxZoom = () => {
+            map.off("moveend", spiderfyAtMaxZoom);
+            pendingSpiderfy = null;
+            if (
+              active &&
+              map.getZoom() >= 17 &&
+              clusterGroup.hasLayer(layer)
+            ) {
+              layer.spiderfy();
+            }
+          };
+          const bounds = layer.getBounds();
+          pendingSpiderfy = spiderfyAtMaxZoom;
+          map.once("moveend", spiderfyAtMaxZoom);
+          map.fitBounds(bounds, {
+            maxZoom: 17,
+            padding: [32, 32],
+          });
+          if (
+            map.getZoom() === 17 &&
+            map.getCenter().equals(bounds.getCenter())
+          ) {
+            spiderfyAtMaxZoom();
+          }
+        });
+        clusterGroup.on("spiderfied", ({ cluster }) => {
+          if (locationAnchor) map.removeLayer(locationAnchor);
+          locationAnchor = L.marker(cluster.getLatLng(), {
+            icon: divIcon({
+              className: "leaflet-issue-location-anchor",
+              iconSize: [12, 12],
+              iconAnchor: [6, 6],
+              html: "<span></span>",
+            }),
+            interactive: false,
+            keyboard: false,
+            zIndexOffset: 1000,
+          }).addTo(map);
+        });
+        clusterGroup.on("unspiderfied", () => {
+          if (!locationAnchor) return;
+          map.removeLayer(locationAnchor);
+          locationAnchor = null;
         });
         for (const issue of issues) {
           const coordinates = issueCoordinates(issue);
@@ -194,6 +272,8 @@ function ClusteredIssues({ issues, onOpenIssue }) {
 
     return () => {
       active = false;
+      if (pendingSpiderfy) map.off("moveend", pendingSpiderfy);
+      if (locationAnchor) map.removeLayer(locationAnchor);
       if (clusterGroup) map.removeLayer(clusterGroup);
     };
   }, [issues, map]);
