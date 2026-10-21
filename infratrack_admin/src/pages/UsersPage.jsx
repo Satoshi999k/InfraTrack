@@ -292,8 +292,13 @@ export default function UsersPage({ users, onOpenUser, user }) {
           </tbody>
         </table>
       </div>
-      {residentPageData.total > 10 && (
-        <div className="residents-pagination" aria-label="Resident pages">
+      <div className="residents-pagination" aria-label="Resident pages">
+        <span className="residents-pagination-range">
+          {residentPageData.total === 0
+            ? "No residents found"
+            : `Showing ${residentPageData.start}–${residentPageData.end} of ${residentPageData.total} residents`}
+        </span>
+        {residentPageData.total > 0 && (
           <div className="residents-pagination-controls">
             <button
               type="button"
@@ -330,8 +335,8 @@ export default function UsersPage({ users, onOpenUser, user }) {
               <ChevronRight size={16} aria-hidden="true" />
             </button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
       </div>
     </div>
   );

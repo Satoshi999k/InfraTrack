@@ -1628,10 +1628,13 @@ a:focus-visible,
 .residents-pagination {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
+  gap: 16px;
   min-height: 52px;
-  padding: 8px 14px;
+  padding: 8px 20px 8px 14px;
   border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
 }
 .residents-pagination-controls {
   display: flex;
@@ -3850,7 +3853,11 @@ tbody tr:last-child td {
     box-sizing: border-box;
   }
   .residents-pagination {
-    justify-content: center;
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .residents-pagination-controls {
+    align-self: flex-end;
   }
   .staff-form {
     gap: 16px;
