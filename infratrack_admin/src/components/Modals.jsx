@@ -303,7 +303,12 @@ export function IssueModal({ data, onClose, onSave }) {
   const [status, setStatus] = useState(
     data.status === "New report" ? "Reported" : data.status,
   );
-  const [assigned, setAssigned] = useState("Unassigned");
+  const isSlaOverdue = Boolean(
+    data.due_at
+    && new Date(data.due_at).getTime() < Date.now()
+    && !["Resolved", "Rejected", "Archived"].includes(status),
+  );
+  const [assigned, setAssigned] = useState(data.assigned_team || data.assignedTeam || "Unassigned");
   const [progressPercentage, setProgressPercentage] = useState(Number(data.progress_percentage) || 0);
   const [progressNote, setProgressNote] = useState("");
   const [note, setNote] = useState("");
@@ -314,6 +319,7 @@ export function IssueModal({ data, onClose, onSave }) {
   const [afterPhoto, setAfterPhoto] = useState(data.resolution_media_url || "");
   const [isUploadingBeforePhoto, setIsUploadingBeforePhoto] = useState(false);
   const [isUploadingAfterPhoto, setIsUploadingAfterPhoto] = useState(false);
+  const [mediaError, setMediaError] = useState(false);
   const beforePhotoInput = useRef(null);
   const afterPhotoInput = useRef(null);
 
@@ -404,34 +410,62 @@ export function IssueModal({ data, onClose, onSave }) {
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop issue-modal-backdrop" onClick={onClose}>
       <div
         className={`modal wide-modal issue-detail-modal ${data.category.toLowerCase()}`}
         onClick={(event) => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="issue-modal-title"
       >
-        <div className={`issue-modal-hero ${data.category.toLowerCase()}`}>
-          {data.media_url && (
+        <div className={`issue-modal-hero ${data.category.toLowerCase()}${data.media_url && !mediaError ? " has-media" : ""}`}>
+          {data.media_url && !mediaError && (
             <img
               className="issue-modal-media"
               src={data.media_url}
-              alt=""
+              alt={`Report attachment for ${data.title}`}
+              onError={() => setMediaError(true)}
             />
           )}
-          <span className={`issue-modal-status ${data.severity.toLowerCase()}`}>
-            <AlertTriangle size={13} /> {data.severity} · {status}
-          </span>
-          <button className="issue-modal-close" onClick={onClose}>
+          {(!data.media_url || mediaError) && (
+            <div className="issue-modal-empty-media" aria-label="No report photo available">
+              <ImageIcon size={24} />
+              <span>No report photo provided</span>
+            </div>
+          )}
+          <div className="issue-modal-hero-badges">
+            <span className={`issue-modal-status ${data.severity.toLowerCase()}`}>
+              <AlertTriangle size={13} /> {data.severity}
+            </span>
+            <span className="issue-modal-current-status">{status}</span>
+          </div>
+          <button type="button" className="issue-modal-close" onClick={onClose} aria-label="Close issue details">
             <X size={18} />
           </button>
         </div>
         <div className="issue-modal-body">
           <div className="issue-modal-heading">
             <div>
-              <h2>{data.title}</h2>
+              <h2 id="issue-modal-title">{data.title}</h2>
               <p className="issue-location"><MapPin size={15} /> {data.location} · {coordinates}</p>
-              <p className="modal-id">Report ID: #{data.id} · Filed {data.created_at ? new Date(data.created_at).toLocaleDateString() : "recently"} by {data.reporter || "walk-in resident"}</p>
-              {data.due_at && <p className="modal-id">SLA due: {new Date(data.due_at).toLocaleString()}</p>}
             </div>
+          </div>
+          <div className="issue-modal-metadata" aria-label="Report information">
+            <div className="issue-modal-metadata-item">
+              <span className="issue-modal-metadata-label">Report ID</span>
+              <strong>#{data.id}</strong>
+            </div>
+            <div className="issue-modal-metadata-item">
+              <span className="issue-modal-metadata-label">Submitted</span>
+              <strong>{data.created_at ? new Date(data.created_at).toLocaleDateString() : "Recently"}</strong>
+              <span className="issue-modal-metadata-detail">by {data.reporter || "walk-in resident"}</span>
+            </div>
+            {data.due_at && (
+              <div className={`issue-modal-metadata-item sla${isSlaOverdue ? " overdue" : ""}`}>
+                <span className="issue-modal-metadata-label"><Clock3 size={13} /> {isSlaOverdue ? "SLA overdue" : "SLA due"}</span>
+                <strong>{new Date(data.due_at).toLocaleString()}</strong>
+              </div>
+            )}
           </div>
           <div className="issue-modal-stats">
             <span><FileText size={15} /> {mediaSummary}</span>
@@ -444,8 +478,14 @@ export function IssueModal({ data, onClose, onSave }) {
                 <p>{data.description || "No description provided."}</p>
               </div>
               <div className="modal-section discussion-section">
-                <h3>Official discussion <span className="semi-public-tag">SEMIPUBLIC</span></h3>
-                <div className="discussion">
+                <div className="discussion-section-heading">
+                  <div>
+                    <h3>Official discussion</h3>
+                    <p>Updates visible to the resident and assigned staff.</p>
+                  </div>
+                  <span className="semi-public-tag">Semi-public</span>
+                </div>
+                <div className="discussion resident">
                   <div className="discussion-head"><b>{data.reporter || "Resident"}</b><small>{data.created_at ? new Date(data.created_at).toLocaleString() : "Recently"}</small></div>
                   <p>{data.description || "No report note was provided."}</p>
                 </div>
@@ -455,11 +495,14 @@ export function IssueModal({ data, onClose, onSave }) {
                     <p>{data.latest_event_note}</p>
                   </div>
                 )}
-                <input className="reply-input" placeholder="Reply as LGU Admin..." />
+                <p className="discussion-readonly">Replies are not available from this view.</p>
               </div>
             </div>
             <div className="modal-section case-management">
-              <h3>Case management</h3>
+              <div className="case-management-heading">
+                <h3>Case management</h3>
+                <p>Update ownership and report progress.</p>
+              </div>
               <label>
                 Status
                 <select value={status} onChange={(event) => setStatus(event.target.value)}>
@@ -474,6 +517,9 @@ export function IssueModal({ data, onClose, onSave }) {
                 Assign to team
                 <select value={assigned} onChange={(event) => setAssigned(event.target.value)}>
                   <option>Unassigned</option>
+                  {assigned !== "Unassigned" && !(data.teams || []).some((team) => team.name === assigned) && (
+                    <option value={assigned}>{assigned}</option>
+                  )}
                   {(data.teams || []).map((team) => <option key={team.id} value={team.name}>{team.name}{team.department ? ` - ${team.department}` : ""}</option>)}
                 </select>
               </label>
@@ -589,23 +635,28 @@ export function IssueModal({ data, onClose, onSave }) {
                     </div>
                   </section>
               )}
-              {validationError && <p className="form-error" role="alert">{validationError}</p>}
-              <button
-                className="primary-button full-button"
-                onClick={saveWorkflow}
-                disabled={isSaving || isUploadingBeforePhoto || isUploadingAfterPhoto}
-              >
-                <CheckCircle2 size={16} /> {isSaving ? "Saving..." : "Save changes"}
-              </button>
-              <button
-                type="button"
-                className="secondary-button full-button danger-button"
-                onClick={() => void saveChanges({ status: "Archived", assignedTeam: assigned, resolutionNote: "Archived by administrator" }, true)}
-                disabled={isSaving || isUploadingBeforePhoto || isUploadingAfterPhoto}
-              >
-                {isArchiving ? "Archiving..." : "Archive issue"}
-              </button>
             </div>
+          </div>
+        </div>
+        <div className="issue-modal-footer">
+          {validationError && <p className="form-error" role="alert">{validationError}</p>}
+          <div className="issue-modal-footer-actions">
+            <button
+              type="button"
+              className="secondary-button danger-button"
+              onClick={() => void saveChanges({ status: "Archived", assignedTeam: assigned, resolutionNote: "Archived by administrator" }, true)}
+              disabled={isSaving || isUploadingBeforePhoto || isUploadingAfterPhoto}
+            >
+              {isArchiving ? "Archiving..." : "Archive issue"}
+            </button>
+            <button
+              type="button"
+              className="primary-button"
+              onClick={saveWorkflow}
+              disabled={isSaving || isUploadingBeforePhoto || isUploadingAfterPhoto}
+            >
+              <CheckCircle2 size={16} /> {isSaving ? "Saving..." : "Save changes"}
+            </button>
           </div>
         </div>
       </div>

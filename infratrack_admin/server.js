@@ -1511,29 +1511,29 @@ app.get("/api/overview", async (req, res) => {
     SUM(status IN ('Reported', 'Verified by inspector')) AS pending,
     SUM(status = 'Resolved') AS resolved,
     ROUND(AVG(CASE WHEN status = 'Resolved' THEN TIMESTAMPDIFF(HOUR, created_at, updated_at) / 24 END), 1) AS avg_resolution_days
-    FROM reports WHERE 1=1${scope}`, scopeParams);
-  const [categoryRows] = await pool.query(`SELECT category AS name, COUNT(*) AS count FROM reports WHERE 1=1${scope} GROUP BY category ORDER BY count DESC`, scopeParams);
+    FROM reports WHERE status <> 'Archived'${scope}`, scopeParams);
+  const [categoryRows] = await pool.query(`SELECT category AS name, COUNT(*) AS count FROM reports WHERE status <> 'Archived'${scope} GROUP BY category ORDER BY count DESC`, scopeParams);
   const categories = aggregateReportCategories(categoryRows);
   const categoriesTotal = categories.reduce((total, item) => total + item.count, 0);
   const [teams] = await pool.query(`SELECT COALESCE(NULLIF(assigned_team, ''), 'Unassigned') AS name,
-    COUNT(*) AS active_count, MAX(location) AS location FROM reports
-    WHERE status <> 'Resolved'${scope} GROUP BY COALESCE(NULLIF(assigned_team, ''), 'Unassigned') ORDER BY active_count DESC LIMIT 6`, scopeParams);
+    COUNT(*) AS active_count FROM reports
+    WHERE status NOT IN ('Resolved', 'Rejected', 'Archived')${scope} GROUP BY COALESCE(NULLIF(assigned_team, ''), 'Unassigned') ORDER BY active_count DESC LIMIT 6`, scopeParams);
   const [recent] = await pool.query(`SELECT public_id, title, status, category, location, created_at
-    FROM reports WHERE 1=1${scope} ORDER BY created_at DESC LIMIT 5`, scopeParams);
+    FROM reports WHERE status <> 'Archived'${scope} ORDER BY created_at DESC LIMIT 5`, scopeParams);
   res.json({
     summary: { total: Number(summary.total || 0), pending: Number(summary.pending || 0), resolved: Number(summary.resolved || 0), avgResolutionDays: Number(summary.avg_resolution_days || 0), completionRate: summary.total ? Math.round((Number(summary.resolved || 0) / Number(summary.total)) * 100) : 0 },
     categories: categories.map((item) => ({ name: item.name, count: item.count, percentage: categoriesTotal ? Math.round((item.count / categoriesTotal) * 100) : 0 })),
-    teams: teams.map((item) => ({ name: item.name, activeCount: Number(item.active_count), location: item.location })),
+    teams: teams.map((item) => ({ name: item.name, activeCount: Number(item.active_count) })),
     recent,
   });
 });
 app.get("/api/analytics", async (req, res) => {
   const period = ["day", "week", "month", "year"].includes(req.query.period) ? req.query.period : "month";
   const settings = {
-    day: { interval: "1 DAY", format: "%Y-%m-%d %H:00", label: "Day" },
-    week: { interval: "7 DAY", format: "%Y-%m-%d", label: "Week" },
-    month: { interval: "1 MONTH", format: "%Y-%m-%d", label: "Month" },
-    year: { interval: "1 YEAR", format: "%Y-%m", label: "Year" },
+    day: { interval: "1 DAY", format: "%Y-%m-%d %H:00", label: "Last 24 hours" },
+    week: { interval: "7 DAY", format: "%Y-%m-%d", label: "Last 7 days" },
+    month: { interval: "30 DAY", format: "%Y-%m-%d", label: "Last 30 days" },
+    year: { interval: "12 MONTH", format: "%Y-%m", label: "Last 12 months" },
   }[period];
   const viewer = req.auth;
   const reportScope = getReportScope(viewer, "r");
@@ -1546,9 +1546,21 @@ app.get("/api/analytics", async (req, res) => {
   const categories = aggregateReportCategories(categoryRows);
   const [reportsForThemes] = await pool.query(`SELECT r.title, r.description, r.category FROM reports r WHERE ${where}`, whereParams);
   const reportThemes = analyzeReportThemes(reportsForThemes);
-  const [hotspots] = await pool.query(`SELECT r.location AS name, r.category, COUNT(*) AS count FROM reports r WHERE ${where} GROUP BY r.location, r.category ORDER BY count DESC LIMIT 5`, whereParams);
+  const [hotspots] = await pool.query(`SELECT location_reports.name,
+    SUM(location_reports.category_count) AS count,
+    GROUP_CONCAT(location_reports.category ORDER BY location_reports.category_count DESC SEPARATOR ', ') AS categories
+    FROM (
+      SELECT COALESCE(NULLIF(TRIM(r.location), ''), 'Location not specified') AS name,
+        r.category, COUNT(*) AS category_count
+      FROM reports r
+      WHERE ${where}
+      GROUP BY COALESCE(NULLIF(TRIM(r.location), ''), 'Location not specified'), r.category
+    ) AS location_reports
+    GROUP BY location_reports.name
+    ORDER BY count DESC
+    LIMIT 5`, whereParams);
   const [trend] = await pool.query(`SELECT DATE_FORMAT(r.created_at, ?) AS label, COUNT(*) AS count FROM reports r WHERE ${where} GROUP BY label ORDER BY label`, [settings.format, ...whereParams]);
-  const [[ratings]] = await pool.query(`SELECT ROUND(AVG(rr.rating), 1) AS average, COUNT(*) AS total FROM report_ratings rr JOIN reports r ON r.id = rr.report_id WHERE r.created_at >= DATE_SUB(NOW(), INTERVAL ${settings.interval})${reportScope.sql}`, whereParams);
+  const [[ratings]] = await pool.query(`SELECT ROUND(AVG(rr.rating), 1) AS average, COUNT(*) AS total FROM report_ratings rr JOIN reports r ON r.id = rr.report_id WHERE rr.created_at >= DATE_SUB(NOW(), INTERVAL ${settings.interval})${reportScope.sql}`, whereParams);
   res.json({ period, periodLabel: settings.label, summary: { total: Number(summary.total || 0), reported: Number(summary.reported || 0), inProgress: Number(summary.in_progress || 0), resolved: Number(summary.resolved || 0) }, categories, themes: reportThemes, hotspots, trend, ratings: { average: Number(ratings.average || 0), total: Number(ratings.total || 0) } });
 });
 app.get("/api/users", async (req, res) => {

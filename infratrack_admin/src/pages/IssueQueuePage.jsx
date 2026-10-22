@@ -1,74 +1,209 @@
 import { useMemo, useState } from "react";
+import { CircleCheck, Clock3, List, LoaderCircle } from "lucide-react";
 import IssueTable from "../components/IssueTable";
-import { issueMatchesBarangay } from "../issueBarangay.js";
+import { REPORT_CATEGORIES } from "../../reportCategories.js";
 import {
-  normalizeReportCategory,
-  REPORT_CATEGORIES,
-} from "../../reportCategories.js";
+  countIssueQueueStatuses,
+  filterIssueQueue,
+  getAvailableIssueBarangays,
+  paginateIssueQueue,
+} from "../issueQueue.js";
+
+const PAGE_SIZE = 10;
 
 export default function IssueQueuePage({ issues, onOpenIssue }) {
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [barangayFilter, setBarangayFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
-  const countByStatus = (status) =>
-    issues.filter((issue) => issue.status === status).length;
-  const filteredIssues = useMemo(
-    () => issues.filter((issue) => {
-      const matchesStatus = statusFilter === "all"
-        || (statusFilter === "pending" ? issue.status === "Reported" : issue.status === statusFilter);
-      const matchesCategory = categoryFilter === "all"
-        || normalizeReportCategory(issue.category) === categoryFilter;
-      const matchesBarangay = barangayFilter === "all" || issueMatchesBarangay(issue, barangayFilter);
-      const age = issue.created_at ? (Date.now() - new Date(issue.created_at).getTime()) / 86400000 : 0;
-      const matchesDate = dateFilter === "all" || (dateFilter === "7" ? age <= 7 : age <= 30);
-      return matchesStatus && matchesCategory && matchesBarangay && matchesDate;
-    }),
-    [issues, statusFilter, categoryFilter, barangayFilter, dateFilter],
+  const [page, setPage] = useState(1);
+  const availableBarangays = useMemo(
+    () => getAvailableIssueBarangays(issues),
+    [issues],
   );
+  const nonStatusFilteredIssues = useMemo(
+    () =>
+      filterIssueQueue(issues, {
+        category: categoryFilter,
+        barangay: barangayFilter,
+        date: dateFilter,
+      }),
+    [issues, categoryFilter, barangayFilter, dateFilter],
+  );
+  const statusCounts = useMemo(
+    () => countIssueQueueStatuses(nonStatusFilteredIssues),
+    [nonStatusFilteredIssues],
+  );
+  const filteredIssues = useMemo(
+    () =>
+      statusFilter === "all"
+        ? nonStatusFilteredIssues
+        : nonStatusFilteredIssues.filter((issue) =>
+            statusFilter === "pending"
+              ? issue.status === "Reported"
+              : issue.status === statusFilter,
+          ),
+    [nonStatusFilteredIssues, statusFilter],
+  );
+  const pagination = useMemo(
+    () => paginateIssueQueue(filteredIssues, page, PAGE_SIZE),
+    [filteredIssues, page],
+  );
+  const hasActiveFilters =
+    statusFilter !== "all" ||
+    categoryFilter !== "all" ||
+    barangayFilter !== "all" ||
+    dateFilter !== "all";
+  const statusOptions = [
+    { value: "all", label: "All", Icon: List },
+    { value: "pending", label: "Pending", Icon: Clock3 },
+    { value: "In progress", label: "In progress", Icon: LoaderCircle },
+    { value: "Resolved", label: "Resolved", Icon: CircleCheck },
+  ];
+  const firstVisibleReport = filteredIssues.length
+    ? pagination.startIndex + 1
+    : 0;
+
+  function updateFilter(setFilter, value) {
+    setFilter(value);
+    setPage(1);
+  }
+
+  function resetFilters() {
+    setStatusFilter("all");
+    setCategoryFilter("all");
+    setBarangayFilter("all");
+    setDateFilter("all");
+    setPage(1);
+  }
 
   return (
     <div className="card queue-card">
       <div className="queue-toolbar">
-        <div className="filters queue-filters">
-          <button className={`filter ${statusFilter === "all" ? "active" : ""}`} onClick={() => setStatusFilter("all")}>All ({issues.length})</button>
-          <button className={`filter ${statusFilter === "pending" ? "active" : ""}`} onClick={() => setStatusFilter("pending")}>Pending ({countByStatus("Reported")})</button>
-          <button className={`filter ${statusFilter === "In progress" ? "active" : ""}`} onClick={() => setStatusFilter("In progress")}>In progress ({countByStatus("In progress")})</button>
-          <button className={`filter ${statusFilter === "Resolved" ? "active" : ""}`} onClick={() => setStatusFilter("Resolved")}>Resolved ({countByStatus("Resolved")})</button>
+        <div
+          className="filters queue-filters"
+          role="group"
+          aria-label="Filter reports by status"
+        >
+          {statusOptions.map(({ value, label, Icon }) => (
+            <button
+              key={value}
+              type="button"
+              className={`filter ${statusFilter === value ? "active" : ""}`}
+              aria-pressed={statusFilter === value}
+              onClick={() => updateFilter(setStatusFilter, value)}
+            >
+              <Icon
+                className="queue-filter-icon"
+                size={13}
+                aria-hidden="true"
+              />
+              {label} ({statusCounts[value]})
+            </button>
+          ))}
         </div>
         <div className="queue-selects">
-          <select aria-label="Filter by category" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+          <select
+            aria-label="Filter by category"
+            value={categoryFilter}
+            onChange={(event) =>
+              updateFilter(setCategoryFilter, event.target.value)
+            }
+          >
             <option value="all">All categories</option>
             {REPORT_CATEGORIES.map((category) => (
               <option key={category}>{category}</option>
             ))}
           </select>
-          <select aria-label="Filter by barangay" value={barangayFilter} onChange={(event) => setBarangayFilter(event.target.value)}>
+          <select
+            aria-label="Filter by barangay"
+            value={barangayFilter}
+            onChange={(event) =>
+              updateFilter(setBarangayFilter, event.target.value)
+            }
+          >
             <option value="all">All barangays</option>
-            <option>Brgy. Central</option>
-            <option>Brgy. Dawan</option>
-            <option>Brgy. Sainz</option>
-            <option>Brgy. Matiao</option>
-            <option>Brgy. Dahican</option>
+            {availableBarangays.map(({ value, label }) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
           </select>
-          <select aria-label="Filter by date" value={dateFilter} onChange={(event) => setDateFilter(event.target.value)}>
-            <option value="all">All dates</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option>
+          <select
+            aria-label="Filter by date"
+            value={dateFilter}
+            onChange={(event) =>
+              updateFilter(setDateFilter, event.target.value)
+            }
+          >
+            <option value="all">All dates</option>
+            <option value="7">Last 7 days</option>
+            <option value="30">Last 30 days</option>
           </select>
-          <button type="button" className="secondary-button" onClick={() => window.print()}>Print report</button>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              className="queue-reset-button"
+              onClick={resetFilters}
+            >
+              Clear filters
+            </button>
+          )}
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => window.print()}
+          >
+            Print report
+          </button>
         </div>
       </div>
-      <IssueTable issues={filteredIssues} onOpenIssue={onOpenIssue} />
+      <div className="queue-screen-results">
+        {pagination.issues.length ? (
+          <IssueTable issues={pagination.issues} onOpenIssue={onOpenIssue} />
+        ) : (
+          <div className="queue-empty" role="status">
+            <strong>No reports match these filters</strong>
+            <span>
+              Try changing or clearing the filters to see more reports.
+            </span>
+          </div>
+        )}
+      </div>
+      {!!filteredIssues.length && (
+        <div className="queue-print-results" aria-hidden="true">
+          <IssueTable issues={filteredIssues} />
+        </div>
+      )}
       <div className="queue-footer">
         <span>
-          {filteredIssues.length === 0
-            ? "No reports found"
-            : `Showing 1–${filteredIssues.length} of ${filteredIssues.length} reports`}
+          {filteredIssues.length
+            ? `Showing ${firstVisibleReport}–${pagination.endIndex} of ${filteredIssues.length} reports`
+            : "Showing 0 reports"}
         </span>
-        <div className="pagination">
-          <button aria-label="Previous page" disabled>‹</button>
-          <button className="active">1</button>
-          <button aria-label="Next page" disabled>›</button>
-        </div>
+        {!!filteredIssues.length && (
+          <nav className="pagination" aria-label="Report pages">
+            <button
+              type="button"
+              aria-label="Previous page"
+              disabled={pagination.currentPage === 1}
+              onClick={() => setPage(pagination.currentPage - 1)}
+            >
+              ‹
+            </button>
+            <span aria-live="polite">
+              Page {pagination.currentPage} of {pagination.totalPages}
+            </span>
+            <button
+              type="button"
+              aria-label="Next page"
+              disabled={pagination.currentPage === pagination.totalPages}
+              onClick={() => setPage(pagination.currentPage + 1)}
+            >
+              ›
+            </button>
+          </nav>
+        )}
       </div>
     </div>
   );

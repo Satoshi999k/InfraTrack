@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   ChevronRight,
   ClipboardList,
+  CircleAlert,
   FileText,
   Flag,
   HelpCircle,
@@ -21,12 +22,15 @@ import {
   Settings,
   Star,
   ScrollText,
+  ShieldAlert,
+  TriangleAlert,
+  Layers3,
+  UserRoundX,
   Users,
   Wrench,
 } from "lucide-react";
 
 import { Modal } from "./components/Modals";
-import IssueTable from "./components/IssueTable";
 import IssueQueuePage from "./pages/IssueQueuePage";
 import MapPage, { LeafletInfrastructureMap } from "./pages/MapPage";
 import UsersPage from "./pages/UsersPage";
@@ -37,6 +41,11 @@ import { API_BASE, apiFetch } from "./api";
 import { clearAuthSession, getStoredAuthSession } from "./authSession";
 import { canAccessAdminPage, getNavigationGroups } from "./roleNavigation";
 import { startVisiblePolling } from "./visiblePolling";
+import { getDashboardSummary } from "../dashboardSummary.js";
+import {
+  formatAnalyticsTrendLabel,
+  getAnalyticsCategoryRows,
+} from "./analyticsDisplay.js";
 
 const navIcons = {
   overview: LayoutDashboard,
@@ -85,11 +94,18 @@ function getAdminBadge(userName, role) {
   if (role === "admin" || role === "administrator") return "AD";
   if (role === "barangay_staff") return "LG";
 
-  const words = (userName || "Operations Team").trim().split(/\s+/).filter(Boolean);
+  const words = (userName || "Operations Team")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
   if (words.length === 0) return "AD";
   if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
 
-  return words.slice(0, 2).map((word) => word[0]).join("").toUpperCase();
+  return words
+    .slice(0, 2)
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase();
 }
 
 async function fetchUserReports(residentId) {
@@ -120,14 +136,17 @@ function Dashboard({ user, onLogout }) {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [readNotificationIds, setReadNotificationIds] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem("infratrack.readNotifications") || "[]");
+      return JSON.parse(
+        localStorage.getItem("infratrack.readNotifications") || "[]",
+      );
     } catch {
       return [];
     }
   });
   const notificationRef = useRef(null);
   const toastSequence = useRef(0);
-  const showToast = (message) => setToast({ id: ++toastSequence.current, message });
+  const showToast = (message) =>
+    setToast({ id: ++toastSequence.current, message });
 
   useEffect(() => {
     let active = true;
@@ -141,11 +160,18 @@ function Dashboard({ user, onLogout }) {
           apiFetch("/teams"),
         ]);
         if (!issueResponse.ok || !userResponse.ok || !teamResponse.ok) {
-          throw new Error(`API request failed (${issueResponse.status}/${userResponse.status}/${teamResponse.status})`);
+          throw new Error(
+            `API request failed (${issueResponse.status}/${userResponse.status}/${teamResponse.status})`,
+          );
         }
-        const [issueData, userData, teamData] = await Promise.all([issueResponse.json(), userResponse.json(), teamResponse.json()]);
+        const [issueData, userData, teamData] = await Promise.all([
+          issueResponse.json(),
+          userResponse.json(),
+          teamResponse.json(),
+        ]);
         const overviewResponse = await apiFetch(`/overview${scope}`);
-        if (!overviewResponse.ok) throw new Error(`API request failed (${overviewResponse.status})`);
+        if (!overviewResponse.ok)
+          throw new Error(`API request failed (${overviewResponse.status})`);
         const overviewData = await overviewResponse.json();
         if (active) {
           setIssues(issueData.issues ?? []);
@@ -156,7 +182,11 @@ function Dashboard({ user, onLogout }) {
         }
       } catch (error) {
         if (active) {
-          setApiError(error instanceof Error ? error.message : "Could not connect to the API");
+          setApiError(
+            error instanceof Error
+              ? error.message
+              : "Could not connect to the API",
+          );
         }
       } finally {
         if (active) setIsLoading(false);
@@ -180,14 +210,32 @@ function Dashboard({ user, onLogout }) {
   }, [toast?.id]);
 
   const pageMeta = {
-    overview: [isBarangayStaff ? user.barangay : "Local Government Unit", "Overview"],
+    overview: [
+      isBarangayStaff ? user.barangay : "Local Government Unit",
+      "Overview",
+    ],
     queue: [isBarangayStaff ? user.barangay : "Operations", "Issue Queue"],
     map: [isBarangayStaff ? user.barangay : "Operations", "Infrastructure Map"],
-    analytics: [isBarangayStaff ? user.barangay : "Operations", "Analytics & Reports"],
-    users: [isBarangayStaff ? user.barangay || "Barangay" : "Administration", isBarangayStaff ? "Residents" : "User Management"],
-    announce: [isBarangayStaff ? user.barangay : "Administration", "Public Advisory"],
-    published: [isBarangayStaff ? user.barangay : "Administration", "Published Advisories"],
-    settings: [isBarangayStaff ? "Account" : "Administration", isBarangayStaff ? "Account settings" : "Settings"],
+    analytics: [
+      isBarangayStaff ? user.barangay : "Operations",
+      "Analytics & Reports",
+    ],
+    users: [
+      isBarangayStaff ? user.barangay || "Barangay" : "Administration",
+      isBarangayStaff ? "Residents" : "User Management",
+    ],
+    announce: [
+      isBarangayStaff ? user.barangay : "Administration",
+      "Public Advisory",
+    ],
+    published: [
+      isBarangayStaff ? user.barangay : "Administration",
+      "Published Advisories",
+    ],
+    settings: [
+      isBarangayStaff ? "Account" : "Administration",
+      isBarangayStaff ? "Account settings" : "Settings",
+    ],
     logs: [isBarangayStaff ? user.barangay : "Administration", "Activity Logs"],
   };
 
@@ -202,14 +250,22 @@ function Dashboard({ user, onLogout }) {
   );
 
   const notifications = useMemo(
-    () => [...issues].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 5),
+    () =>
+      [...issues]
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        .slice(0, 5),
     [issues],
   );
-  const unreadNotificationCount = notifications.filter((issue) => !readNotificationIds.includes(issue.public_id)).length;
+  const unreadNotificationCount = notifications.filter(
+    (issue) => !readNotificationIds.includes(issue.public_id),
+  ).length;
 
   useEffect(() => {
     const closeNotifications = (event) => {
-      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+      if (
+        notificationRef.current &&
+        !notificationRef.current.contains(event.target)
+      ) {
         setNotificationsOpen(false);
       }
     };
@@ -221,7 +277,10 @@ function Dashboard({ user, onLogout }) {
     const ids = notifications.map((issue) => issue.public_id);
     setReadNotificationIds((current) => {
       const next = [...new Set([...current, ...ids])];
-      localStorage.setItem("infratrack.readNotifications", JSON.stringify(next));
+      localStorage.setItem(
+        "infratrack.readNotifications",
+        JSON.stringify(next),
+      );
       return next;
     });
   };
@@ -281,7 +340,11 @@ function Dashboard({ user, onLogout }) {
         ))}
 
         <div className="sidebar-spacer" />
-        <button className="nav-link" type="button" onClick={() => navigate("settings")}>
+        <button
+          className="nav-link"
+          type="button"
+          onClick={() => navigate("settings")}
+        >
           <Icon icon={Settings} />
           <span>{isBarangayStaff ? "Account settings" : "Settings"}</span>
         </button>
@@ -301,7 +364,10 @@ function Dashboard({ user, onLogout }) {
 
       <main className="main-content">
         <header className="topbar">
-          <button className="icon-button menu-button" onClick={() => setDrawer(true)}>
+          <button
+            className="icon-button menu-button"
+            onClick={() => setDrawer(true)}
+          >
             <Icon icon={Menu} />
           </button>
           <div>
@@ -328,7 +394,11 @@ function Dashboard({ user, onLogout }) {
             >
               <Icon icon={Flag} size={17} /> Log walk-in report
             </button>
-            <div className="notification-menu" data-tour-target="notifications" ref={notificationRef}>
+            <div
+              className="notification-menu"
+              data-tour-target="notifications"
+              ref={notificationRef}
+            >
               <button
                 className={`icon-button notification ${notificationsOpen ? "active" : ""}`}
                 type="button"
@@ -340,19 +410,31 @@ function Dashboard({ user, onLogout }) {
                 {unreadNotificationCount > 0 && <i />}
               </button>
               {notificationsOpen && (
-                <div className="notification-dropdown" role="dialog" aria-label="Notifications">
+                <div
+                  className="notification-dropdown"
+                  role="dialog"
+                  aria-label="Notifications"
+                >
                   <div className="notification-heading">
                     <div>
                       <strong>Notifications</strong>
-                      <span>{unreadNotificationCount ? `${unreadNotificationCount} unread` : "All caught up"}</span>
+                      <span>
+                        {unreadNotificationCount
+                          ? `${unreadNotificationCount} unread`
+                          : "All caught up"}
+                      </span>
                     </div>
                     {unreadNotificationCount > 0 && (
-                      <button type="button" onClick={markNotificationsRead}>Mark all read</button>
+                      <button type="button" onClick={markNotificationsRead}>
+                        Mark all read
+                      </button>
                     )}
                   </div>
                   <div className="notification-list">
                     {notifications.map((issue) => {
-                      const unread = !readNotificationIds.includes(issue.public_id);
+                      const unread = !readNotificationIds.includes(
+                        issue.public_id,
+                      );
                       return (
                         <button
                           className={`notification-item ${unread ? "unread" : ""}`}
@@ -363,25 +445,48 @@ function Dashboard({ user, onLogout }) {
                             setNotificationsOpen(false);
                           }}
                         >
-                          <span className={`notification-status ${issue.status === "Resolved" ? "resolved" : "pending"}`} />
+                          <span
+                            className={`notification-status ${issue.status === "Resolved" ? "resolved" : "pending"}`}
+                          />
                           <span className="notification-copy">
                             <strong>{issue.title}</strong>
-                            <small>{issue.status} · {issue.location}</small>
-                            <em>{new Date(issue.created_at).toLocaleString()}</em>
+                            <small>
+                              {issue.status} · {issue.location}
+                            </small>
+                            <em>
+                              {new Date(issue.created_at).toLocaleString()}
+                            </em>
                           </span>
                           {unread && <b aria-label="Unread" />}
                         </button>
                       );
                     })}
-                    {!notifications.length && <p className="notification-empty">No infrastructure updates yet.</p>}
+                    {!notifications.length && (
+                      <p className="notification-empty">
+                        No infrastructure updates yet.
+                      </p>
+                    )}
                   </div>
-                  <button className="notification-footer" type="button" onClick={() => { navigate("queue"); setNotificationsOpen(false); }}>
+                  <button
+                    className="notification-footer"
+                    type="button"
+                    onClick={() => {
+                      navigate("queue");
+                      setNotificationsOpen(false);
+                    }}
+                  >
                     View issue queue <ChevronRight size={15} />
                   </button>
                 </div>
               )}
             </div>
-            <button type="button" className="icon-button" data-tour-target="help" aria-label="Help" onClick={() => setModal({ type: "help" })}>
+            <button
+              type="button"
+              className="icon-button"
+              data-tour-target="help"
+              aria-label="Help"
+              onClick={() => setModal({ type: "help" })}
+            >
               <Icon icon={HelpCircle} />
             </button>
             <div className="admin-avatar">{adminBadge}</div>
@@ -392,10 +497,27 @@ function Dashboard({ user, onLogout }) {
           {apiError && (
             <div
               role="alert"
-              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 20, padding: "12px 16px", borderRadius: 12, background: "#fff1ed", color: "#9f351e", border: "1px solid #f2c2b5" }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 16,
+                marginBottom: 20,
+                padding: "12px 16px",
+                borderRadius: 12,
+                background: "#fff1ed",
+                color: "#9f351e",
+                border: "1px solid #f2c2b5",
+              }}
             >
-              <span>API unavailable at {API_BASE}: {apiError}</span>
-              <button type="button" className="secondary-button" onClick={() => window.location.reload()}>
+              <span>
+                API unavailable at {API_BASE}: {apiError}
+              </span>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => window.location.reload()}
+              >
                 Retry
               </button>
             </div>
@@ -405,7 +527,9 @@ function Dashboard({ user, onLogout }) {
             issues={filteredIssues}
             users={users}
             isLoading={isLoading}
-            onOpenIssue={(issue) => setModal({ type: "issue", ...issue, teams })}
+            onOpenIssue={(issue) =>
+              setModal({ type: "issue", ...issue, teams })
+            }
             onOpenUser={(user) => setModal({ type: "user", user })}
             onNavigate={navigate}
             onNotify={showToast}
@@ -420,31 +544,50 @@ function Dashboard({ user, onLogout }) {
           data={modal}
           onClose={() => setModal(null)}
           onUserVerification={async (decision) => {
-            const response = await apiFetch(`/users/${modal.user.id}/verification`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ decision }),
-            });
+            const response = await apiFetch(
+              `/users/${modal.user.id}/verification`,
+              {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ decision }),
+              },
+            );
             const data = await response.json();
             if (!response.ok) {
-              throw new Error(data.error || "Could not update identity verification.");
+              throw new Error(
+                data.error || "Could not update identity verification.",
+              );
             }
-            const usersResponse = await apiFetch(`/users?userId=${encodeURIComponent(user.id)}`);
-            if (!usersResponse.ok) throw new Error("Verification was saved, but users could not be refreshed.");
+            const usersResponse = await apiFetch(
+              `/users?userId=${encodeURIComponent(user.id)}`,
+            );
+            if (!usersResponse.ok)
+              throw new Error(
+                "Verification was saved, but users could not be refreshed.",
+              );
             setUsers((await usersResponse.json()).users ?? []);
             setModal(null);
           }}
           onFetchUserReports={fetchUserReports}
           onUserSave={async (changes) => {
-            const response = await apiFetch(`/users/${modal.user.id}/moderation`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ ...changes, adminId: user.id }),
-            });
+            const response = await apiFetch(
+              `/users/${modal.user.id}/moderation`,
+              {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ...changes, adminId: user.id }),
+              },
+            );
             const data = await response.json();
-            if (!response.ok) throw new Error(data.error || "Could not save moderation action.");
-            const usersResponse = await apiFetch(`/users?userId=${encodeURIComponent(user.id)}`);
-            if (!usersResponse.ok) throw new Error("Could not refresh user accounts.");
+            if (!response.ok)
+              throw new Error(
+                data.error || "Could not save moderation action.",
+              );
+            const usersResponse = await apiFetch(
+              `/users?userId=${encodeURIComponent(user.id)}`,
+            );
+            if (!usersResponse.ok)
+              throw new Error("Could not refresh user accounts.");
             setUsers((await usersResponse.json()).users ?? []);
             setModal(null);
           }}
@@ -456,14 +599,24 @@ function Dashboard({ user, onLogout }) {
                 body: JSON.stringify(changes),
               });
               const data = await response.json();
-              if (!response.ok) throw new Error(data.error || "Could not save walk-in report.");
-              const issueResponse = await apiFetch(`/issues?userId=${encodeURIComponent(user.id)}`);
-              if (!issueResponse.ok) throw new Error("Report was saved, but the report list could not be refreshed.");
+              if (!response.ok)
+                throw new Error(data.error || "Could not save walk-in report.");
+              const issueResponse = await apiFetch(
+                `/issues?userId=${encodeURIComponent(user.id)}`,
+              );
+              if (!issueResponse.ok)
+                throw new Error(
+                  "Report was saved, but the report list could not be refreshed.",
+                );
               setIssues((await issueResponse.json()).issues ?? []);
               setModal(null);
               return;
             }
-            if (modal.type === "issue" && modal.id && modal.id !== "Walk-in report") {
+            if (
+              modal.type === "issue" &&
+              modal.id &&
+              modal.id !== "Walk-in report"
+            ) {
               const updateResponse = await apiFetch(`/issues/${modal.id}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
@@ -473,15 +626,23 @@ function Dashboard({ user, onLogout }) {
               if (!updateResponse.ok) {
                 throw new Error(updateData.error || "Could not update report.");
               }
-              const response = await apiFetch(`/issues?userId=${encodeURIComponent(user.id)}`);
-              if (!response.ok) throw new Error("Report was saved, but the report list could not be refreshed.");
+              const response = await apiFetch(
+                `/issues?userId=${encodeURIComponent(user.id)}`,
+              );
+              if (!response.ok)
+                throw new Error(
+                  "Report was saved, but the report list could not be refreshed.",
+                );
               setIssues((await response.json()).issues ?? []);
-              const previousStatus = modal.status === "New report" ? "Reported" : modal.status;
-              showToast(changes.status === "Archived"
-                ? "Report archived."
-                : changes.status !== previousStatus
-                  ? `Report status changed to ${changes.status}.`
-                  : "Report changes saved.");
+              const previousStatus =
+                modal.status === "New report" ? "Reported" : modal.status;
+              showToast(
+                changes.status === "Archived"
+                  ? "Report archived."
+                  : changes.status !== previousStatus
+                    ? `Report status changed to ${changes.status}.`
+                    : "Report changes saved.",
+              );
             }
             setModal(null);
           }}
@@ -497,7 +658,18 @@ function Dashboard({ user, onLogout }) {
   );
 }
 
-function PageContent({ page, issues, users, isLoading, onOpenIssue, onOpenUser, onNavigate, onNotify, overviewData, user }) {
+function PageContent({
+  page,
+  issues,
+  users,
+  isLoading,
+  onOpenIssue,
+  onOpenUser,
+  onNavigate,
+  onNotify,
+  overviewData,
+  user,
+}) {
   if (isLoading) return <DashboardLoading />;
 
   let pageView;
@@ -514,13 +686,21 @@ function PageContent({ page, issues, users, isLoading, onOpenIssue, onOpenUser, 
   } else if (page === "queue") {
     pageView = <IssueQueuePage issues={issues} onOpenIssue={onOpenIssue} />;
   } else if (page === "map") {
-    pageView = <MapPage issues={issues} onOpenIssue={onOpenIssue} user={user} />;
+    pageView = (
+      <MapPage issues={issues} onOpenIssue={onOpenIssue} user={user} />
+    );
   } else if (page === "analytics") {
     pageView = <AnalyticsLive user={user} />;
   } else if (page === "users") {
     pageView = <UsersPage users={users} onOpenUser={onOpenUser} user={user} />;
   } else if (page === "announce") {
-    pageView = <AdvisoryPage user={user} onNotify={onNotify} onViewAll={() => onNavigate("published")} />;
+    pageView = (
+      <AdvisoryPage
+        user={user}
+        onNotify={onNotify}
+        onViewAll={() => onNavigate("published")}
+      />
+    );
   } else if (page === "published") {
     pageView = <AdvisoryPage user={user} onNotify={onNotify} publishedOnly />;
   } else if (page === "logs") {
@@ -528,67 +708,167 @@ function PageContent({ page, issues, users, isLoading, onOpenIssue, onOpenUser, 
   } else if (page === "settings") {
     pageView = <SettingsPage user={user} />;
   } else {
-    pageView = <Overview issues={issues} overviewData={overviewData} onOpenIssue={onOpenIssue} onNavigate={onNavigate} user={user} />;
+    pageView = (
+      <Overview
+        issues={issues}
+        overviewData={overviewData}
+        onOpenIssue={onOpenIssue}
+        onNavigate={onNavigate}
+        user={user}
+      />
+    );
   }
 
-  return <div className="page-transition" key={page}>{pageView}</div>;
+  return (
+    <div className="page-transition" key={page}>
+      {pageView}
+    </div>
+  );
 }
 
 function DashboardLoading({ message = "Loading your workspace…" }) {
   return (
-    <div className="dashboard-loading" role="status" aria-label="Loading dashboard data">
+    <div
+      className="dashboard-loading"
+      role="status"
+      aria-label="Loading dashboard data"
+    >
       <span className="loading-status">{message}</span>
       <div className="loading-kpis" aria-hidden="true">
-        {Array.from({ length: 4 }, (_, index) => <div className="card loading-kpi" key={index}><i className="skeleton-block" /><i className="skeleton-line" /><i className="skeleton-value" /></div>)}
+        {Array.from({ length: 4 }, (_, index) => (
+          <div className="card loading-kpi" key={index}>
+            <i className="skeleton-block" />
+            <i className="skeleton-line" />
+            <i className="skeleton-value" />
+          </div>
+        ))}
       </div>
       <div className="card loading-table" aria-hidden="true">
         <i className="skeleton-line loading-table-heading" />
-        {Array.from({ length: 5 }, (_, index) => <i className="skeleton-line loading-table-row" key={index} />)}
+        {Array.from({ length: 5 }, (_, index) => (
+          <i className="skeleton-line loading-table-row" key={index} />
+        ))}
       </div>
     </div>
   );
 }
 
 function Overview({ issues, overviewData, onOpenIssue, onNavigate, user }) {
-  const summary = overviewData?.summary;
+  const summary = getDashboardSummary(issues);
+
   return (
-    <>
+    <div className="dashboard-overview">
       <div className="kpi-grid">
-        <Kpi icon={FileText} label="Total reports" value={summary?.total ?? "—"} tag={user?.role === "barangay_staff" ? `Assigned to ${user.barangay}` : "All database reports"} tone="teal" />
-        <Kpi icon={AlertTriangle} label="Pending tasks" value={summary?.pending ?? "—"} tag="Needs review" tone="clay" />
-        <Kpi icon={Activity} label="Avg. resolution time" value={<><span>{summary?.avgResolutionDays ?? "—"}</span> <small>days</small></>} tag="Resolved reports" tone="green" />
-        <Kpi icon={CheckCircle2} label="Completion rate" value={`${summary?.completionRate ?? "—"}%`} tag="Resolved issues" tone="amber" />
+        <Kpi
+          icon={FileText}
+          label="All reports"
+          value={summary.totalCount}
+          helper="In your work area"
+          tone="teal"
+        />
+        <Kpi
+          icon={Activity}
+          label="Open reports"
+          value={summary.activeCount}
+          helper="Still need follow-up"
+          tone="clay"
+        />
+        <Kpi
+          icon={Wrench}
+          label="Being worked on"
+          value={summary.inProgressIssues.length}
+          helper="Work is underway"
+          tone="green"
+        />
+        <Kpi
+          icon={CheckCircle2}
+          label="Completed"
+          value={summary.completedCount}
+          helper="Marked as resolved"
+          tone="amber"
+        />
       </div>
 
       <div className="two-column">
         <MapCard issues={issues} onOpenIssue={onOpenIssue} user={user} />
-        <ActivityCard activities={overviewData?.recent ?? []} onNavigate={onNavigate} />
+        <LatestReportsCard
+          issues={issues}
+          onOpenIssue={onOpenIssue}
+          onNavigate={onNavigate}
+        />
       </div>
 
       <div className="two-column lower">
         <CategoryCard categories={overviewData?.categories ?? []} />
         <TeamCard teams={overviewData?.teams ?? []} />
       </div>
-
-
-      <div className="section-heading">
-        Recent reports <button onClick={() => onNavigate("queue")}>View issue queue <ChevronRight size={15} /></button>
-      </div>
-
-      <IssueTable issues={issues.slice(0, 3)} onOpenIssue={onOpenIssue} />
-    </>
+    </div>
   );
 }
 
-function Kpi({ icon, label, value, tag, tone }) {
+function Kpi({ icon, label, value, helper, tone }) {
   return (
-    <article className="kpi card">
+    <article className={`kpi card dashboard-kpi ${tone}`}>
       <div className={`kpi-icon ${tone}`}>
         <Icon icon={icon} />
       </div>
-      <span className={`tag ${tone}`}>{tag}</span>
       <p>{label}</p>
       <strong>{value}</strong>
+      <small>{helper}</small>
+    </article>
+  );
+}
+
+function LatestReportsCard({ issues, onOpenIssue, onNavigate }) {
+  const latestIssues = issues.slice(0, 4);
+
+  return (
+    <article className="card latest-reports-card">
+      <div className="card-head">
+        <div>
+          <h2>Latest reports</h2>
+          <p className="dashboard-card-hint">Newest reports first</p>
+        </div>
+        <button
+          type="button"
+          className="text-link"
+          onClick={() => onNavigate("queue")}
+        >
+          View all reports <ChevronRight size={15} />
+        </button>
+      </div>
+      {latestIssues.length ? (
+        <div className="latest-reports-list">
+          {latestIssues.map((issue) => (
+            <button
+              type="button"
+              className="latest-report"
+              key={issue.id}
+              onClick={() => onOpenIssue(issue)}
+              aria-label={`Open report: ${issue.title}`}
+            >
+              <span
+                className={`latest-report-icon ${issue.severity?.toLowerCase() || "medium"}`}
+              >
+                <Flag size={16} />
+              </span>
+              <span className="latest-report-copy">
+                <strong>{issue.title}</strong>
+                <span>
+                  {issue.status} · {issue.location}
+                </span>
+              </span>
+              <ChevronRight size={16} className="latest-report-chevron" />
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="dashboard-empty-state">
+          <CheckCircle2 size={21} />
+          <strong>No reports yet</strong>
+          <span>New reports will appear here.</span>
+        </div>
+      )}
     </article>
   );
 }
@@ -600,7 +880,10 @@ function MapCard({ issues, onOpenIssue, user }) {
     if (filter === "all") return issues;
     return issues.filter((issue) => {
       if (filter === "unassigned") {
-        return !issue.assignedTeam || issue.assignedTeam === "Unassigned";
+        const assignedTeam = String(
+          issue.assigned_team || issue.assignedTeam || "",
+        ).trim();
+        return !assignedTeam || assignedTeam.toLowerCase() === "unassigned";
       }
       if (filter === "resolved") {
         return issue.status === "Resolved";
@@ -610,58 +893,43 @@ function MapCard({ issues, onOpenIssue, user }) {
   }, [filter, issues]);
 
   const filterOptions = [
-    ["all", "All"],
-    ["Critical", "Critical"],
-    ["High", "High"],
-    ["Medium", "Medium"],
-    ["resolved", "Resolved"],
-    ["unassigned", "Unassigned"],
+    { value: "all", label: "All", icon: Layers3 },
+    { value: "Critical", label: "Critical", icon: ShieldAlert },
+    { value: "High", label: "High", icon: TriangleAlert },
+    { value: "Medium", label: "Medium", icon: CircleAlert },
+    { value: "resolved", label: "Resolved", icon: CheckCircle2 },
+    { value: "unassigned", label: "Unassigned", icon: UserRoundX },
   ];
 
   return (
     <article className="card map-card">
-      <div className="card-head">
-        <h2>Active infrastructure issues</h2>
+      <div className="card-head map-card-heading">
+        <div>
+          <h2>Report map</h2>
+          <p className="dashboard-card-hint">
+            Select a marker to see report details.
+          </p>
+        </div>
         <div className="filters" style={{ marginBottom: 0 }}>
-          {filterOptions.map(([value, label]) => (
+          {filterOptions.map(({ value, label, icon: FilterIcon }) => (
             <button
               key={value}
               type="button"
-              className={`filter ${filter === value ? "active" : ""}`}
+              className={`filter map-overview-filter ${filter === value ? "active" : ""}`}
+              aria-pressed={filter === value}
               onClick={() => setFilter(value)}
             >
-              {label}
+              <FilterIcon size={13} strokeWidth={2} aria-hidden="true" />
+              <span>{label}</span>
             </button>
           ))}
         </div>
       </div>
-      <LeafletInfrastructureMap issues={visibleIssues} onOpenIssue={onOpenIssue} barangay={user?.barangay} />
-    </article>
-  );
-}
-
-function ActivityCard({ activities, onNavigate }) {
-  return (
-    <article className="card">
-      <div className="card-head">
-        <h2>Recent activity</h2>
-        <button type="button" className="text-link" onClick={() => onNavigate("queue")}>
-          View all
-        </button>
-      </div>
-      {activities.map((activity) => (
-        <div className="activity-item" key={activity.public_id}>
-          <div className={`activity-icon ${activity.status === "Resolved" ? "done" : "new"}`}>
-            <Icon icon={activity.status === "Resolved" ? CheckCircle2 : Flag} />
-          </div>
-          <div>
-            <b>{activity.title}</b>
-            <p>{activity.status} · {activity.category} · {activity.location}</p>
-            <small>{new Date(activity.created_at).toLocaleString()} · #{activity.public_id}</small>
-          </div>
-        </div>
-      ))}
-      {!activities.length && <p className="muted">No recent reports.</p>}
+      <LeafletInfrastructureMap
+        issues={visibleIssues}
+        onOpenIssue={onOpenIssue}
+        barangay={user?.barangay}
+      />
     </article>
   );
 }
@@ -672,18 +940,23 @@ function CategoryCard({ categories }) {
     <article className="card">
       <div className="card-head">
         <h2>Reports by category</h2>
-        <span className="muted">Last 30 days</span>
+        <span className="muted">All reports</span>
       </div>
       {categories.map((item, index) => (
         <div className="bar-row" key={item.name}>
           <span>{item.name}</span>
           <div className="bar">
-            <i className={["clay", "amber", "teal", "purple", "green"][index % 5]} style={{ width: `${(item.count / max) * 100}%` }} />
+            <i
+              className={
+                ["clay", "amber", "teal", "purple", "green"][index % 5]
+              }
+              style={{ width: `${(item.count / max) * 100}%` }}
+            />
           </div>
           <b>{item.count}</b>
         </div>
       ))}
-      {!categories.length && <p className="muted">No category data.</p>}
+      {!categories.length && <p className="muted">No reports to group yet.</p>}
     </article>
   );
 }
@@ -693,7 +966,7 @@ function TeamCard({ teams }) {
     <article className="card">
       <div className="card-head">
         <h2>Team workload</h2>
-        <span className="muted">Active assignments</span>
+        <span className="muted">Open reports</span>
       </div>
       {teams.map((team) => (
         <div className="activity-item" key={team.name}>
@@ -702,10 +975,20 @@ function TeamCard({ teams }) {
           </div>
           <div>
             <b>{team.name}</b>
-            <p>{team.activeCount} active work orders · {team.location || "Mati City"}</p>
+            <p>
+              {team.activeCount} open{" "}
+              {team.activeCount === 1 ? "report" : "reports"}
+            </p>
           </div>
         </div>
       ))}
+      {!teams.length && (
+        <div className="dashboard-empty-state compact">
+          <Users size={19} />
+          <strong>No open assignments</strong>
+          <span>Team workload will appear when reports are open.</span>
+        </div>
+      )}
     </article>
   );
 }
@@ -764,9 +1047,9 @@ function Analytics() {
           </div>
 
           <p className="sentiment-note">
-            940 residents rated a completed repair this quarter. 82% gave 4–5 stars,
-            read as <b>positive</b> sentiment; 9% neutral; 9% negative — negative
-            ratings are auto-flagged for a follow-up review.
+            940 residents rated a completed repair this quarter. 82% gave 4–5
+            stars, read as <b>positive</b> sentiment; 9% neutral; 9% negative —
+            negative ratings are auto-flagged for a follow-up review.
           </p>
         </article>
 
@@ -776,7 +1059,12 @@ function Analytics() {
             <span className="muted">Weeks</span>
           </div>
 
-          <svg className="trend-chart" viewBox="0 0 260 120" preserveAspectRatio="none" aria-label="Resolution trend chart">
+          <svg
+            className="trend-chart"
+            viewBox="0 0 260 120"
+            preserveAspectRatio="none"
+            aria-label="Resolution trend chart"
+          >
             <polyline
               points="0,80 40,70 80,74 120,55 160,48 200,38 240,30"
               fill="none"
@@ -788,7 +1076,14 @@ function Analytics() {
             <g fill="var(--teal)">
               <circle cx="240" cy="30" r="4" />
             </g>
-            <line x1="0" y1="105" x2="260" y2="105" stroke="var(--line)" strokeWidth="1" />
+            <line
+              x1="0"
+              y1="105"
+              x2="260"
+              y2="105"
+              stroke="var(--line)"
+              strokeWidth="1"
+            />
           </svg>
 
           <p className="trend-caption">
@@ -831,8 +1126,8 @@ function Analytics() {
           ))}
 
           <p className="sentiment-note efficiency-note">
-            Efficiency reflects on-time completion against assigned target dates, used
-            for resource allocation planning.
+            Efficiency reflects on-time completion against assigned target
+            dates, used for resource allocation planning.
           </p>
         </article>
 
@@ -868,8 +1163,8 @@ function Analytics() {
           </div>
 
           <p className="sentiment-note">
-            Printable summaries support recurring reporting to the City Engineering Office
-            and CDRRMO for planning and budget review.
+            Printable summaries support recurring reporting to the City
+            Engineering Office and CDRRMO for planning and budget review.
           </p>
         </article>
       </div>
@@ -882,102 +1177,411 @@ function AnalyticsLive({ user }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let active = true;
     setIsLoading(true);
-    apiFetch(`/analytics?period=${period}&userId=${encodeURIComponent(user?.id || "")}`)
+    setError("");
+    apiFetch(
+      `/analytics?period=${period}&userId=${encodeURIComponent(user?.id || "")}`,
+    )
       .then(async (response) => {
         const body = await response.json();
-        if (!response.ok) throw new Error(body.error || "Could not load analytics");
+        if (!response.ok)
+          throw new Error(body.error || "Could not load analytics");
         if (active) setData(body);
       })
-      .catch((loadError) => { if (active) setError(loadError.message); })
-      .finally(() => { if (active) setIsLoading(false); });
-    return () => { active = false; };
-  }, [period, user?.id]);
+      .catch((loadError) => {
+        if (active) setError(loadError.message);
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [period, reloadKey, user?.id]);
 
-  if (!data && isLoading) return <DashboardLoading message="Loading analytics…" />;
+  if (!data && isLoading)
+    return <DashboardLoading message="Loading analytics…" />;
 
-  const maxCategory = Math.max(...(data?.categories ?? []).map((item) => Number(item.count)), 1);
-  const maxTrend = Math.max(...(data?.trend ?? []).map((item) => Number(item.count)), 1);
-  const trendPoints = (data?.trend ?? []).map((item, index, items) => {
-    const x = items.length === 1 ? 130 : (index / (items.length - 1)) * 240;
-    const y = 105 - (Number(item.count) / maxTrend) * 80;
-    return `${x},${y}`;
-  }).join(" ");
+  const currentData = data?.period === period ? data : null;
+  const reportTotal = Number(currentData?.summary.total) || 0;
+  const categoryRows = getAnalyticsCategoryRows(
+    currentData?.categories ?? [],
+    reportTotal,
+  );
+  const maxCategory = Math.max(...categoryRows.map((item) => item.count), 1);
+  const trendItems = currentData?.trend ?? [];
+  const maxTrend = Math.max(...trendItems.map((item) => Number(item.count)), 1);
+  const trendCoordinates = trendItems.map((item, index) => {
+    const x =
+      trendItems.length === 1
+        ? 130
+        : 10 + (index / (trendItems.length - 1)) * 240;
+    const y = 88 - (Number(item.count) / maxTrend) * 58;
+    return { x, y, count: Number(item.count) };
+  });
+  const trendPoints = trendCoordinates.map(({ x, y }) => `${x},${y}`).join(" ");
+  const periodOptions = [
+    { value: "day", label: "Last 24 hours" },
+    { value: "week", label: "Last 7 days" },
+    { value: "month", label: "Last 30 days" },
+    { value: "year", label: "Last 12 months" },
+  ];
+  const widerPeriod = { day: "week", week: "month", month: "year" }[period];
+  const periodEmptyMessage = error
+    ? "Analytics could not be loaded."
+    : isLoading
+      ? "Updating analytics…"
+      : "No reports were submitted in this period.";
+  const isAnalyticsPanelEmpty = !currentData || reportTotal === 0;
 
   return (
     <>
       <div className="card analytics-period-bar">
-        <strong>Report period</strong>
-        {[["day", "Day"], ["week", "Week"], ["month", "Month"], ["year", "Year"]].map(([value, label]) => (
-          <button key={value} className={`filter ${period === value ? "active" : ""}`} onClick={() => setPeriod(value)}>{label}</button>
-        ))}
+        <div
+          className="analytics-period-controls"
+          role="group"
+          aria-label="Report date range"
+        >
+          <strong>Reports from</strong>
+          {periodOptions.map(({ value, label }) => (
+            <button
+              key={value}
+              type="button"
+              className={`filter ${period === value ? "active" : ""}`}
+              aria-pressed={period === value}
+              onClick={() => setPeriod(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <span className="muted" role={isLoading ? "status" : undefined}>
-          {isLoading ? "Updating analytics…" : `Live MySQL data · ${data?.periodLabel || period}`}
+          {isLoading
+            ? "Updating reports…"
+            : currentData?.periodLabel || "Analytics unavailable"}
         </span>
-        <button type="button" className="primary-button print-button" onClick={() => window.print()}>
+        <button
+          type="button"
+          className="primary-button print-button"
+          onClick={() => window.print()}
+        >
           Print / Save PDF
         </button>
       </div>
-      {error && <div className="login-error" role="alert">{error}</div>}
+      {error && (
+        <div className="analytics-error" role="alert">
+          <span>Could not load analytics: {error}</span>
+          <button
+            type="button"
+            className="text-link"
+            onClick={() => setReloadKey((key) => key + 1)}
+          >
+            Try again
+          </button>
+        </div>
+      )}
+      {currentData && reportTotal === 0 && (
+        <div className="analytics-empty-notice" role="status">
+          <span>
+            No reports were recorded in the last{" "}
+            {currentData.periodLabel?.replace(/^Last /, "") ||
+              "selected period"}
+            .
+          </span>
+          {widerPeriod && (
+            <button
+              type="button"
+              className="text-link"
+              onClick={() => setPeriod(widerPeriod)}
+            >
+              View{" "}
+              {periodOptions
+                .find((option) => option.value === widerPeriod)
+                ?.label.toLowerCase()}
+            </button>
+          )}
+        </div>
+      )}
       <div className="kpi-grid">
-        <Kpi icon={FileText} label="Reports in period" value={data?.summary.total ?? "—"} tag="Database total" tone="teal" />
-        <Kpi icon={AlertTriangle} label="Reported" value={data?.summary.reported ?? "—"} tag="Needs review" tone="clay" />
-        <Kpi icon={Activity} label="In progress" value={data?.summary.inProgress ?? "—"} tag="Active work" tone="green" />
-        <Kpi icon={CheckCircle2} label="Resolved" value={data?.summary.resolved ?? "—"} tag="Completed" tone="amber" />
+        <Kpi
+          icon={FileText}
+          label="Reports in period"
+          value={currentData?.summary.total ?? "—"}
+          helper="In selected date range"
+          tone="teal"
+        />
+        <Kpi
+          icon={AlertTriangle}
+          label="Reported"
+          value={currentData?.summary.reported ?? "—"}
+          helper="Awaiting action"
+          tone="clay"
+        />
+        <Kpi
+          icon={Activity}
+          label="In progress"
+          value={currentData?.summary.inProgress ?? "—"}
+          helper="Work underway"
+          tone="green"
+        />
+        <Kpi
+          icon={CheckCircle2}
+          label="Resolved"
+          value={currentData?.summary.resolved ?? "—"}
+          helper="Completed reports"
+          tone="amber"
+        />
       </div>
       <div className="analytics-grid">
-        <article className="card analytics-panel">
-          <div className="card-head"><h2>Reports by category</h2><span className="muted">Selected period</span></div>
-          {(data?.categories ?? []).map((item, index) => (
-            <div className="bar-row" key={item.name}>
-              <span>{item.name}</span><div className="bar"><i className={["clay", "amber", "teal", "purple", "green"][index % 5]} style={{ width: `${(Number(item.count) / maxCategory) * 100}%` }} /></div><b>{item.count}</b>
+        <article
+          className={`card analytics-panel ${isAnalyticsPanelEmpty ? "is-empty" : ""}`}
+        >
+          <div className="card-head">
+            <h2>Reports by category</h2>
+            <span className="muted">{reportTotal} reports</span>
+          </div>
+          {categoryRows.map((item, index) => (
+            <div className="bar-row analytics-category-row" key={item.name}>
+              <span>{item.name}</span>
+              <div
+                className="bar"
+                role="img"
+                aria-label={`${item.name}: ${item.count} reports`}
+              >
+                <i
+                  className={
+                    ["clay", "amber", "teal", "purple", "green"][index % 5]
+                  }
+                  style={{ width: `${(item.count / maxCategory) * 100}%` }}
+                />
+              </div>
+              <b>{item.count}</b>
             </div>
           ))}
-          {!data?.categories?.length && <p className="muted">No reports in this period.</p>}
+          {!categoryRows.length && (
+            <p className="analytics-empty-copy">{periodEmptyMessage}</p>
+          )}
+          {!!currentData &&
+            reportTotal > 0 &&
+            categoryRows.some((item) => item.name === "Other categories") && (
+              <p className="analytics-chart-note">
+                Includes reports saved under older or unlisted category names.
+              </p>
+            )}
         </article>
-        <article className="card analytics-panel">
-          <div className="card-head"><h2>Report trend</h2><span className="muted">{data?.periodLabel || "Period"}</span></div>
-          <svg className="trend-chart" viewBox="0 0 260 120" preserveAspectRatio="none" aria-label="Report trend chart">
-            {trendPoints && <polyline points={trendPoints} fill="none" stroke="var(--teal)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />}
-            <line x1="0" y1="105" x2="260" y2="105" stroke="var(--line)" strokeWidth="1" />
-          </svg>
-          <p className="trend-caption">{(data?.trend ?? []).length} time buckets · {data?.summary.total ?? 0} reports</p>
+        <article
+          className={`card analytics-panel ${isAnalyticsPanelEmpty ? "is-empty" : ""}`}
+        >
+          <div className="card-head">
+            <h2>Report trend</h2>
+            <span className="muted">
+              {currentData?.periodLabel || "Selected period"}
+            </span>
+          </div>
+          {trendItems.length ? (
+            <>
+              <svg
+                className="trend-chart"
+                viewBox="0 0 260 105"
+                preserveAspectRatio="none"
+                role="img"
+                aria-labelledby="analytics-trend-title analytics-trend-description"
+              >
+                <title id="analytics-trend-title">Reports over time</title>
+                <desc id="analytics-trend-description">
+                  {trendItems
+                    .map((item) => `${item.label}: ${item.count} reports`)
+                    .join(". ")}
+                </desc>
+                <line
+                  x1="8"
+                  y1="30"
+                  x2="252"
+                  y2="30"
+                  className="trend-grid-line"
+                />
+                <line
+                  x1="8"
+                  y1="59"
+                  x2="252"
+                  y2="59"
+                  className="trend-grid-line"
+                />
+                <line
+                  x1="8"
+                  y1="88"
+                  x2="252"
+                  y2="88"
+                  className="trend-grid-line"
+                />
+                {trendPoints && (
+                  <polyline
+                    points={trendPoints}
+                    fill="none"
+                    stroke="var(--teal)"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                )}
+                {trendCoordinates.map(({ x, y, count }, index) => (
+                  <circle
+                    key={`${trendItems[index].label}-${index}`}
+                    cx={x}
+                    cy={y}
+                    r="3"
+                    fill="var(--teal)"
+                    aria-label={`${count} reports`}
+                  />
+                ))}
+              </svg>
+              <div className="trend-axis-labels" aria-hidden="true">
+                <span>
+                  {formatAnalyticsTrendLabel(trendItems[0].label, period)}
+                </span>
+                {trendItems.length > 1 && (
+                  <span>
+                    {formatAnalyticsTrendLabel(
+                      trendItems[trendItems.length - 1].label,
+                      period,
+                    )}
+                  </span>
+                )}
+              </div>
+              <p className="trend-caption">
+                {trendItems.length}{" "}
+                {trendItems.length === 1
+                  ? "reporting period"
+                  : "reporting periods"}{" "}
+                · {reportTotal} reports
+              </p>
+            </>
+          ) : (
+            <p className="analytics-empty-copy">
+              {reportTotal > 0
+                ? "No trend data is available for this period."
+                : periodEmptyMessage}
+            </p>
+          )}
         </article>
-        <article className="card analytics-panel">
-          <div className="card-head"><h2>Hotspots</h2><span className="muted">Most reported locations</span></div>
-          {(data?.hotspots ?? []).map((item, index) => <div className="hotspot" key={`${item.name}-${item.category}`}><b>{String(index + 1).padStart(2, "0")}</b><span><strong>{item.name}</strong><small>{item.category}</small></span><em>{item.count}</em></div>)}
-          {!data?.hotspots?.length && <p className="muted">No hotspots in this period.</p>}
+        <article
+          className={`card analytics-panel ${isAnalyticsPanelEmpty ? "is-empty" : ""}`}
+        >
+          <div className="card-head">
+            <h2>Hotspots</h2>
+            <span className="muted">Most reported locations</span>
+          </div>
+          {(currentData?.hotspots ?? []).map((item, index) => {
+            const categories = String(item.categories ?? item.category ?? "")
+              .split(",")
+              .map((category) => category.trim())
+              .filter(Boolean);
+            const categorySummary =
+              categories.length > 2
+                ? `${categories.slice(0, 2).join(" · ")} +${categories.length - 2} more`
+                : categories.join(" · ");
+
+            return (
+              <div className="hotspot" key={item.name}>
+                <b>{String(index + 1).padStart(2, "0")}</b>
+                <span>
+                  <strong>{item.name}</strong>
+                  {categorySummary && <small>{categorySummary}</small>}
+                </span>
+                <em>{item.count}</em>
+              </div>
+            );
+          })}
+          {!currentData?.hotspots?.length && (
+            <p className="analytics-empty-copy">
+              {reportTotal > 0
+                ? "Location details are unavailable for these reports."
+                : periodEmptyMessage}
+            </p>
+          )}
         </article>
       </div>
-      <article className="card analytics-panel resident-rating-panel">
-        <div className="card-head"><h2>Resident ratings</h2><span className="muted">Completed report feedback</span></div>
-        <div className="sentiment-gauge"><div className="sentiment-ring"><strong>{data?.ratings.average || "—"}</strong><span>AVG. STAR</span></div></div>
-        <p className="sentiment-note">{data?.ratings.total ?? 0} ratings recorded in the selected period.</p>
+      <article
+        className={`card analytics-panel resident-rating-panel ${!currentData || !Number(currentData.ratings?.total) ? "is-empty" : ""}`}
+      >
+        <div className="card-head">
+          <h2>Resident ratings</h2>
+          <span className="muted">Feedback received in this period</span>
+        </div>
+        {Number(currentData?.ratings?.total) > 0 ? (
+          <>
+            <div className="sentiment-gauge">
+              <div
+                className="sentiment-ring"
+                style={{
+                  "--rating-angle": `${Math.min(5, Math.max(0, Number(currentData.ratings.average) || 0)) * 72}deg`,
+                }}
+              >
+                <strong>{currentData.ratings.average}</strong>
+                <span>OUT OF 5</span>
+              </div>
+            </div>
+            <p className="sentiment-note">
+              Average from {currentData.ratings.total} resident{" "}
+              {Number(currentData.ratings.total) === 1 ? "rating" : "ratings"}.
+            </p>
+          </>
+        ) : (
+          <div className="rating-empty-state">
+            <Star size={20} aria-hidden="true" />
+            <strong>No ratings yet</strong>
+            <span>
+              {currentData
+                ? "No resident feedback was recorded for this period."
+                : periodEmptyMessage}
+            </span>
+          </div>
+        )}
       </article>
-      <article className="card analytics-panel thematic-analysis-panel">
+      <article
+        className={`card analytics-panel thematic-analysis-panel ${isAnalyticsPanelEmpty ? "is-empty" : ""}`}
+      >
         <div className="card-head">
           <h2>Thematic analysis</h2>
-          <span className="muted">{data?.summary.total ?? 0} reports analyzed</span>
+          <span className="muted">{reportTotal} reports analyzed</span>
         </div>
         <p className="thematic-analysis-note">
-          Primary themes are identified from report categories, titles, and descriptions. Each report is counted once.
+          Primary themes are identified from report categories, titles, and
+          descriptions. Each report is counted once.
         </p>
-        {(data?.themes ?? []).map((theme, index) => (
+        {(currentData?.themes ?? []).map((theme, index) => (
           <div className="thematic-row" key={theme.name}>
             <div className="thematic-row-heading">
               <strong>{theme.name}</strong>
-              <span>{theme.count} · {theme.percentage}%</span>
+              <span>
+                {theme.count} · {theme.percentage}%
+              </span>
             </div>
-            <div className="thematic-track" aria-label={`${theme.name}: ${theme.count} reports, ${theme.percentage}%`}>
-              <i className={["clay", "amber", "teal", "purple", "green"][index % 5]} style={{ width: `${theme.percentage}%` }} />
+            <div
+              className="thematic-track"
+              aria-label={`${theme.name}: ${theme.count} reports, ${theme.percentage}%`}
+            >
+              <i
+                className={
+                  ["clay", "amber", "teal", "purple", "green"][index % 5]
+                }
+                style={{ width: `${theme.percentage}%` }}
+              />
             </div>
             <small>{theme.description}</small>
           </div>
         ))}
-        {!data?.themes?.length && <p className="muted">No reports to analyze in this period.</p>}
+        {!currentData?.themes?.length && (
+          <p className="analytics-empty-copy">
+            {reportTotal > 0
+              ? "No report themes were identified for this period."
+              : periodEmptyMessage}
+          </p>
+        )}
       </article>
     </>
   );

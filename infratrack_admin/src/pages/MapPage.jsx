@@ -2,7 +2,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import L, { divIcon } from "leaflet";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import { MapContainer, Marker, Popup, TileLayer, ZoomControl, useMap } from "react-leaflet";
-import { Search, X } from "lucide-react";
+import {
+  Building2,
+  Droplets,
+  Layers3,
+  Lightbulb,
+  Road,
+  Search,
+  X,
+  Zap,
+} from "lucide-react";
 
 import { getBarangayMapCenter, normalizeBarangayName } from "../barangayMap";
 import { searchAddressLocations } from "../mapSearch";
@@ -10,6 +19,15 @@ import {
   normalizeReportCategory,
   REPORT_CATEGORIES,
 } from "../../reportCategories.js";
+
+const categoryIcons = {
+  all: Layers3,
+  Roads: Road,
+  "Public Buildings": Building2,
+  Streetlights: Lightbulb,
+  "Electric Poles": Zap,
+  Drainage: Droplets,
+};
 
 let markerClusterPluginPromise;
 
@@ -375,24 +393,31 @@ export default function MapPage({ onOpenIssue, issues = [], user }) {
 
   return (
     <article className="card full-map">
-      <div className="card-head">
-        <h2>{user?.barangay ? `${user.barangay} infrastructure map` : "City-wide infrastructure map"}</h2>
-        <div className="filters" style={{ marginBottom: 0 }}>
+      <div className="card-head map-page-heading">
+        <div className="map-page-title">
+          <h2>{user?.barangay ? `${user.barangay} infrastructure map` : "City-wide infrastructure map"}</h2>
+          <span className="map-filter-count" aria-live="polite">
+            Showing {filteredIssues.length} {filteredIssues.length === 1 ? "report" : "reports"}
+          </span>
+        </div>
+        <div className="filters map-category-filters" role="group" aria-label="Filter map by report category">
           {[
-            ["all", "All issues"],
+            { value: "all", label: "All reports", icon: categoryIcons.all },
             ...REPORT_CATEGORIES.map((reportCategory) => ({
               value: reportCategory,
               label: reportCategory,
+              icon: categoryIcons[reportCategory],
             })),
-          ].map(({ value, label }) => (
+          ].map(({ value, label, icon: CategoryIcon }) => (
             <button
               key={value}
               type="button"
-              className={`filter ${category === value ? "active" : ""}`}
+              className={`filter map-category-filter ${category === value ? "active" : ""}`}
               aria-pressed={category === value}
               onClick={() => setCategory(value)}
             >
-              {label}
+              <CategoryIcon size={14} strokeWidth={2} aria-hidden="true" />
+              <span>{label}</span>
             </button>
           ))}
         </div>
