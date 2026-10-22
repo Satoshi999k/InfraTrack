@@ -9859,6 +9859,20 @@ tbody tr:last-child td {
   box-shadow: 0 0 0 3px rgba(92, 190, 137, 0.08);
 }
 
+:root[data-theme="dark"] .dashboard-kpi .kpi-icon.teal {
+  border: 1px solid #34766f;
+  background: #153a3b;
+  color: #70d8cb;
+  box-shadow: 0 0 0 3px rgba(82, 193, 180, 0.08);
+}
+
+:root[data-theme="dark"] .dashboard-kpi .kpi-icon.clay {
+  border: 1px solid #80533f;
+  background: #3b2924;
+  color: #f0a078;
+  box-shadow: 0 0 0 3px rgba(215, 126, 86, 0.08);
+}
+
 :root[data-theme="dark"] .dashboard-kpi .kpi-icon.amber {
   border: 1px solid #80653a;
   background: #3a301f;
