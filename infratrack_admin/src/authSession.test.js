@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { saveAuthSession, clearAuthSession, getStoredAuthSession } from './authSession.js';
+import {
+  saveAuthSession,
+  clearAuthSession,
+  getStoredAuthSession,
+  updateStoredAuthUser,
+} from './authSession.js';
 
 function createStorage() {
   const store = new Map();
@@ -49,6 +54,55 @@ test('non-remembered logins stay in session storage and are not restored automat
   clearAuthSession();
   assert.equal(globalThis.sessionStorage.getItem('infratrack.adminToken'), null);
   assert.equal(globalThis.localStorage.getItem('infratrack.adminToken'), null);
+});
+
+test('profile updates persist with remembered sessions so they survive a page refresh', () => {
+  globalThis.localStorage = createStorage();
+  globalThis.sessionStorage = createStorage();
+  saveAuthSession({
+    token: 'remembered-token',
+    user: { id: 7, name: 'Admin User', role: 'admin' },
+    rememberMe: true,
+  });
+
+  assert.equal(
+    updateStoredAuthUser({
+      id: 7,
+      name: 'Admin User',
+      role: 'admin',
+      avatar_url: '/uploads/profile-photo.jpg',
+    }),
+    true,
+  );
+
+  assert.equal(
+    getStoredAuthSession().user.avatar_url,
+    '/uploads/profile-photo.jpg',
+  );
+  assert.equal(globalThis.sessionStorage.getItem('infratrack.adminUser'), null);
+});
+
+test('profile updates persist with session-only logins', () => {
+  globalThis.localStorage = createStorage();
+  globalThis.sessionStorage = createStorage();
+  saveAuthSession({
+    token: 'session-token',
+    user: { id: 9, name: 'Staff User', role: 'barangay_staff' },
+    rememberMe: false,
+  });
+
+  updateStoredAuthUser({
+    id: 9,
+    name: 'Staff User',
+    role: 'barangay_staff',
+    avatar_url: '/uploads/staff-photo.jpg',
+  });
+
+  assert.equal(
+    getStoredAuthSession().user.avatar_url,
+    '/uploads/staff-photo.jpg',
+  );
+  assert.equal(globalThis.localStorage.getItem('infratrack.adminUser'), null);
 });
 
 test('api requests include the session token when the user did not choose remember me', async () => {

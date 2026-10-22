@@ -64,6 +64,24 @@ export function getStoredAuthSession() {
   };
 }
 
+export function updateStoredAuthUser(user) {
+  if (!globalThis.localStorage || !globalThis.sessionStorage || !user) {
+    return false;
+  }
+
+  if (globalThis.localStorage.getItem(STORAGE_KEYS.token)) {
+    globalThis.localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(user));
+    return true;
+  }
+
+  if (globalThis.sessionStorage.getItem(STORAGE_KEYS.token)) {
+    globalThis.sessionStorage.setItem(STORAGE_KEYS.user, JSON.stringify(user));
+    return true;
+  }
+
+  return false;
+}
+
 export function clearAuthSession() {
   if (!globalThis.localStorage || !globalThis.sessionStorage) {
     return;

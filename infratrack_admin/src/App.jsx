@@ -46,7 +46,11 @@ import AdvisoryPage from "./pages/AdvisoryPage";
 import SettingsPage from "./pages/SettingsPage";
 import Login from "./Login";
 import { API_BASE, apiFetch } from "./api";
-import { clearAuthSession, getStoredAuthSession } from "./authSession";
+import {
+  clearAuthSession,
+  getStoredAuthSession,
+  updateStoredAuthUser,
+} from "./authSession";
 import { canAccessAdminPage, getNavigationGroups } from "./roleNavigation";
 import { startVisiblePolling } from "./visiblePolling";
 import {
@@ -98,6 +102,11 @@ export default function App() {
     setCurrentUser(null);
   };
 
+  const handleUserUpdated = (user) => {
+    updateStoredAuthUser(user);
+    setCurrentUser(user);
+  };
+
   if (!currentUser) {
     return <Login onLogin={handleLogin} />;
   }
@@ -106,7 +115,7 @@ export default function App() {
     <Dashboard
       user={currentUser}
       onLogout={handleLogout}
-      onUserUpdated={setCurrentUser}
+      onUserUpdated={handleUserUpdated}
     />
   );
 }
