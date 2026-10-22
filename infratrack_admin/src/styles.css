@@ -9836,6 +9836,22 @@ tbody tr:last-child td {
     linear-gradient(105deg, color-mix(in srgb, var(--user-accent, #56c2b5) 10%, #16272c) 0%, #16272c 76%);
 }
 
+:root[data-theme="dark"] .overview-date-label {
+  color: #8ce5db;
+}
+
+:root[data-theme="dark"] .overview-attention {
+  border-color: color-mix(in srgb, var(--user-accent, #56c2b5) 52%, #ffffff);
+  background: #203a40;
+  color: #f3f8f8;
+}
+
+:root[data-theme="dark"] .overview-attention.all-clear {
+  border-color: #6fc594;
+  background: #1e352b;
+  color: #e3f6e9;
+}
+
 :root[data-theme="dark"] .overview-operations-snapshot {
   border-color: rgba(255, 255, 255, 0.2);
   background:
