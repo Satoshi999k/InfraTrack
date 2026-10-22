@@ -12,6 +12,7 @@ import {
   describeMysqlDumpNotFound,
   resolveMysqlDumpPath,
 } from "./databaseBackup.js";
+import { serializeAdminAuthUser } from "./authUser.js";
 import ffmpegPath from "ffmpeg-static";
 import { computeDuplicateMatch, escalateIssueSeverity } from "./automation.js";
 import {
@@ -1466,7 +1467,7 @@ async function handleLogin(req, res, { requireRecaptcha, auditAction }) {
   const sessionToken = createSessionToken();
   await pool.query("INSERT INTO admin_sessions (token_hash, user_id, expires_at) VALUES (?, ?, DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 8 HOUR))", [hashSessionToken(sessionToken), user.id]);
   await writeAuditLog(req, { action: auditAction, resourceType: "authentication", actor: user });
-  res.json({ token: sessionToken, user: { id: user.id, name: user.name, email: user.email, barangay: user.barangay, role: user.role, standing: user.standing, suspended_until: user.suspended_until } });
+  res.json({ token: sessionToken, user: serializeAdminAuthUser(user, publicMediaUrl(req, user.avatar_url)) });
 }
 app.post("/api/auth/login", (req, res) => handleLogin(req, res, { requireRecaptcha: true, auditAction: "login" }));
 app.post("/api/mobile/auth/login", (req, res) => handleLogin(req, res, { requireRecaptcha: false, auditAction: "mobile_login" }));
