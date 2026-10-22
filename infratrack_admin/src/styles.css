@@ -9852,6 +9852,20 @@ tbody tr:last-child td {
   color: #e3f6e9;
 }
 
+:root[data-theme="dark"] .dashboard-kpi .kpi-icon.green {
+  border: 1px solid #39765c;
+  background: #17382f;
+  color: #82e0aa;
+  box-shadow: 0 0 0 3px rgba(92, 190, 137, 0.08);
+}
+
+:root[data-theme="dark"] .dashboard-kpi .kpi-icon.amber {
+  border: 1px solid #80653a;
+  background: #3a301f;
+  color: #ffd17a;
+  box-shadow: 0 0 0 3px rgba(236, 186, 92, 0.08);
+}
+
 :root[data-theme="dark"] .overview-operations-snapshot {
   border-color: rgba(255, 255, 255, 0.2);
   background:
