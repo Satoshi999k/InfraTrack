@@ -9849,6 +9849,12 @@ tbody tr:last-child td {
   border-color: var(--line);
 }
 
+:root[data-theme="dark"] .profile-dropdown-avatar {
+  border: 1px solid #4b7f7c;
+  background: linear-gradient(145deg, #1b8a83, #0e5960);
+  color: #ffffff;
+}
+
 :root[data-theme="dark"] .profile-dropdown-user strong,
 :root[data-theme="dark"] .profile-appearance-link {
   color: var(--ink);
