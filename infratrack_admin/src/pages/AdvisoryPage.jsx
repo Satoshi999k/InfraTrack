@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import {
   Camera,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Image,
   Megaphone,
   MapPin,
@@ -15,6 +17,8 @@ import {
 } from "lucide-react";
 import { API_BASE, apiFetch } from "../api";
 import { getAdvisoryAudience, validateAdvisoryDraft } from "../advisoryForm";
+
+const ADVISORIES_PER_PAGE = 6;
 
 const typeMeta = {
   alert: ["Advertisement", Image],
@@ -32,6 +36,7 @@ export default function AdvisoryPage({ publishedOnly = false, onNotify, onViewAl
   const [published, setPublished] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [advisories, setAdvisories] = useState([]);
+  const [advisoryPage, setAdvisoryPage] = useState(1);
   const [isLoadingAdvisories, setIsLoadingAdvisories] = useState(true);
   const [editingAdvisory, setEditingAdvisory] = useState(null);
   const [error, setError] = useState("");
@@ -129,6 +134,18 @@ export default function AdvisoryPage({ publishedOnly = false, onNotify, onViewAl
     return () => window.clearTimeout(timeoutId);
   }, [published]);
 
+  const totalAdvisoryPages = Math.max(
+    1,
+    Math.ceil(advisories.length / ADVISORIES_PER_PAGE),
+  );
+  const currentAdvisoryPage = Math.min(advisoryPage, totalAdvisoryPages);
+
+  useEffect(() => {
+    if (advisoryPage > totalAdvisoryPages) {
+      setAdvisoryPage(totalAdvisoryPages);
+    }
+  }, [advisoryPage, totalAdvisoryPages]);
+
   const publish = async () => {
     if (publishInFlight.current) return;
     const validationError = validateAdvisoryDraft(title, message);
@@ -221,37 +238,53 @@ export default function AdvisoryPage({ publishedOnly = false, onNotify, onViewAl
     }
   };
 
-  const displayedAdvisories = publishedOnly ? advisories : advisories.slice(0, 2);
+  const displayedAdvisories = publishedOnly
+    ? advisories.slice(
+        (currentAdvisoryPage - 1) * ADVISORIES_PER_PAGE,
+        currentAdvisoryPage * ADVISORIES_PER_PAGE,
+      )
+    : advisories.slice(0, 2);
+  const firstVisibleAdvisory = advisories.length
+    ? (currentAdvisoryPage - 1) * ADVISORIES_PER_PAGE + 1
+    : 0;
+  const lastVisibleAdvisory = publishedOnly
+    ? Math.min(currentAdvisoryPage * ADVISORIES_PER_PAGE, advisories.length)
+    : displayedAdvisories.length;
   const hasVideoPendingConversion = media?.kind === "video";
 
   return (
     <div className={`advisory-grid ${publishedOnly ? "published-advisory-page" : ""}`}>
-      {!publishedOnly && <article className="card form-card">
+      {!publishedOnly && <article className="card form-card advisory-composer">
         <div className="card-head">
-          <h2>New advisory</h2>
+          <div className="advisory-panel-heading">
+            <h2>New advisory</h2>
+            <p>Share a clear update with the selected residents.</p>
+          </div>
         </div>
         <label>Advisory type</label>
-        <div className="type-picker">
-          <button type="button" className={type === "advertisement" ? "selected advertisement" : "advertisement"} onClick={() => setType("advertisement")}>
+        <div className="type-picker" role="group" aria-label="Advisory type">
+          <button type="button" aria-pressed={type === "advertisement"} className={type === "advertisement" ? "selected advertisement" : "advertisement"} onClick={() => setType("advertisement")}>
             <Image size={16} strokeWidth={2.2} /> Advertisement
           </button>
-          <button type="button" className={type === "maint" ? "selected maint" : "maint"} onClick={() => setType("maint")}>
+          <button type="button" aria-pressed={type === "maint"} className={type === "maint" ? "selected maint" : "maint"} onClick={() => setType("maint")}>
             <Wrench size={16} strokeWidth={2.2} /> Maintenance
           </button>
-          <button type="button" className={type === "gen" ? "selected gen" : "gen"} onClick={() => setType("gen")}>
+          <button type="button" aria-pressed={type === "gen"} className={type === "gen" ? "selected gen" : "gen"} onClick={() => setType("gen")}>
             <Megaphone className="announcement-icon" size={17} strokeWidth={2.4} /> Announcement
           </button>
         </div>
-        <label>Title</label>
+        <label htmlFor="advisory-title">Title</label>
         <input
+          id="advisory-title"
           required
           aria-invalid={Boolean(error && !title.trim())}
           value={title}
           onChange={(event) => { setTitle(event.target.value); setError(""); }}
           placeholder="e.g. Flash flood advisory"
         />
-        <label>Message</label>
+        <label htmlFor="advisory-message">Message</label>
         <textarea
+          id="advisory-message"
           required
           aria-invalid={Boolean(error && !message.trim())}
           value={message}
@@ -326,7 +359,10 @@ export default function AdvisoryPage({ publishedOnly = false, onNotify, onViewAl
 
       <article className={`card ${publishedOnly ? "published-advisory-list" : ""}`}>
         <div className="card-head">
-          <h2>{publishedOnly ? "All published advisories" : "Published advisories"}</h2>
+          <div className="advisory-panel-heading">
+            <h2>{publishedOnly ? "All published advisories" : "Published advisories"}</h2>
+            {!publishedOnly && <p>Recent updates shown in the resident app.</p>}
+          </div>
           {publishedOnly ? (
             <span className="muted">{isLoadingAdvisories ? "Loading…" : `${advisories.length} published`}</span>
           ) : (
@@ -369,10 +405,17 @@ export default function AdvisoryPage({ publishedOnly = false, onNotify, onViewAl
               <div className="advisory-card-footer">
                 <small>{advisory.created_at ? new Date(advisory.created_at).toLocaleString() : "Recently issued"}</small>
                 <span>
-                  <button type="button" onClick={() => openEdit(advisory)}><Pencil size={14} /></button>
                   <button
                     type="button"
-                    aria-label={archivingAdvisoryId === advisory.id ? "Archiving advisory" : "Archive advisory"}
+                    aria-label={`Edit advisory: ${advisory.title}`}
+                    title="Edit advisory"
+                    onClick={() => openEdit(advisory)}
+                  >
+                    <Pencil size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={archivingAdvisoryId === advisory.id ? "Archiving advisory" : `Archive advisory: ${advisory.title}`}
                     title={archivingAdvisoryId === advisory.id ? "Archiving…" : "Archive advisory"}
                     disabled={archivingAdvisoryId !== null}
                     onClick={() => deleteAdvisory(advisory.id)}
@@ -385,6 +428,37 @@ export default function AdvisoryPage({ publishedOnly = false, onNotify, onViewAl
           );
         })}
         </div>
+        {publishedOnly && !isLoadingAdvisories && advisories.length > 0 && (
+          <div className="advisory-pagination">
+            <span>
+              Showing {firstVisibleAdvisory}–{lastVisibleAdvisory} of{" "}
+              {advisories.length} advisories
+            </span>
+            {totalAdvisoryPages > 1 && (
+              <nav className="advisory-pagination-controls" aria-label="Published advisory pages">
+                <button
+                  type="button"
+                  aria-label="Previous page"
+                  disabled={currentAdvisoryPage === 1}
+                  onClick={() => setAdvisoryPage(currentAdvisoryPage - 1)}
+                >
+                  <ChevronLeft size={15} aria-hidden="true" />
+                </button>
+                <span aria-live="polite">
+                  Page {currentAdvisoryPage} of {totalAdvisoryPages}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Next page"
+                  disabled={currentAdvisoryPage === totalAdvisoryPages}
+                  onClick={() => setAdvisoryPage(currentAdvisoryPage + 1)}
+                >
+                  <ChevronRight size={15} aria-hidden="true" />
+                </button>
+              </nav>
+            )}
+          </div>
+        )}
       </article>
 
       {editingAdvisory && createPortal(

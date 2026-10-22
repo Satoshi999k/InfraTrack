@@ -1,9 +1,27 @@
 import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
 import { CircleMarker, MapContainer, TileLayer } from "react-leaflet";
-import { ExternalLink, MapPin, X } from "lucide-react";
+import {
+  Check,
+  Contrast,
+  ExternalLink,
+  Monitor,
+  Moon,
+  Palette,
+  RotateCcw,
+  Sun,
+  Type,
+  MapPin,
+  X,
+} from "lucide-react";
 import { API_BASE, apiFetch } from "../api";
 import { canManageSystemSettings } from "../../permissions";
+import {
+  ACCENT_COLORS,
+  readAppearance,
+  saveAppearance,
+  DEFAULT_APPEARANCE,
+} from "../appearance";
 
 const defaultSettings = {
   liveNotifications: true,
@@ -29,8 +47,10 @@ export default function SettingsPage({ user, logsOnly = false }) {
   const canManageSettings = canManageSystemSettings(user?.role);
   const [settings, setSettings] = useState(defaultSettings);
   const [saved, setSaved] = useState(false);
+  const [settingsDirty, setSettingsDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [settingsError, setSettingsError] = useState("");
+  const [appearance, setAppearance] = useState(readAppearance);
   const [passwords, setPasswords] = useState({ current: "", next: "", confirm: "" });
   const [passwordMessage, setPasswordMessage] = useState("");
   const [dataMessage, setDataMessage] = useState("");
@@ -164,6 +184,32 @@ export default function SettingsPage({ user, logsOnly = false }) {
   const toggle = (key) => {
     setSettings((current) => ({ ...current, [key]: !current[key] }));
     setSaved(false);
+    setSettingsDirty(true);
+    setSettingsError("");
+  };
+
+  const updateAppearance = (key, value, transitionOrigin = null) => {
+    const next = { ...appearance, [key]: value };
+    saveAppearance(
+      next,
+      localStorage,
+      document.documentElement,
+      window.matchMedia("(prefers-color-scheme: dark)").matches,
+      true,
+      transitionOrigin,
+    );
+    setAppearance(next);
+  };
+
+  const resetAppearance = () => {
+    const next = saveAppearance(
+      DEFAULT_APPEARANCE,
+      localStorage,
+      document.documentElement,
+      window.matchMedia("(prefers-color-scheme: dark)").matches,
+      true,
+    );
+    setAppearance(next);
   };
 
   const saveSettings = async () => {
@@ -180,6 +226,7 @@ export default function SettingsPage({ user, logsOnly = false }) {
       if (!response.ok) throw new Error(data.error || "Could not save system settings");
       setSettings((current) => ({ ...current, ...data.settings }));
       setSaved(true);
+      setSettingsDirty(false);
     } catch (error) {
       setSettingsError(error.message);
     } finally {
@@ -251,14 +298,182 @@ export default function SettingsPage({ user, logsOnly = false }) {
           <h2>{isBarangayStaff ? "Account settings" : "System settings"}</h2>
           <p>{isBarangayStaff ? "Review your assigned barangay and secure your account." : "Manage dashboard behavior and notification preferences."}</p>
         </div>
-        {canManageSettings && <button type="button" className="primary-button" onClick={saveSettings} disabled={saving}>
-          {saving ? "Saving…" : saved ? "Saved" : "Save changes"}
+        {canManageSettings && <button type="button" className="primary-button settings-save-button" onClick={saveSettings} disabled={saving || !settingsDirty}>
+          {saving ? "Saving…" : saved ? "Saved" : settingsDirty ? "Save changes" : "Settings saved"}
         </button>}
       </div>}
 
-      {settingsError && !logsOnly && canManageSettings && <p role="alert" style={{ color: "#9f351e", marginBottom: 16 }}>{settingsError}</p>}
+      {settingsError && !logsOnly && canManageSettings && <p className="settings-error" role="alert">{settingsError}</p>}
 
       {!logsOnly && <div className={`settings-grid ${isBarangayStaff ? "account-settings-grid" : ""}`}>
+        <section className="card settings-card appearance-settings-card" aria-labelledby="appearance-title">
+          <div className="card-head">
+            <div>
+              <h3 id="appearance-title">Appearance</h3>
+              <p>Personalize how InfraTrack looks on this device.</p>
+            </div>
+            <button
+              className="appearance-reset-button"
+              type="button"
+              onClick={resetAppearance}
+              disabled={
+                JSON.stringify(appearance) === JSON.stringify(DEFAULT_APPEARANCE)
+              }
+            >
+              <RotateCcw size={14} aria-hidden="true" />
+              Reset to defaults
+            </button>
+          </div>
+          <div className="appearance-section">
+            <h4><Sun size={15} aria-hidden="true" /> Theme</h4>
+            <div className="appearance-theme-options" role="group" aria-label="Color theme">
+              {[
+                { value: "light", label: "Light", Icon: Sun },
+                { value: "dark", label: "Dark", Icon: Moon },
+                { value: "system", label: "System", Icon: Monitor },
+              ].map(({ value, label, Icon }) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={`appearance-theme-option ${appearance.theme === value ? "selected" : ""}`}
+                  aria-pressed={appearance.theme === value}
+                  onClick={(event) =>
+                    updateAppearance("theme", value, event.currentTarget)
+                  }
+                >
+                  <span className={`appearance-preview appearance-preview-${value}`} aria-hidden="true">
+                    <i /><i /><i />
+                  </span>
+                  <span className="appearance-choice-label"><Icon size={14} /> {label}</span>
+                  <small>
+                    {value === "light" ? "Bright and clear" : value === "dark" ? "Comfortable in low light" : "Follows your device"}
+                  </small>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="appearance-section">
+            <h4><Palette size={15} aria-hidden="true" /> Accent color</h4>
+            <div className="appearance-accent-options" role="group" aria-label="Accent color">
+              {[
+                ["teal", "InfraTrack"],
+                ["blue", "Blue"],
+                ["emerald", "Emerald"],
+                ["violet", "Violet"],
+                ["amber", "Amber"],
+                ["rose", "Rose"],
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={`appearance-accent-option ${appearance.accent === value ? "selected" : ""}`}
+                  aria-label={`${label} accent`}
+                  aria-pressed={appearance.accent === value}
+                  onClick={() => updateAppearance("accent", value)}
+                >
+                  <span style={{ "--swatch-color": ACCENT_COLORS[value].value }}>
+                    {appearance.accent === value && <Check size={15} aria-hidden="true" />}
+                  </span>
+                  <small>{label}</small>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="appearance-section">
+            <h4><Type size={15} aria-hidden="true" /> Typeface</h4>
+            <div className="appearance-typeface-options" role="group" aria-label="Typeface">
+              {[
+                ["inter", "Inter", "The InfraTrack default"],
+                ["system", "System UI", "Native to your device"],
+                ["arial", "Arial", "A familiar sans serif"],
+                ["roboto", "Roboto", "Clean and easy to scan"],
+                ["lato", "Lato", "Warm and approachable"],
+                ["open-sans", "Open Sans", "Clear and highly readable"],
+                ["poppins", "Poppins", "Geometric and modern"],
+                ["nunito", "Nunito", "Friendly and rounded"],
+              ].map(([value, label, description]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={`appearance-typeface-option typeface-${value} ${appearance.typeface === value ? "selected" : ""}`}
+                  aria-pressed={appearance.typeface === value}
+                  onClick={() => updateAppearance("typeface", value)}
+                >
+                  <strong>Aa</strong>
+                  <span><b>{label}</b><small>{description}</small></span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="appearance-section">
+            <h4><Type size={15} aria-hidden="true" /> Text size</h4>
+            <div className="appearance-detail-options" role="group" aria-label="Text size">
+              {[
+                ["compact", "Compact", "More content, less space"],
+                ["regular", "Regular", "The balanced default"],
+                ["large", "Large", "Easier to read"],
+              ].map(([value, label, description]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={`appearance-detail-option appearance-text-size-option text-size-${value} ${appearance.textSize === value ? "selected" : ""}`}
+                  aria-pressed={appearance.textSize === value}
+                  onClick={() => updateAppearance("textSize", value)}
+                >
+                  <span className="appearance-text-sample" aria-hidden="true">
+                    <strong>Aa</strong>
+                    <small>The quick brown fox jumps</small>
+                  </span>
+                  <span className="appearance-detail-label">{label}</span>
+                  <small>{description}</small>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="appearance-section">
+            <h4><span className="appearance-corners-icon" aria-hidden="true" /> Corners</h4>
+            <div className="appearance-detail-options" role="group" aria-label="Corner style">
+              {[
+                ["square", "Square", "Crisp, minimal edges"],
+                ["rounded", "Rounded", "The balanced default"],
+                ["soft", "Soft", "A gentler, softer feel"],
+              ].map(([value, label, description]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={`appearance-detail-option appearance-corner-option corner-${value} ${appearance.corners === value ? "selected" : ""}`}
+                  aria-pressed={appearance.corners === value}
+                  onClick={() => updateAppearance("corners", value)}
+                >
+                  <span className="appearance-corner-sample" aria-hidden="true" />
+                  <span className="appearance-detail-label">{label}</span>
+                  <small>{description}</small>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="appearance-section">
+            <h4><Contrast size={15} aria-hidden="true" /> Contrast</h4>
+            <div className="appearance-contrast-control">
+              <span>
+                <strong>High contrast</strong>
+                <small>Strengthen text and control boundaries for readability.</small>
+              </span>
+              <button
+                className={`appearance-contrast-toggle ${appearance.highContrast ? "on" : ""}`}
+                type="button"
+                role="switch"
+                aria-label="High contrast"
+                aria-checked={appearance.highContrast}
+                onClick={() =>
+                  updateAppearance("highContrast", !appearance.highContrast)
+                }
+              >
+                <span />
+              </button>
+            </div>
+          </div>
+        </section>
         {!isBarangayStaff && <>
         <article className="card settings-card">
           <div className="card-head">
@@ -270,7 +485,7 @@ export default function SettingsPage({ user, logsOnly = false }) {
               <strong>Live notifications</strong>
               <small>Show new issue alerts in real time.</small>
             </div>
-            <button type="button" className={`toggle ${settings.liveNotifications ? "on" : ""}`} onClick={() => toggle("liveNotifications")}>
+            <button type="button" role="switch" aria-label="Live notifications" aria-checked={settings.liveNotifications} disabled={saving} className={`toggle ${settings.liveNotifications ? "on" : ""}`} onClick={() => toggle("liveNotifications")}>
               <span />
             </button>
           </div>
@@ -280,7 +495,7 @@ export default function SettingsPage({ user, logsOnly = false }) {
               <strong>Email digest</strong>
               <small>Send a summary every morning.</small>
             </div>
-            <button type="button" className={`toggle ${settings.emailDigest ? "on" : ""}`} onClick={() => toggle("emailDigest")}>
+            <button type="button" role="switch" aria-label="Email digest" aria-checked={settings.emailDigest} disabled={saving} className={`toggle ${settings.emailDigest ? "on" : ""}`} onClick={() => toggle("emailDigest")}>
               <span />
             </button>
           </div>
@@ -290,7 +505,7 @@ export default function SettingsPage({ user, logsOnly = false }) {
               <strong>Report alerts</strong>
               <small>Notify the office of critical issues immediately.</small>
             </div>
-            <button type="button" className={`toggle ${settings.reportAlerts ? "on" : ""}`} onClick={() => toggle("reportAlerts")}>
+            <button type="button" role="switch" aria-label="Report alerts" aria-checked={settings.reportAlerts} disabled={saving} className={`toggle ${settings.reportAlerts ? "on" : ""}`} onClick={() => toggle("reportAlerts")}>
               <span />
             </button>
           </div>
@@ -306,7 +521,7 @@ export default function SettingsPage({ user, logsOnly = false }) {
               <strong>Auto-assign high priority issues</strong>
               <small>Assign urgent items to the nearest active crew.</small>
             </div>
-            <button type="button" className={`toggle ${settings.autoAssign ? "on" : ""}`} onClick={() => toggle("autoAssign")}>
+            <button type="button" role="switch" aria-label="Auto-assign high priority issues" aria-checked={settings.autoAssign} disabled={saving} className={`toggle ${settings.autoAssign ? "on" : ""}`} onClick={() => toggle("autoAssign")}>
               <span />
             </button>
           </div>
@@ -316,7 +531,7 @@ export default function SettingsPage({ user, logsOnly = false }) {
               <strong>Require supervisor approval</strong>
               <small>Require validation before closing a case.</small>
             </div>
-            <button type="button" className={`toggle ${settings.requireApproval ? "on" : ""}`} onClick={() => toggle("requireApproval")}>
+            <button type="button" role="switch" aria-label="Require supervisor approval" aria-checked={settings.requireApproval} disabled={saving} className={`toggle ${settings.requireApproval ? "on" : ""}`} onClick={() => toggle("requireApproval")}>
               <span />
             </button>
           </div>
@@ -326,7 +541,7 @@ export default function SettingsPage({ user, logsOnly = false }) {
               <strong>Public advisory alerts</strong>
               <small>Send push notifications for barangay advisories.</small>
             </div>
-            <button type="button" className={`toggle ${settings.publicAdvisoryAlerts ? "on" : ""}`} onClick={() => toggle("publicAdvisoryAlerts")}>
+            <button type="button" role="switch" aria-label="Public advisory alerts" aria-checked={settings.publicAdvisoryAlerts} disabled={saving} className={`toggle ${settings.publicAdvisoryAlerts ? "on" : ""}`} onClick={() => toggle("publicAdvisoryAlerts")}>
               <span />
             </button>
           </div>
@@ -339,9 +554,12 @@ export default function SettingsPage({ user, logsOnly = false }) {
           </div>
           <p style={{ color: "#71808a", marginTop: 0 }}>Change the password used for this account.</p>
           <form onSubmit={changePassword}>
-            <input className="settings-input" type="password" placeholder="Current password" value={passwords.current} onChange={(event) => setPasswords((current) => ({ ...current, current: event.target.value }))} required />
-            <input className="settings-input" type="password" placeholder="New password (8+ characters)" value={passwords.next} onChange={(event) => setPasswords((current) => ({ ...current, next: event.target.value }))} minLength={8} required />
-            <input className="settings-input" type="password" placeholder="Confirm new password" value={passwords.confirm} onChange={(event) => setPasswords((current) => ({ ...current, confirm: event.target.value }))} minLength={8} required />
+            <label className="visually-hidden" htmlFor="settings-current-password">Current password</label>
+            <input id="settings-current-password" className="settings-input" type="password" autoComplete="current-password" placeholder="Current password" value={passwords.current} onChange={(event) => setPasswords((current) => ({ ...current, current: event.target.value }))} required />
+            <label className="visually-hidden" htmlFor="settings-new-password">New password</label>
+            <input id="settings-new-password" className="settings-input" type="password" autoComplete="new-password" placeholder="New password (8+ characters)" value={passwords.next} onChange={(event) => setPasswords((current) => ({ ...current, next: event.target.value }))} minLength={8} required />
+            <label className="visually-hidden" htmlFor="settings-confirm-password">Confirm new password</label>
+            <input id="settings-confirm-password" className="settings-input" type="password" autoComplete="new-password" placeholder="Confirm new password" value={passwords.confirm} onChange={(event) => setPasswords((current) => ({ ...current, confirm: event.target.value }))} minLength={8} required />
             <button type="submit" className="secondary-button">Change password</button>
           </form>
           {passwordMessage && <p role="status" style={{ color: passwordMessage.includes("successfully") && !passwordMessage.includes("but") ? "#1b8a83" : "#9f351e" }}>{passwordMessage}</p>}
@@ -370,7 +588,7 @@ export default function SettingsPage({ user, logsOnly = false }) {
         <article className="card settings-card data-management-card">
           <div className="card-head"><h3>{isBarangayStaff ? "Available response teams" : "Teams & assignments"}</h3></div>
           <p style={{ color: "#71808a", marginTop: 0 }}>{isBarangayStaff ? "Teams available for reports in your assigned barangay." : "Manage the teams available for issue assignment."}</p>
-          {["lgu", "admin"].includes(user?.role) && <form className="team-form" onSubmit={createTeam}><input placeholder="Team name" value={teamForm.name} onChange={(event) => setTeamForm({ ...teamForm, name: event.target.value })} required /><input placeholder="Department" value={teamForm.department} onChange={(event) => setTeamForm({ ...teamForm, department: event.target.value })} /><input placeholder="Contact phone" value={teamForm.contactPhone} onChange={(event) => setTeamForm({ ...teamForm, contactPhone: event.target.value })} /><button className="secondary-button" type="submit">Add team</button></form>}
+          {["lgu", "admin"].includes(user?.role) && <form className="team-form" onSubmit={createTeam}><input aria-label="Team name" placeholder="Team name" value={teamForm.name} onChange={(event) => setTeamForm({ ...teamForm, name: event.target.value })} required /><input aria-label="Department" placeholder="Department" value={teamForm.department} onChange={(event) => setTeamForm({ ...teamForm, department: event.target.value })} /><input aria-label="Contact phone" placeholder="Contact phone" value={teamForm.contactPhone} onChange={(event) => setTeamForm({ ...teamForm, contactPhone: event.target.value })} /><button className="secondary-button" type="submit">Add team</button></form>}
           <div className="team-list">{teams.map((team) => <span key={team.id} className="team-chip"><strong>{team.name}</strong>{team.department && ` · ${team.department}`}</span>)}</div>
         </article>
       </div>}

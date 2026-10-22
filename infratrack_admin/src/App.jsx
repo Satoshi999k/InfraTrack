@@ -6,7 +6,9 @@ import {
   BarChart3,
   Bell,
   Building2,
+  Camera,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   ClipboardList,
   CircleAlert,
@@ -18,14 +20,19 @@ import {
   Map,
   Menu,
   Megaphone,
+  Monitor,
+  Moon,
+  Palette,
   Search,
   Settings,
   Star,
   ScrollText,
+  Sun,
   ShieldAlert,
   TriangleAlert,
   Layers3,
   UserRoundX,
+  UserRound,
   Users,
   Wrench,
 } from "lucide-react";
@@ -41,6 +48,11 @@ import { API_BASE, apiFetch } from "./api";
 import { clearAuthSession, getStoredAuthSession } from "./authSession";
 import { canAccessAdminPage, getNavigationGroups } from "./roleNavigation";
 import { startVisiblePolling } from "./visiblePolling";
+import {
+  initializeAppearance,
+  readAppearance,
+  saveAppearance,
+} from "./appearance";
 import { getDashboardSummary } from "../dashboardSummary.js";
 import {
   formatAnalyticsTrendLabel,
@@ -68,6 +80,8 @@ function Icon({ icon: IconComponent, size = 18 }) {
 }
 
 export default function App() {
+  useEffect(() => initializeAppearance(), []);
+
   const [currentUser, setCurrentUser] = useState(() => {
     const { user } = getStoredAuthSession();
     return user;
@@ -87,7 +101,13 @@ export default function App() {
     return <Login onLogin={handleLogin} />;
   }
 
-  return <Dashboard user={currentUser} onLogout={handleLogout} />;
+  return (
+    <Dashboard
+      user={currentUser}
+      onLogout={handleLogout}
+      onUserUpdated={setCurrentUser}
+    />
+  );
 }
 
 function getAdminBadge(userName, role) {
@@ -117,7 +137,7 @@ async function fetchUserReports(residentId) {
   return data.reports ?? [];
 }
 
-function Dashboard({ user, onLogout }) {
+function Dashboard({ user, onLogout, onUserUpdated }) {
   const userName = user.name || "Operations Team";
   const isBarangayStaff = user.role === "barangay_staff";
   const navGroups = getNavigationGroups(user.role);
@@ -134,6 +154,10 @@ function Dashboard({ user, onLogout }) {
   const [apiError, setApiError] = useState("");
   const [toast, setToast] = useState(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [appearance, setAppearance] = useState(readAppearance);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [profileMenuError, setProfileMenuError] = useState("");
   const [readNotificationIds, setReadNotificationIds] = useState(() => {
     try {
       return JSON.parse(
@@ -144,6 +168,8 @@ function Dashboard({ user, onLogout }) {
     }
   });
   const notificationRef = useRef(null);
+  const profileMenuRef = useRef(null);
+  const profilePhotoInputRef = useRef(null);
   const toastSequence = useRef(0);
   const showToast = (message) =>
     setToast({ id: ++toastSequence.current, message });
@@ -273,6 +299,26 @@ function Dashboard({ user, onLogout }) {
     return () => document.removeEventListener("mousedown", closeNotifications);
   }, []);
 
+  useEffect(() => {
+    const closeProfileMenu = (event) => {
+      if (
+        profileMenuRef.current &&
+        !profileMenuRef.current.contains(event.target)
+      ) {
+        setProfileOpen(false);
+      }
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setProfileOpen(false);
+    };
+    document.addEventListener("mousedown", closeProfileMenu);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeProfileMenu);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, []);
+
   const markNotificationsRead = () => {
     const ids = notifications.map((issue) => issue.public_id);
     setReadNotificationIds((current) => {
@@ -302,6 +348,66 @@ function Dashboard({ user, onLogout }) {
   const handleLogout = () => {
     setDrawer(false);
     onLogout();
+  };
+
+  const openSettings = (focusAppearance = false) => {
+    navigate("settings");
+    setProfileOpen(false);
+    if (focusAppearance) {
+      window.setTimeout(() => {
+        document.getElementById("appearance-title")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }, 0);
+    }
+  };
+
+  const updateProfileTheme = (theme, transitionOrigin) => {
+    const next = saveAppearance(
+      { ...appearance, theme },
+      undefined,
+      undefined,
+      window.matchMedia("(prefers-color-scheme: dark)").matches,
+      true,
+      transitionOrigin,
+    );
+    setAppearance(next);
+  };
+
+  const uploadProfilePhoto = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setProfileMenuError("Choose a JPG, PNG, or WebP profile photo.");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setProfileMenuError("Profile photos must be 8 MB or smaller.");
+      return;
+    }
+
+    setPhotoUploading(true);
+    setProfileMenuError("");
+    try {
+      const body = new FormData();
+      body.append("photo", file);
+      const response = await apiFetch("/mobile/profile/photo", {
+        method: "POST",
+        body,
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Could not save the profile photo.");
+      }
+      onUserUpdated(data.user);
+    } catch (error) {
+      setProfileMenuError(error.message || "Could not save the profile photo.");
+    } finally {
+      setPhotoUploading(false);
+    }
   };
 
   return (
@@ -489,7 +595,110 @@ function Dashboard({ user, onLogout }) {
             >
               <Icon icon={HelpCircle} />
             </button>
-            <div className="admin-avatar">{adminBadge}</div>
+            <div className="profile-menu" ref={profileMenuRef}>
+              <button
+                className={`profile-menu-trigger ${profileOpen ? "active" : ""}`}
+                type="button"
+                aria-label={`Profile menu for ${userName}`}
+                aria-haspopup="dialog"
+                aria-expanded={profileOpen}
+                onClick={() => {
+                  if (!profileOpen) setAppearance(readAppearance());
+                  setProfileMenuError("");
+                  setProfileOpen((open) => !open);
+                }}
+              >
+                <span className="admin-avatar">
+                  {user.avatar_url ? (
+                    <img src={user.avatar_url} alt="" />
+                  ) : (
+                    adminBadge
+                  )}
+                </span>
+                <ChevronDown size={14} aria-hidden="true" />
+              </button>
+              {profileOpen && (
+                <div
+                  className="profile-dropdown"
+                  role="dialog"
+                  aria-label="Profile and appearance"
+                >
+                  <div className="profile-dropdown-identity">
+                    <span className="profile-dropdown-avatar">
+                      {user.avatar_url ? (
+                        <img src={user.avatar_url} alt="" />
+                      ) : (
+                        adminBadge
+                      )}
+                    </span>
+                    <span className="profile-dropdown-user">
+                      <strong>{userName}</strong>
+                      <small>{user.email || (isBarangayStaff ? user.barangay : "Mati City administrator")}</small>
+                    </span>
+                  </div>
+                  <button
+                    className="profile-dropdown-item"
+                    type="button"
+                    onClick={() => openSettings()}
+                  >
+                    <UserRound size={16} aria-hidden="true" />
+                    <span>Account settings</span>
+                  </button>
+                  <button
+                    className="profile-dropdown-item"
+                    type="button"
+                    disabled={photoUploading}
+                    onClick={() => profilePhotoInputRef.current?.click()}
+                  >
+                    <Camera size={16} aria-hidden="true" />
+                    <span>{photoUploading ? "Uploading photo…" : "Change photo"}</span>
+                  </button>
+                  <input
+                    ref={profilePhotoInputRef}
+                    className="profile-photo-input"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    aria-label="Choose a profile photo"
+                    onChange={uploadProfilePhoto}
+                  />
+                  {profileMenuError && (
+                    <p className="profile-menu-error" role="alert">
+                      {profileMenuError}
+                    </p>
+                  )}
+                  <div className="profile-dropdown-divider" />
+                  <div className="profile-theme-picker">
+                    {[
+                      ["light", "Light", Sun],
+                      ["dark", "Dark", Moon],
+                      ["system", "System", Monitor],
+                    ].map(([theme, label, ThemeIcon]) => (
+                      <button
+                        key={theme}
+                        className={`profile-theme-option ${appearance.theme === theme ? "selected" : ""}`}
+                        type="button"
+                        aria-pressed={appearance.theme === theme}
+                        onClick={(event) =>
+                          updateProfileTheme(theme, event.currentTarget)
+                        }
+                      >
+                        <ThemeIcon size={15} aria-hidden="true" />
+                        <span>{label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    className="profile-dropdown-item profile-appearance-link"
+                    type="button"
+                    onClick={() => openSettings(true)}
+                  >
+                    <Palette size={16} aria-hidden="true" />
+                    <span>Appearance settings</span>
+                    <ChevronRight size={15} aria-hidden="true" />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
