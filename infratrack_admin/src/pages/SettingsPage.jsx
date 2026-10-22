@@ -321,8 +321,12 @@ export default function SettingsPage({ user, logsOnly = false }) {
       URL.revokeObjectURL(url);
       setDataMessage("Database backup downloaded successfully.");
     } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Could not connect to the API";
       setDataMessage(
-        `Backup failed: ${error instanceof Error ? error.message : "Could not connect to the API"}`,
+        message.startsWith("Backup failed:")
+          ? message
+          : `Backup failed: ${message}`,
       );
     } finally {
       setBackupPending(false);
