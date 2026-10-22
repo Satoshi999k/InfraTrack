@@ -290,6 +290,7 @@ npm run build
 
 - Deploy the API with its MySQL database and required environment variables. Ensure the deployed mobile and admin clients target that API.
 - The admin's Vite output is `infratrack_admin/dist/`; the Express server serves that directory when present. The API and admin portal can therefore be hosted together or deployed separately with matching API configuration.
+- For a Render native web service that builds from `infratrack_admin/`, keep that directory as the service's **Root Directory**. Render installs the MariaDB client listed in [`infratrack_admin/apt.txt`](./infratrack_admin/apt.txt), which provides the dump utility required by the Create LGU backup action. Redeploy the API after adding this file and the backup code; if the service uses a different Root Directory or a Docker runtime, install a MySQL/MariaDB client in that service's build instead.
 - Deploy the promotional website independently as a static Vite site using `infratrack_website/dist/`.
 - Set `DB_SSL=true` when required by the managed MySQL provider. Configure `TRUST_PROXY=true` only when the API is actually behind a trusted reverse proxy.
 - Configure persistent media storage before using uploads on ephemeral hosting. Configure Brevo variables only if transactional email is enabled.

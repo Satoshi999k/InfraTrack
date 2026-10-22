@@ -42,9 +42,20 @@ test("database backup falls back to PATH when no bundled utility exists", () => 
   );
 });
 
+test("database backup uses MariaDB's dump utility on Linux when available", () => {
+  assert.equal(
+    resolveMysqlDumpPath("/opt/render/project/src/infratrack_admin", {
+      configuredPath: "",
+      platform: "linux",
+      fileExists: (candidate) => candidate === "/usr/bin/mariadb-dump",
+    }),
+    "/usr/bin/mariadb-dump",
+  );
+});
+
 test("missing mysqldump errors explain how to configure the executable", () => {
   assert.match(
     describeMysqlDumpNotFound("mysqldump"),
-    /Set MYSQLDUMP_PATH.*mysqldump\.exe/,
+    /Install the MySQL or MariaDB client.*MYSQLDUMP_PATH/,
   );
 });

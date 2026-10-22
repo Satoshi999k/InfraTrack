@@ -11,21 +11,30 @@ export function resolveMysqlDumpPath(
 ) {
   if (configuredPath?.trim()) return configuredPath.trim();
 
-  const executable = platform === "win32" ? "mysqldump.exe" : "mysqldump";
-  const xamppPath = path.resolve(
-    appDirectory,
-    "..",
-    "..",
-    "..",
-    "mysql",
-    "bin",
-    executable,
-  );
-  if (fileExists(xamppPath)) return xamppPath;
+  if (platform === "win32") {
+    const xamppDumpPath = path.resolve(
+      appDirectory,
+      "..",
+      "..",
+      "..",
+      "mysql",
+      "bin",
+      "mysqldump.exe",
+    );
+    if (fileExists(xamppDumpPath)) return xamppDumpPath;
+  }
 
-  return "mysqldump";
+  const availableCommands =
+    platform === "win32"
+      ? ["mysqldump"]
+      : ["/usr/bin/mysqldump", "/usr/bin/mariadb-dump", "mysqldump", "mariadb-dump"];
+  return (
+    availableCommands.find((command) => command.includes("/") && fileExists(command)) ||
+    availableCommands.find((command) => !command.includes("/")) ||
+    "mysqldump"
+  );
 }
 
 export function describeMysqlDumpNotFound(dumpPath) {
-  return `mysqldump was not found at "${dumpPath}". Set MYSQLDUMP_PATH in infratrack_admin/.env to the full path of mysqldump.exe.`;
+  return `MySQL dump utility was not found at "${dumpPath}". Install the MySQL or MariaDB client, or set MYSQLDUMP_PATH to the full path of mysqldump or mariadb-dump.`;
 }
