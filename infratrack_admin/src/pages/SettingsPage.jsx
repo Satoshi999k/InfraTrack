@@ -50,6 +50,7 @@ export default function SettingsPage({ user, logsOnly = false }) {
   const [passwords, setPasswords] = useState({ current: "", next: "", confirm: "" });
   const [passwordMessage, setPasswordMessage] = useState("");
   const [dataMessage, setDataMessage] = useState("");
+  const [backupPending, setBackupPending] = useState(false);
   const [teams, setTeams] = useState([]);
   const [selectedIpLog, setSelectedIpLog] = useState(null);
   const [teamForm, setTeamForm] = useState({ name: "", department: "", contactPhone: "" });
@@ -302,12 +303,30 @@ export default function SettingsPage({ user, logsOnly = false }) {
   };
 
   const createBackup = async () => {
+    if (backupPending) return;
+    setBackupPending(true);
     setDataMessage("Creating database backup…");
-    const response = await apiFetch("/admin/backup", { method: "POST" });
-    if (!response.ok) { const data = await response.json(); setDataMessage(data.error || "Backup failed"); return; }
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = "infratrack-backup.sql"; link.click(); URL.revokeObjectURL(url);
-    setDataMessage("Database backup downloaded successfully.");
+    try {
+      const response = await apiFetch("/admin/backup", { method: "POST" });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Backup failed");
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "infratrack-backup.sql";
+      link.click();
+      URL.revokeObjectURL(url);
+      setDataMessage("Database backup downloaded successfully.");
+    } catch (error) {
+      setDataMessage(
+        `Backup failed: ${error instanceof Error ? error.message : "Could not connect to the API"}`,
+      );
+    } finally {
+      setBackupPending(false);
+    }
   };
 
   const createTeam = async (event) => {
@@ -611,7 +630,7 @@ export default function SettingsPage({ user, logsOnly = false }) {
           <div className="data-actions">
             <button type="button" className="secondary-button" onClick={() => downloadExport("issues")}>Export issues CSV</button>
             <button type="button" className="secondary-button" onClick={() => downloadExport("users")}>{isBarangayStaff ? "Export residents CSV" : "Export users CSV"}</button>
-            {["lgu", "admin"].includes(user?.role) && <button type="button" className="primary-button" onClick={createBackup}>Create LGU backup</button>}
+            {["lgu", "admin"].includes(user?.role) && <button type="button" className="primary-button" onClick={createBackup} disabled={backupPending}>{backupPending ? "Creating backup…" : "Create LGU backup"}</button>}
           </div>
           {dataMessage && <p role="status" style={{ color: dataMessage.includes("failed") || dataMessage.includes("Could") ? "#9f351e" : "#1b8a83" }}>{dataMessage}</p>}
           {["lgu", "admin"].includes(user?.role) && <details className="restore-instructions"><summary>Restore instructions</summary><p>Stop the InfraTrack API, create a safety copy of the database, then import the downloaded <code>.sql</code> file into the <code>infratrack</code> MySQL database using phpMyAdmin or the MySQL command line. Restart the API and verify the health endpoint.</p></details>}

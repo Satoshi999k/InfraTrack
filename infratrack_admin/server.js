@@ -8,6 +8,10 @@ import mysql from "mysql2/promise";
 import multer from "multer";
 import fs from "node:fs";
 import { spawn } from "node:child_process";
+import {
+  describeMysqlDumpNotFound,
+  resolveMysqlDumpPath,
+} from "./databaseBackup.js";
 import ffmpegPath from "ffmpeg-static";
 import { computeDuplicateMatch, escalateIssueSeverity } from "./automation.js";
 import {
@@ -240,14 +244,22 @@ const isDurableMediaUrl = (value) => {
 const csvValue = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
 function createDatabaseBackup() {
   return new Promise((resolve, reject) => {
-    const dumpPath = process.env.MYSQLDUMP_PATH || "mysqldump";
+    const dumpPath = resolveMysqlDumpPath(__dirname);
     const filePath = path.join(backupDirectory, `infratrack-${new Date().toISOString().replaceAll(/[:.]/g, "-")}.sql`);
     const args = [`--host=${dbConfig.host}`, `--port=${dbConfig.port}`, `--user=${dbConfig.user}`, `--password=${dbConfig.password}`, "--single-transaction", "--routines", dbName];
     const output = fs.createWriteStream(filePath);
     const dump = spawn(dumpPath, args, { windowsHide: true });
     let errorOutput = "";
     dump.stderr.on("data", (chunk) => { errorOutput += chunk.toString(); });
-    dump.on("error", (error) => { output.close(); fs.rm(filePath, { force: true }, () => {}); reject(error); });
+    dump.on("error", (error) => {
+      output.destroy();
+      fs.rm(filePath, { force: true }, () => {});
+      reject(
+        error.code === "ENOENT"
+          ? new Error(describeMysqlDumpNotFound(dumpPath))
+          : error,
+      );
+    });
     dump.on("close", (code) => {
       output.close();
       if (code !== 0) { fs.rm(filePath, { force: true }, () => {}); return reject(new Error(errorOutput || `mysqldump exited with code ${code}`)); }
