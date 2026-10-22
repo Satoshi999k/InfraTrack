@@ -20,6 +20,7 @@ import {
   Map,
   Megaphone,
   ScrollText,
+  Send,
   ShieldAlert,
   ShieldCheck,
   Users,
@@ -27,7 +28,9 @@ import {
 } from "lucide-react";
 import { apiFetch } from "../api";
 import { progressUpdateError } from "../../progressWorkflow.js";
+import { isReportDiscussionOpen, REPORT_COMMENT_MAX_LENGTH } from "../../reportDiscussion.js";
 import { REPORT_CATEGORIES } from "../../reportCategories.js";
+import { startVisiblePolling } from "../visiblePolling.js";
 
 export function Modal({
   data,
@@ -519,6 +522,11 @@ export function IssueModal({ data, onClose, onSave }) {
     Number(data.progress_percentage) || 0,
   );
   const [progressNote, setProgressNote] = useState("");
+  const [discussion, setDiscussion] = useState([]);
+  const [discussionLoading, setDiscussionLoading] = useState(true);
+  const [discussionError, setDiscussionError] = useState("");
+  const [reply, setReply] = useState("");
+  const [isPostingReply, setIsPostingReply] = useState(false);
   const [note, setNote] = useState("");
   const [validationError, setValidationError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -530,6 +538,78 @@ export function IssueModal({ data, onClose, onSave }) {
   const [mediaError, setMediaError] = useState(false);
   const beforePhotoInput = useRef(null);
   const afterPhotoInput = useRef(null);
+
+  useEffect(() => {
+    if (!data.id) return undefined;
+    let active = true;
+    setDiscussion([]);
+    setDiscussionError("");
+    setDiscussionLoading(true);
+    const refreshDiscussion = async () => {
+      try {
+        const response = await apiFetch(
+          `/issues/${encodeURIComponent(data.id)}/discussion`,
+        );
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.error || "Could not load the discussion.");
+        }
+        if (active) {
+          setDiscussion(result.comments ?? []);
+          setDiscussionError("");
+        }
+      } catch (error) {
+        if (active) {
+          setDiscussionError(
+            error instanceof Error
+              ? error.message
+              : "Could not load the discussion.",
+          );
+        }
+      } finally {
+        if (active) setDiscussionLoading(false);
+      }
+    };
+    const stopPolling = startVisiblePolling(refreshDiscussion, {
+      documentRef: document,
+      intervalMs: 15000,
+    });
+
+    return () => {
+      active = false;
+      stopPolling();
+    };
+  }, [data.id]);
+
+  const postDiscussionReply = async (event) => {
+    event.preventDefault();
+    const body = reply.trim();
+    if (!body || isPostingReply) return;
+    setIsPostingReply(true);
+    setDiscussionError("");
+    try {
+      const response = await apiFetch(
+        `/issues/${encodeURIComponent(data.id)}/discussion`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ body }),
+        },
+      );
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Could not send your reply.");
+      }
+      setDiscussion((current) => [...current, result.comment]);
+      setReply("");
+    } catch (error) {
+      setDiscussionError(
+        error instanceof Error ? error.message : "Could not send your reply.",
+      );
+    } finally {
+      setIsPostingReply(false);
+    }
+  };
 
   const saveChanges = async (changes, archiving = false) => {
     setIsSaving(true);
@@ -742,9 +822,15 @@ export function IssueModal({ data, onClose, onSave }) {
                 <div className="discussion-section-heading">
                   <div>
                     <h3>Official discussion</h3>
-                    <p>Updates visible to the resident and assigned staff.</p>
+                    <p>
+                      Publicly viewable; only the reporter and response team can
+                      reply.
+                    </p>
                   </div>
-                  <span className="semi-public-tag">Semi-public</span>
+                  <span className="semi-public-tag">
+                    Semi-public · {discussion.length} repl
+                    {discussion.length === 1 ? "y" : "ies"}
+                  </span>
                 </div>
                 <div className="discussion resident">
                   <div className="discussion-head">
@@ -770,9 +856,85 @@ export function IssueModal({ data, onClose, onSave }) {
                     <p>{data.latest_event_note}</p>
                   </div>
                 )}
-                <p className="discussion-readonly">
-                  Replies are not available from this view.
-                </p>
+                <div
+                  className="discussion-stream"
+                  aria-live="polite"
+                  aria-busy={discussionLoading}
+                >
+                  {discussion.map((comment) => (
+                    <article
+                      className={`discussion ${comment.author_role === "resident" ? "resident" : "official"}`}
+                      key={comment.id}
+                    >
+                      <div className="discussion-head">
+                        <b>
+                          {comment.author_role === "resident"
+                            ? comment.author_name || "Resident"
+                            : comment.author_name || "InfraTrack Staff"}
+                        </b>
+                        <small>
+                          {comment.created_at
+                            ? new Date(comment.created_at).toLocaleString()
+                            : "Recently"}
+                        </small>
+                      </div>
+                      <p>{comment.body}</p>
+                    </article>
+                  ))}
+                  {discussionLoading && (
+                    <p className="discussion-readonly" role="status">
+                      Loading discussion…
+                    </p>
+                  )}
+                  {!discussionLoading && !discussion.length && (
+                    <p className="discussion-readonly">
+                      No replies yet. Start the official follow-up here.
+                    </p>
+                  )}
+                </div>
+                {discussionError && (
+                  <p className="form-error" role="alert">
+                    {discussionError}
+                  </p>
+                )}
+                {isReportDiscussionOpen(status) ? (
+                  <form
+                    className="discussion-reply"
+                    onSubmit={postDiscussionReply}
+                  >
+                    <label htmlFor="report-discussion-reply">
+                      Reply as response team
+                    </label>
+                    <textarea
+                      id="report-discussion-reply"
+                      value={reply}
+                      onChange={(event) => setReply(event.target.value)}
+                      maxLength={REPORT_COMMENT_MAX_LENGTH}
+                      placeholder="Share a clear progress update or ask the reporter for more details…"
+                      rows={3}
+                      required
+                    />
+                    <div className="discussion-reply-footer">
+                      <small>
+                        {reply.length}/{REPORT_COMMENT_MAX_LENGTH} · Visible to
+                        public viewers
+                      </small>
+                      <button
+                        className="primary-button"
+                        type="submit"
+                        disabled={!reply.trim() || isPostingReply}
+                      >
+                        <Send size={15} />
+                        {isPostingReply ? "Sending…" : "Send reply"}
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <p className="discussion-readonly">
+                    Replies are closed because this report is no longer
+                    unresolved.
+                  </p>
+                )}
               </div>
             </div>
             <div className="modal-section case-management">

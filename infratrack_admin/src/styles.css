@@ -8748,6 +8748,23 @@ tbody tr:last-child td {
   background: #f0f8f6;
 }
 
+.discussion-stream {
+  display: grid;
+  max-height: 320px;
+  gap: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 3px;
+}
+
+.discussion-stream .discussion:first-child {
+  margin-top: 12px;
+}
+
+.discussion-stream .discussion {
+  margin-top: 8px;
+}
+
 .issue-detail-modal .discussion-head {
   align-items: flex-start;
 }
@@ -8782,6 +8799,69 @@ tbody tr:last-child td {
   color: var(--muted);
   font-size: calc((11px) * var(--appearance-text-scale, 1));
   line-height: 1.5;
+}
+
+.discussion-reply {
+  margin-top: 14px;
+  padding: 13px;
+  border: 1px solid #d9e7e3;
+  border-radius: 12px;
+  background: #f4f8f6;
+}
+
+.discussion-reply label {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--navy);
+  font-size: calc(11px * var(--appearance-text-scale, 1));
+  font-weight: 700;
+}
+
+.discussion-reply textarea {
+  width: 100%;
+  min-height: 84px;
+  resize: vertical;
+  border: 1px solid #d5ddd7;
+  border-radius: 9px;
+  padding: 10px 11px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: calc(12px * var(--appearance-text-scale, 1));
+  line-height: 1.5;
+}
+
+.discussion-reply textarea:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--teal) 40%, transparent);
+  outline-offset: 2px;
+}
+
+.discussion-reply-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 9px;
+}
+
+.discussion-reply-footer small {
+  color: var(--muted);
+  font-size: calc(10px * var(--appearance-text-scale, 1));
+  line-height: 1.4;
+}
+
+.discussion-reply-footer .primary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 8px 12px;
+}
+
+.discussion-reply-footer .primary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .issue-detail-modal .case-management {
@@ -8988,6 +9068,27 @@ tbody tr:last-child td {
   color: var(--muted);
 }
 
+:root[data-theme="dark"] .issue-detail-modal .discussion-head b,
+:root[data-theme="dark"] .discussion-reply label {
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .issue-detail-modal .discussion.official {
+  border-color: #38645e;
+  background: #173a3a;
+}
+
+:root[data-theme="dark"] .discussion-reply {
+  border-color: var(--line);
+  background: #172b30;
+}
+
+:root[data-theme="dark"] .discussion-reply textarea {
+  border-color: var(--line);
+  background: #102328;
+  color: var(--ink);
+}
+
 :root[data-theme="dark"] .issue-modal-footer {
   border-color: var(--line);
   background: #16272c;
@@ -9174,6 +9275,15 @@ tbody tr:last-child td {
 
   .issue-detail-modal .discussion-head small {
     text-align: left;
+  }
+
+  .discussion-reply-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .discussion-reply-footer .primary-button {
+    width: 100%;
   }
 
   .issue-modal-footer {

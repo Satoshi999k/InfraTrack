@@ -40,6 +40,11 @@ import {
 } from "./progressWorkflow.js";
 import { verificationApprovalNotification } from "./verificationNotifications.js";
 import {
+  canReplyToReport,
+  isReportDiscussionOpen,
+  validateReportComment,
+} from "./reportDiscussion.js";
+import {
   aggregateReportCategories,
   normalizeReportCategory,
   REPORT_CATEGORIES,
@@ -769,7 +774,12 @@ app.use(async (req, res, next) => {
     "/api/mobile/advisories",
   ]);
   const isMobileRoute = req.path.startsWith("/api/mobile/");
-  const isPublicMobileRoute = req.method === "GET" && publicMobileRoutes.has(req.path);
+  const isPublicDiscussionRead =
+    req.method === "GET" &&
+    /^\/api\/mobile\/issues\/[^/]+\/discussion$/.test(req.path);
+  const isPublicMobileRoute =
+    req.method === "GET" &&
+    (publicMobileRoutes.has(req.path) || isPublicDiscussionRead);
   const isMobileUpload = req.path === "/api/uploads" && req.method === "POST";
   if (isPublicMobileRoute && !req.headers.authorization) return next();
   if (
@@ -884,9 +894,98 @@ app.get("/uploads/:filename", async (req, res, next) => {
   return res.sendFile(filePath);
 });
 app.use("/uploads", express.static(uploadDirectory, { maxAge: "1h", etag: true }));
+async function findDiscussionReport(identifier) {
+  const parsedId = /^\d+$/.test(identifier) ? Number(identifier) : -1;
+  const numericId = Number.isSafeInteger(parsedId) ? parsedId : -1;
+  const [reports] = await pool.query(
+    `SELECT r.id, r.public_id, r.title, r.status, r.reporter_id, r.location,
+      u.barangay AS reporter_barangay
+      FROM reports r
+      LEFT JOIN users u ON u.id = r.reporter_id
+      WHERE r.public_id = ? OR r.id = ?
+      LIMIT 1`,
+    [identifier, numericId],
+  );
+  return reports[0] ?? null;
+}
+
+function canAccessReportDiscussion(user, report) {
+  return (
+    canReplyToReport(user, report) &&
+    getReportScope(user).allows(report)
+  );
+}
+
+function formatDiscussionComment(comment) {
+  return {
+    id: comment.id,
+    body: comment.body,
+    author_name: comment.author_name || "Former user",
+    author_role: comment.author_role || "staff",
+    created_at: comment.created_at,
+  };
+}
+
+async function insertDiscussionComment(req, res, report) {
+  const validationError = validateReportComment(req.body?.body);
+  if (validationError) return res.status(400).json({ error: validationError });
+  if (!isReportDiscussionOpen(report.status)) {
+    return res.status(409).json({
+      error: "Replies are closed because this report is no longer unresolved.",
+    });
+  }
+
+  const body = req.body.body.trim();
+  const [result] = await pool.query(
+    `INSERT INTO report_comments (report_id, author_id, body, visibility)
+      VALUES (?, ?, ?, 'semi-public')`,
+    [report.id, req.auth.id, body],
+  );
+  const [[comment]] = await pool.query(
+    `SELECT c.id, c.body, c.created_at, u.name AS author_name, u.role AS author_role
+      FROM report_comments c
+      LEFT JOIN users u ON u.id = c.author_id
+      WHERE c.id = ?`,
+    [result.insertId],
+  );
+  return res.status(201).json({ comment: formatDiscussionComment(comment) });
+}
+
 app.get("/api/health", async (_req, res) => {
   try { await pool.query("SELECT 1"); res.json({ ok: true, service: "InfraTrack Admin API", database: dbName }); }
   catch { res.status(503).json({ ok: false, error: "Database unavailable" }); }
+});
+app.get("/api/mobile/issues/:id/discussion", async (req, res) => {
+  const report = await findDiscussionReport(req.params.id);
+  if (!report || report.status === "Archived") {
+    return res.status(404).json({ error: "Report not found" });
+  }
+  const [comments] = await pool.query(
+    `SELECT c.id, c.body, c.created_at, u.role AS author_role
+      FROM report_comments c
+      LEFT JOIN users u ON u.id = c.author_id
+      WHERE c.report_id = ? AND c.visibility IN ('public', 'semi-public')
+      ORDER BY c.created_at DESC, c.id DESC
+      LIMIT 100`,
+    [report.id],
+  );
+  res.json({
+    comments: comments.reverse().map((comment) => ({
+      id: comment.id,
+      body: comment.body,
+      author_name:
+        comment.author_role === "resident" ? "Resident" : "InfraTrack Staff",
+      author_role: comment.author_role === "resident" ? "resident" : "staff",
+      created_at: comment.created_at,
+    })),
+  });
+});
+app.post("/api/mobile/issues/:id/discussion", async (req, res) => {
+  const report = await findDiscussionReport(req.params.id);
+  if (!report || !canAccessReportDiscussion(req.auth, report)) {
+    return res.status(404).json({ error: "Report not found" });
+  }
+  await insertDiscussionComment(req, res, report);
 });
 app.get("/api/mobile/issues", async (req, res) => {
   const homeUpdatesOnly = req.query.home_updates_only === "true";
@@ -1506,6 +1605,29 @@ app.post("/api/auth/register", async (req, res) => {
   } finally {
     connection.release();
   }
+});
+app.get("/api/issues/:id/discussion", async (req, res) => {
+  const report = await findDiscussionReport(req.params.id);
+  if (!report || !canAccessReportDiscussion(req.auth, report)) {
+    return res.status(404).json({ error: "Report not found" });
+  }
+  const [comments] = await pool.query(
+    `SELECT c.id, c.body, c.created_at, u.name AS author_name, u.role AS author_role
+      FROM report_comments c
+      LEFT JOIN users u ON u.id = c.author_id
+      WHERE c.report_id = ? AND c.visibility IN ('public', 'semi-public')
+      ORDER BY c.created_at DESC, c.id DESC
+      LIMIT 100`,
+    [report.id],
+  );
+  res.json({ comments: comments.reverse().map(formatDiscussionComment) });
+});
+app.post("/api/issues/:id/discussion", async (req, res) => {
+  const report = await findDiscussionReport(req.params.id);
+  if (!report || !canAccessReportDiscussion(req.auth, report)) {
+    return res.status(404).json({ error: "Report not found" });
+  }
+  await insertDiscussionComment(req, res, report);
 });
 app.get("/api/issues", async (req, res) => {
   const search = `%${String(req.query.search ?? "").toLowerCase()}%`;
