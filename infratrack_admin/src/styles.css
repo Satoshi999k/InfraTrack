@@ -9924,6 +9924,38 @@ tbody tr:last-child td {
   color: var(--ink);
 }
 
+:root[data-theme="dark"] .ip-map-layer-switcher {
+  border-color: #466067;
+  background: #102126;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.42);
+}
+
+:root[data-theme="dark"] .ip-map-layer-switcher button {
+  background: #1b3035;
+  color: #e2ebeb;
+}
+
+:root[data-theme="dark"] .ip-map-layer-switcher button + button {
+  border-left-color: #466067;
+}
+
+:root[data-theme="dark"] .ip-map-layer-switcher button.active {
+  background: #17635e;
+  color: #ffffff;
+}
+
+:root[data-theme="dark"] .ip-map-layer-switcher button:hover:not(.active) {
+  background: #294249;
+  color: #ffffff;
+}
+
+:root[data-theme="dark"] .ip-map-layer-switcher button:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid #8ce5db;
+  outline-offset: -2px;
+}
+
 @media (max-width: 760px) {
   .top-actions .profile-menu-trigger .admin-avatar {
     display: grid;
