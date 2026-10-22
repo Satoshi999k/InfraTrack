@@ -65,12 +65,22 @@ export function computeDuplicateMatch(current = {}, existing = {}) {
   return sameLocation || titleIncludesExisting || titleScore >= 0.35 || geoMatch;
 }
 
-export function escalateIssueSeverity(currentSeverity = "", ageHours = 0) {
+export const DEFAULT_ESCALATION_HOURS = {
+  low: 96,
+  medium: 72,
+  high: 48,
+};
+
+export function escalateIssueSeverity(
+  currentSeverity = "",
+  ageHours = 0,
+  escalationHours = DEFAULT_ESCALATION_HOURS,
+) {
   const severity = String(currentSeverity || "").trim();
   if (severity === "Resolved" || severity === "Rejected" || severity === "Archived") return severity;
-  if (severity === "Low" && ageHours >= 96) return "Medium";
-  if (severity === "Medium" && ageHours >= 72) return "High";
-  if (severity === "High" && ageHours >= 48) return "Critical";
+  if (severity === "Low" && ageHours >= escalationHours.low) return "Medium";
+  if (severity === "Medium" && ageHours >= escalationHours.medium) return "High";
+  if (severity === "High" && ageHours >= escalationHours.high) return "Critical";
   return severity;
 }
 

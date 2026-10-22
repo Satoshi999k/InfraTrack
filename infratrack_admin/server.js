@@ -10,6 +10,10 @@ import fs from "node:fs";
 import { spawn } from "node:child_process";
 import ffmpegPath from "ffmpeg-static";
 import { computeDuplicateMatch, escalateIssueSeverity } from "./automation.js";
+import {
+  normalizeSystemSettings,
+  validateSystemSettingsUpdate,
+} from "./systemSettings.js";
 import { validateBarangayCoordinates } from "./barangay-boundaries.js";
 import {
   getAdvisoryReadScope,
@@ -291,9 +295,10 @@ async function verifyRecaptcha(token, ip) {
 
 async function readSystemSettings() {
   const [rows] = await pool.query("SELECT setting_key, setting_value FROM system_settings");
-  return Object.fromEntries(rows.map(({ setting_key, setting_value }) => {
+  const storedSettings = Object.fromEntries(rows.map(({ setting_key, setting_value }) => {
     try { return [setting_key, JSON.parse(setting_value)]; } catch { return [setting_key, setting_value]; }
   }));
+  return normalizeSystemSettings(storedSettings);
 }
 
 async function queueNotification({ userId, reportId = null, advisoryId = null, type, title, message, channel = "push" }) {
@@ -383,18 +388,34 @@ async function notifyStaffAccountReady(staff) {
 
 async function notifyIssueStakeholders(report, eventType = "report") {
   const settings = await readSystemSettings();
-  if (eventType === "report" && settings.reportAlerts === false) return;
+  const settingKey = {
+    newReport: "newReportAlerts",
+    duplicate: "duplicateAlerts",
+    escalation: "reportAlerts",
+  }[eventType];
+  if (!settingKey) throw new Error(`Unsupported issue notification event: ${eventType}`);
+  if (settings[settingKey] === false) return;
   const [admins] = await pool.query("SELECT id, email, mobile, name FROM users WHERE role IN ('lgu', 'admin') ORDER BY id");
-  const subject = eventType === "duplicate" ? `Duplicate issue detected: ${report.public_id || report.id}` : `Priority escalation: ${report.public_id || report.id}`;
+  const subject = eventType === "duplicate"
+    ? `Duplicate issue detected: ${report.public_id || report.id}`
+    : eventType === "newReport"
+      ? `New issue report: ${report.public_id || report.id}`
+      : `Priority escalation: ${report.public_id || report.id}`;
   const body = eventType === "duplicate"
     ? `A duplicate report may be related to ${report.public_id || report.id}. Review the issue queue for possible consolidation.`
-    : `Issue ${report.public_id || report.id} has escalated to ${report.severity || "Critical"} and requires immediate follow-up.`;
+    : eventType === "newReport"
+      ? `A new ${report.severity || "Medium"} priority report was submitted: ${report.title || report.public_id || report.id}. Review it in the issue queue.`
+      : `Issue ${report.public_id || report.id} has escalated to ${report.severity || "Critical"} and requires immediate follow-up.`;
 
   for (const admin of admins) {
     await queueNotification({
       userId: admin.id,
       reportId: report.id,
-      type: eventType === "duplicate" ? "duplicate_issue" : "priority_escalation",
+      type: eventType === "duplicate"
+        ? "duplicate_issue"
+        : eventType === "newReport"
+          ? "new_report"
+          : "priority_escalation",
       title: subject,
       message: body,
       channel: "push",
@@ -406,6 +427,12 @@ async function notifyIssueStakeholders(report, eventType = "report") {
 }
 
 async function evaluateIssueAutomation(report) {
+  const settings = await readSystemSettings();
+  const escalationHours = {
+    low: settings.lowSeverityEscalationHours,
+    medium: settings.mediumSeverityEscalationHours,
+    high: settings.highSeverityEscalationHours,
+  };
   const reportId = Number(report.id);
   const [existing] = report.reporter_id == null
     ? [[]]
@@ -429,13 +456,13 @@ async function evaluateIssueAutomation(report) {
   }
 
   const ageHours = report.created_at ? (Date.now() - new Date(report.created_at).getTime()) / 3600000 : 0;
-  const nextSeverity = escalateIssueSeverity(report.severity, ageHours);
+  const nextSeverity = escalateIssueSeverity(report.severity, ageHours, escalationHours);
   if (nextSeverity !== report.severity && report.status && !["Resolved", "Rejected", "Archived"].includes(report.status)) {
     await pool.query(
       "UPDATE reports SET severity = ?, escalated_at = COALESCE(escalated_at, CURRENT_TIMESTAMP), due_at = CASE WHEN due_at IS NULL OR due_at > DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 1 DAY) THEN DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 1 DAY) ELSE due_at END WHERE id = ?",
       [nextSeverity, reportId],
     );
-    await notifyIssueStakeholders({ ...report, severity: nextSeverity }, "report");
+    await notifyIssueStakeholders({ ...report, severity: nextSeverity }, "escalation");
     return { duplicateOf: null, escalated: true, severity: nextSeverity };
   }
 
@@ -443,16 +470,22 @@ async function evaluateIssueAutomation(report) {
 }
 
 async function sweepEscalations() {
+  const settings = await readSystemSettings();
+  const escalationHours = {
+    low: settings.lowSeverityEscalationHours,
+    medium: settings.mediumSeverityEscalationHours,
+    high: settings.highSeverityEscalationHours,
+  };
   const [rows] = await pool.query("SELECT r.* FROM reports r WHERE r.status NOT IN ('Resolved', 'Rejected', 'Archived') ORDER BY r.created_at DESC");
   for (const report of rows) {
     const ageHours = report.created_at ? (Date.now() - new Date(report.created_at).getTime()) / 3600000 : 0;
-    const nextSeverity = escalateIssueSeverity(report.severity, ageHours);
+    const nextSeverity = escalateIssueSeverity(report.severity, ageHours, escalationHours);
     if (nextSeverity !== report.severity) {
       await pool.query(
         "UPDATE reports SET severity = ?, escalated_at = COALESCE(escalated_at, CURRENT_TIMESTAMP), due_at = CASE WHEN due_at IS NULL OR due_at > DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 1 DAY) THEN DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 1 DAY) ELSE due_at END WHERE id = ?",
         [nextSeverity, report.id],
       );
-      await notifyIssueStakeholders({ ...report, severity: nextSeverity }, "report");
+      await notifyIssueStakeholders({ ...report, severity: nextSeverity }, "escalation");
     }
   }
 }
@@ -1021,7 +1054,10 @@ app.post("/api/mobile/reports", async (req, res) => {
   } finally {
     connection.release();
   }
-  await evaluateIssueAutomation(report);
+  const automationResult = await evaluateIssueAutomation(report);
+  if (!automationResult.duplicateOf) {
+    await notifyIssueStakeholders(report, "newReport");
+  }
   await writeAuditLog(req, {
     actorId: req.auth.id,
     action: "report_created",
@@ -1400,24 +1436,22 @@ app.get("/api/ip-location/:ip", async (req, res) => {
 app.get("/api/settings", async (req, res) => {
   const viewer = req.auth;
   if (!viewer || !canManageSystemSettings(viewer.role)) return res.status(403).json({ error: "LGU administrator access required" });
-  const [rows] = await pool.query("SELECT setting_key, setting_value FROM system_settings");
-  const settings = Object.fromEntries(rows.map(({ setting_key, setting_value }) => {
-    try { return [setting_key, JSON.parse(setting_value)]; } catch { return [setting_key, setting_value]; }
-  }));
-  res.json({ settings });
+  res.json({ settings: await readSystemSettings() });
 });
 app.patch("/api/settings", async (req, res) => {
-  const { settings = {} } = req.body ?? {};
+  const { settings } = req.body ?? {};
   const viewer = req.auth;
   if (!viewer || !canManageSystemSettings(viewer.role)) return res.status(403).json({ error: "LGU administrator access required" });
-  const allowed = ["liveNotifications", "emailDigest", "autoAssign", "requireApproval", "reportAlerts", "publicAdvisoryAlerts"];
-  for (const key of allowed) {
-    if (typeof settings[key] === "boolean") {
-      await pool.query("INSERT INTO system_settings (setting_key, setting_value, updated_by) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_by = VALUES(updated_by)", [key, JSON.stringify(settings[key]), viewer.id]);
-    }
+  const validation = validateSystemSettingsUpdate(settings);
+  if (!validation.valid) return res.status(400).json({ error: validation.error });
+  for (const [key, value] of Object.entries(validation.settings)) {
+    await pool.query(
+      "INSERT INTO system_settings (setting_key, setting_value, updated_by) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_by = VALUES(updated_by)",
+      [key, JSON.stringify(value), viewer.id],
+    );
   }
-  await writeAuditLog(req, { actorId: viewer.id, action: "settings_updated", resourceType: "system_settings", details: settings });
-  res.json({ ok: true, settings });
+  await writeAuditLog(req, { actorId: viewer.id, action: "settings_updated", resourceType: "system_settings", details: validation.settings });
+  res.json({ ok: true, settings: await readSystemSettings() });
 });
 app.post("/api/admin/backup", async (req, res) => {
   if (!["lgu", "admin"].includes(req.auth.role)) return res.status(403).json({ error: "LGU administrator access required" });

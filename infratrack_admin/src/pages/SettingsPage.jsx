@@ -22,15 +22,9 @@ import {
   saveAppearance,
   DEFAULT_APPEARANCE,
 } from "../appearance";
+import { DEFAULT_SYSTEM_SETTINGS } from "../../systemSettings";
 
-const defaultSettings = {
-  liveNotifications: true,
-  emailDigest: false,
-  autoAssign: true,
-  requireApproval: true,
-  reportAlerts: true,
-  publicAdvisoryAlerts: false,
-};
+const defaultSettings = DEFAULT_SYSTEM_SETTINGS;
 const auditLogPageSize = 20;
 
 function isPublicIpAddress(value) {
@@ -66,19 +60,11 @@ export default function SettingsPage({ user, logsOnly = false }) {
 
   useEffect(() => {
     if (!user?.id || logsOnly || !canManageSettings) return;
-    try {
-      const stored = JSON.parse(localStorage.getItem("infratrack.adminSettings") || "null");
-      if (stored) {
-        setSettings({ ...defaultSettings, ...stored });
-      }
-    } catch {
-      // Ignore malformed saved data and keep defaults.
-    }
     apiFetch(`/settings?userId=${encodeURIComponent(user.id)}`)
       .then(async (response) => {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Could not load system settings");
-        setSettings((current) => ({ ...current, ...data.settings }));
+        setSettings({ ...defaultSettings, ...data.settings });
       })
       .catch((error) => setSettingsError(error.message));
   }, [user?.id, logsOnly, canManageSettings]);
@@ -183,6 +169,16 @@ export default function SettingsPage({ user, logsOnly = false }) {
 
   const toggle = (key) => {
     setSettings((current) => ({ ...current, [key]: !current[key] }));
+    setSaved(false);
+    setSettingsDirty(true);
+    setSettingsError("");
+  };
+
+  const updateEscalationHours = (key, value) => {
+    setSettings((current) => ({
+      ...current,
+      [key]: value === "" ? "" : Number(value),
+    }));
     setSaved(false);
     setSettingsDirty(true);
     setSettingsError("");
@@ -482,30 +478,30 @@ export default function SettingsPage({ user, logsOnly = false }) {
 
           <div className="setting-row">
             <div>
-              <strong>Live notifications</strong>
-              <small>Show new issue alerts in real time.</small>
+              <strong>New report alerts</strong>
+              <small>Notify LGU administrators when a resident submits a report.</small>
             </div>
-            <button type="button" role="switch" aria-label="Live notifications" aria-checked={settings.liveNotifications} disabled={saving} className={`toggle ${settings.liveNotifications ? "on" : ""}`} onClick={() => toggle("liveNotifications")}>
+            <button type="button" role="switch" aria-label="New report alerts" aria-checked={settings.newReportAlerts} disabled={saving} className={`toggle ${settings.newReportAlerts ? "on" : ""}`} onClick={() => toggle("newReportAlerts")}>
               <span />
             </button>
           </div>
 
           <div className="setting-row">
             <div>
-              <strong>Email digest</strong>
-              <small>Send a summary every morning.</small>
+              <strong>Priority escalation alerts</strong>
+              <small>Notify the office when an overdue issue moves to a higher severity.</small>
             </div>
-            <button type="button" role="switch" aria-label="Email digest" aria-checked={settings.emailDigest} disabled={saving} className={`toggle ${settings.emailDigest ? "on" : ""}`} onClick={() => toggle("emailDigest")}>
+            <button type="button" role="switch" aria-label="Priority escalation alerts" aria-checked={settings.reportAlerts} disabled={saving} className={`toggle ${settings.reportAlerts ? "on" : ""}`} onClick={() => toggle("reportAlerts")}>
               <span />
             </button>
           </div>
 
           <div className="setting-row">
             <div>
-              <strong>Report alerts</strong>
-              <small>Notify the office of critical issues immediately.</small>
+              <strong>Possible duplicate alerts</strong>
+              <small>Notify the office when a report may duplicate an existing issue.</small>
             </div>
-            <button type="button" role="switch" aria-label="Report alerts" aria-checked={settings.reportAlerts} disabled={saving} className={`toggle ${settings.reportAlerts ? "on" : ""}`} onClick={() => toggle("reportAlerts")}>
+            <button type="button" role="switch" aria-label="Possible duplicate alerts" aria-checked={settings.duplicateAlerts} disabled={saving} className={`toggle ${settings.duplicateAlerts ? "on" : ""}`} onClick={() => toggle("duplicateAlerts")}>
               <span />
             </button>
           </div>
@@ -513,38 +509,34 @@ export default function SettingsPage({ user, logsOnly = false }) {
 
         <article className="card settings-card">
           <div className="card-head">
-            <h3>Operations</h3>
+            <h3>Issue workflow</h3>
           </div>
-
-          <div className="setting-row">
-            <div>
-              <strong>Auto-assign high priority issues</strong>
-              <small>Assign urgent items to the nearest active crew.</small>
-            </div>
-            <button type="button" role="switch" aria-label="Auto-assign high priority issues" aria-checked={settings.autoAssign} disabled={saving} className={`toggle ${settings.autoAssign ? "on" : ""}`} onClick={() => toggle("autoAssign")}>
-              <span />
-            </button>
-          </div>
-
-          <div className="setting-row">
-            <div>
-              <strong>Require supervisor approval</strong>
-              <small>Require validation before closing a case.</small>
-            </div>
-            <button type="button" role="switch" aria-label="Require supervisor approval" aria-checked={settings.requireApproval} disabled={saving} className={`toggle ${settings.requireApproval ? "on" : ""}`} onClick={() => toggle("requireApproval")}>
-              <span />
-            </button>
-          </div>
-
-          <div className="setting-row">
-            <div>
-              <strong>Public advisory alerts</strong>
-              <small>Send push notifications for barangay advisories.</small>
-            </div>
-            <button type="button" role="switch" aria-label="Public advisory alerts" aria-checked={settings.publicAdvisoryAlerts} disabled={saving} className={`toggle ${settings.publicAdvisoryAlerts ? "on" : ""}`} onClick={() => toggle("publicAdvisoryAlerts")}>
-              <span />
-            </button>
-          </div>
+          <p className="settings-card-description">
+            Automatically raise unresolved report severity after these age limits. Changes apply during the next report update or five-minute escalation check.
+          </p>
+          {[
+            ["lowSeverityEscalationHours", "Low to Medium"],
+            ["mediumSeverityEscalationHours", "Medium to High"],
+            ["highSeverityEscalationHours", "High to Critical"],
+          ].map(([key, label]) => (
+            <label className="workflow-threshold-row" key={key}>
+              <span>{label}</span>
+              <span className="workflow-threshold-input">
+                <input
+                  aria-label={`${label} escalation time in hours`}
+                  type="number"
+                  min="1"
+                  max="8760"
+                  step="1"
+                  value={settings[key]}
+                  disabled={saving}
+                  onChange={(event) => updateEscalationHours(key, event.target.value)}
+                  required
+                />
+                <small>hours</small>
+              </span>
+            </label>
+          ))}
         </article>
 
         </>}

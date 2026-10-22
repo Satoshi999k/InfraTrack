@@ -18,6 +18,7 @@ import {
   LayoutDashboard,
   LogOut,
   Map,
+  MapPin,
   Menu,
   Megaphone,
   Monitor,
@@ -964,9 +965,93 @@ function DashboardLoading({ message = "Loading your workspace…" }) {
 
 function Overview({ issues, overviewData, onOpenIssue, onNavigate, user }) {
   const summary = getDashboardSummary(issues);
+  const now = new Date();
+  const firstName = user?.name?.trim().split(/\s+/)[0] || "there";
+  const greeting =
+    now.getHours() < 12
+      ? "Good morning"
+      : now.getHours() < 18
+        ? "Good afternoon"
+        : "Good evening";
+  const dateLabel = new Intl.DateTimeFormat(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  }).format(now);
+  const overviewArea =
+    user?.role === "barangay_staff" && user.barangay
+      ? user.barangay
+      : "Mati City";
+  const activeIssues = issues.filter(
+    (issue) =>
+      !["resolved", "rejected", "archived"].includes(
+        String(issue.status || "").trim().toLowerCase(),
+      ),
+  );
+  const criticalCount = activeIssues.filter(
+    (issue) => issue.severity === "Critical",
+  ).length;
+  const unassignedCount = activeIssues.filter((issue) => {
+    const assignedTeam = String(
+      issue.assigned_team || issue.assignedTeam || "",
+    ).trim();
+    return !assignedTeam || assignedTeam.toLowerCase() === "unassigned";
+  }).length;
 
   return (
     <div className="dashboard-overview">
+      <section className="overview-welcome" aria-label="Welcome">
+        <div className="overview-welcome-copy">
+          <p className="overview-date-label">{dateLabel}</p>
+          <h2>
+            {greeting}, {firstName}.
+          </h2>
+          <div className={`overview-attention ${summary.activeCount === 0 ? "all-clear" : ""}`}>
+            <span className="overview-attention-dot" />
+            <span>
+              {summary.activeCount === 0
+                ? "You’re all caught up on active reports."
+                : `${summary.activeCount} active ${summary.activeCount === 1 ? "report needs" : "reports need"} your attention.`}
+            </span>
+          </div>
+        </div>
+        <aside className="overview-operations-snapshot" aria-label="Operations snapshot">
+          <div className="overview-snapshot-heading">
+            <span className="overview-snapshot-location">
+              <MapPin size={14} aria-hidden="true" />
+              {overviewArea}
+            </span>
+            <span className="overview-snapshot-live">
+              <i />
+              Live overview
+            </span>
+          </div>
+          <div className="overview-snapshot-metrics">
+            <div>
+              <strong>{summary.activeCount}</strong>
+              <span>Active</span>
+            </div>
+            <div className={criticalCount ? "has-critical" : ""}>
+              <strong>{criticalCount}</strong>
+              <span>Critical</span>
+            </div>
+            <div>
+              <strong>{summary.inProgressIssues.length}</strong>
+              <span>In progress</span>
+            </div>
+          </div>
+          <div className="overview-snapshot-footer">
+            <span>
+              {unassignedCount
+                ? `${unassignedCount} unassigned`
+                : "All active reports assigned"}
+            </span>
+            <button type="button" onClick={() => onNavigate("queue")}>
+              Open queue <ChevronRight size={14} aria-hidden="true" />
+            </button>
+          </div>
+        </aside>
+      </section>
       <div className="kpi-grid">
         <Kpi
           icon={FileText}

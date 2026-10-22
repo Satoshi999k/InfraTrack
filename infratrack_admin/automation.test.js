@@ -69,6 +69,14 @@ test('priority escalation raises delayed items by urgency level', () => {
   assert.equal(escalateIssueSeverity('Resolved', 24), 'Resolved');
 });
 
+test('priority escalation uses configured workflow thresholds', () => {
+  const thresholds = { low: 24, medium: 12, high: 6 };
+  assert.equal(escalateIssueSeverity('Low', 23, thresholds), 'Low');
+  assert.equal(escalateIssueSeverity('Low', 24, thresholds), 'Medium');
+  assert.equal(escalateIssueSeverity('Medium', 12, thresholds), 'High');
+  assert.equal(escalateIssueSeverity('High', 6, thresholds), 'Critical');
+});
+
 test('barangay validation recognizes a report inside a valid subdivision', () => {
   assert.equal(getBarangayForCoordinates(6.9632, 126.2103), 'Brgy. Central');
   assert.equal(validateBarangayCoordinates({ latitude: 6.9632, longitude: 126.2103, location: 'Brgy. Central' }).valid, true);
