@@ -7,7 +7,9 @@ import net from "node:net";
 import mysql from "mysql2/promise";
 import multer from "multer";
 import fs from "node:fs";
+import { tmpdir } from "node:os";
 import { spawn } from "node:child_process";
+import { createPortableDatabaseBackup } from "./databaseBackup.js";
 import {
   describeMysqlDumpNotFound,
   resolveMysqlDumpPath,
@@ -243,7 +245,7 @@ const isDurableMediaUrl = (value) => {
   }
 };
 const csvValue = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
-function createDatabaseBackup() {
+function createCliDatabaseBackup() {
   return new Promise((resolve, reject) => {
     const dumpPath = resolveMysqlDumpPath(__dirname);
     const filePath = path.join(backupDirectory, `infratrack-${new Date().toISOString().replaceAll(/[:.]/g, "-")}.sql`);
@@ -269,6 +271,21 @@ function createDatabaseBackup() {
     dump.stdout.pipe(output);
   });
 }
+async function createDatabaseBackup() {
+  const timestamp = new Date().toISOString().replaceAll(/[:.]/g, "-");
+  const fileName = `infratrack-${timestamp}.sql`;
+  const contents = await createPortableDatabaseBackup(pool, dbName);
+  let filePath = path.join(backupDirectory, fileName);
+  try {
+    await fs.promises.writeFile(filePath, contents, { flag: "wx" });
+  } catch (error) {
+    if (!["EACCES", "EROFS", "ENOENT"].includes(error.code)) throw error;
+    filePath = path.join(tmpdir(), fileName);
+    await fs.promises.writeFile(filePath, contents, { flag: "wx" });
+  }
+  return filePath;
+}
+
 function scheduleDatabaseBackups() {
   const hours = Number(process.env.BACKUP_INTERVAL_HOURS || 24);
   if (hours > 0) setInterval(() => createDatabaseBackup().catch((error) => console.error("Scheduled backup failed:", error.message)), hours * 60 * 60 * 1000);
