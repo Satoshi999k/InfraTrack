@@ -7,11 +7,15 @@ import {
   Landmark,
   LockKeyhole,
   Mail,
+  Monitor,
+  Moon,
   ShieldCheck,
+  Sun,
   UsersRound,
 } from "lucide-react";
 import matiAerial from "./assets/images/mati_aerial.jpg";
 import { API_BASE } from "./api";
+import { readAppearance, saveAppearance } from "./appearance";
 import { getRememberedEmail, saveAuthSession } from "./authSession";
 
 const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "";
@@ -33,6 +37,7 @@ function getRecaptchaToken() {
 }
 
 export default function Login({ onLogin }) {
+  const [appearance, setAppearance] = useState(readAppearance);
   const [email, setEmail] = useState(() => getRememberedEmail());
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -46,6 +51,18 @@ export default function Login({ onLogin }) {
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, []);
+
+  const updateTheme = (theme, transitionOrigin) => {
+    const next = saveAppearance(
+      { ...appearance, theme },
+      undefined,
+      undefined,
+      window.matchMedia("(prefers-color-scheme: dark)").matches,
+      true,
+      transitionOrigin,
+    );
+    setAppearance(next);
+  };
 
   const submit = async (event) => {
     event.preventDefault();
@@ -127,6 +144,28 @@ export default function Login({ onLogin }) {
         </div>
 
         <div className="login-form-panel">
+          <div className="login-theme-picker" role="group" aria-label="Color theme">
+            {[
+              ["light", "Light", Sun],
+              ["dark", "Dark", Moon],
+              ["system", "System", Monitor],
+            ].map(([theme, label, ThemeIcon]) => (
+              <button
+                key={theme}
+                className={`login-theme-option ${appearance.theme === theme ? "selected" : ""}`}
+                type="button"
+                aria-label={`${label} theme`}
+                aria-pressed={appearance.theme === theme}
+                title={`${label} theme`}
+                onClick={(event) =>
+                  updateTheme(theme, event.currentTarget)
+                }
+              >
+                <ThemeIcon size={15} aria-hidden="true" />
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
           <div className="login-header">
             <span className="login-eyebrow">Welcome back</span>
             <h2>Sign in to your account</h2>
