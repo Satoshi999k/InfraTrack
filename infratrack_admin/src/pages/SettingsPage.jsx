@@ -43,6 +43,8 @@ export default function SettingsPage({ user, logsOnly = false }) {
   const [saved, setSaved] = useState(false);
   const [settingsDirty, setSettingsDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [notificationSaveStatus, setNotificationSaveStatus] = useState("");
   const [settingsError, setSettingsError] = useState("");
   const [appearance, setAppearance] = useState(readAppearance);
   const [passwords, setPasswords] = useState({ current: "", next: "", confirm: "" });
@@ -60,13 +62,22 @@ export default function SettingsPage({ user, logsOnly = false }) {
 
   useEffect(() => {
     if (!user?.id || logsOnly || !canManageSettings) return;
+    let active = true;
     apiFetch(`/settings?userId=${encodeURIComponent(user.id)}`)
       .then(async (response) => {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Could not load system settings");
-        setSettings({ ...defaultSettings, ...data.settings });
+        if (active) {
+          setSettings({ ...defaultSettings, ...data.settings });
+          setSettingsLoaded(true);
+        }
       })
-      .catch((error) => setSettingsError(error.message));
+      .catch((error) => {
+        if (active) setSettingsError(error.message);
+      });
+    return () => {
+      active = false;
+    };
   }, [user?.id, logsOnly, canManageSettings]);
 
   useEffect(() => {
@@ -167,11 +178,36 @@ export default function SettingsPage({ user, logsOnly = false }) {
     printWindow.document.close(); printWindow.print();
   };
 
-  const toggle = (key) => {
-    setSettings((current) => ({ ...current, [key]: !current[key] }));
-    setSaved(false);
-    setSettingsDirty(true);
+  const toggle = async (key) => {
+    if (!canManageSettings || !settingsLoaded || saving) return;
+    const previousValue = settings[key];
+    const nextValue = !previousValue;
+    setSettings((current) => ({ ...current, [key]: nextValue }));
+    setSaving(true);
     setSettingsError("");
+    setNotificationSaveStatus("Saving notification preferences…");
+    try {
+      const response = await apiFetch("/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ settings: { [key]: nextValue } }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Could not save notification preferences");
+      }
+      setSettings((current) => ({
+        ...current,
+        [key]: data.settings?.[key] ?? nextValue,
+      }));
+      setNotificationSaveStatus("Notification preferences saved.");
+    } catch (error) {
+      setSettings((current) => ({ ...current, [key]: previousValue }));
+      setSettingsError(error.message);
+      setNotificationSaveStatus("Could not save. The previous setting was restored.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const updateEscalationHours = (key, value) => {
@@ -294,7 +330,7 @@ export default function SettingsPage({ user, logsOnly = false }) {
           <h2>{isBarangayStaff ? "Account settings" : "System settings"}</h2>
           <p>{isBarangayStaff ? "Review your assigned barangay and secure your account." : "Manage dashboard behavior and notification preferences."}</p>
         </div>
-        {canManageSettings && <button type="button" className="primary-button settings-save-button" onClick={saveSettings} disabled={saving || !settingsDirty}>
+        {canManageSettings && <button type="button" className="primary-button settings-save-button" onClick={saveSettings} disabled={saving || !settingsLoaded || !settingsDirty}>
           {saving ? "Saving…" : saved ? "Saved" : settingsDirty ? "Save changes" : "Settings saved"}
         </button>}
       </div>}
@@ -481,7 +517,7 @@ export default function SettingsPage({ user, logsOnly = false }) {
               <strong>New report alerts</strong>
               <small>Notify LGU administrators when a resident submits a report.</small>
             </div>
-            <button type="button" role="switch" aria-label="New report alerts" aria-checked={settings.newReportAlerts} disabled={saving} className={`toggle ${settings.newReportAlerts ? "on" : ""}`} onClick={() => toggle("newReportAlerts")}>
+            <button type="button" role="switch" aria-label="New report alerts" aria-checked={settings.newReportAlerts} disabled={saving || !settingsLoaded} className={`toggle ${settings.newReportAlerts ? "on" : ""}`} onClick={() => toggle("newReportAlerts")}>
               <span />
             </button>
           </div>
@@ -491,7 +527,7 @@ export default function SettingsPage({ user, logsOnly = false }) {
               <strong>Priority escalation alerts</strong>
               <small>Notify the office when an overdue issue moves to a higher severity.</small>
             </div>
-            <button type="button" role="switch" aria-label="Priority escalation alerts" aria-checked={settings.reportAlerts} disabled={saving} className={`toggle ${settings.reportAlerts ? "on" : ""}`} onClick={() => toggle("reportAlerts")}>
+            <button type="button" role="switch" aria-label="Priority escalation alerts" aria-checked={settings.reportAlerts} disabled={saving || !settingsLoaded} className={`toggle ${settings.reportAlerts ? "on" : ""}`} onClick={() => toggle("reportAlerts")}>
               <span />
             </button>
           </div>
@@ -501,10 +537,13 @@ export default function SettingsPage({ user, logsOnly = false }) {
               <strong>Possible duplicate alerts</strong>
               <small>Notify the office when a report may duplicate an existing issue.</small>
             </div>
-            <button type="button" role="switch" aria-label="Possible duplicate alerts" aria-checked={settings.duplicateAlerts} disabled={saving} className={`toggle ${settings.duplicateAlerts ? "on" : ""}`} onClick={() => toggle("duplicateAlerts")}>
+            <button type="button" role="switch" aria-label="Possible duplicate alerts" aria-checked={settings.duplicateAlerts} disabled={saving || !settingsLoaded} className={`toggle ${settings.duplicateAlerts ? "on" : ""}`} onClick={() => toggle("duplicateAlerts")}>
               <span />
             </button>
           </div>
+          <p className="settings-card-description" role="status" aria-live="polite">
+            {notificationSaveStatus || "Changes save automatically when you switch an alert."}
+          </p>
         </article>
 
         <article className="card settings-card">
@@ -529,7 +568,7 @@ export default function SettingsPage({ user, logsOnly = false }) {
                   max="8760"
                   step="1"
                   value={settings[key]}
-                  disabled={saving}
+                  disabled={saving || !settingsLoaded}
                   onChange={(event) => updateEscalationHours(key, event.target.value)}
                   required
                 />

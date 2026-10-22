@@ -38,6 +38,19 @@ test("system settings updates accept supported notification and workflow values"
   });
 });
 
+test("notification preferences can be updated independently", () => {
+  for (const key of [
+    "newReportAlerts",
+    "reportAlerts",
+    "duplicateAlerts",
+  ]) {
+    assert.deepEqual(validateSystemSettingsUpdate({ [key]: false }), {
+      valid: true,
+      settings: { [key]: false },
+    });
+  }
+});
+
 test("system settings updates reject unsupported or invalid values", () => {
   assert.equal(
     validateSystemSettingsUpdate({ autoAssign: true }).valid,
