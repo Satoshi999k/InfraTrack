@@ -488,7 +488,7 @@ class _AppLoadingPageState extends State<AppLoadingPage>
                                       ],
                                     ),
                                     child: const Icon(
-                                      Icons.add_location_alt,
+                                      Icons.apartment_outlined,
                                       color: Colors.white,
                                       size: 43,
                                     ),
@@ -498,8 +498,16 @@ class _AppLoadingPageState extends State<AppLoadingPage>
                             ),
                           ),
                           const SizedBox(height: 24),
-                          const Text(
-                            'InfraTrack',
+                          const Text.rich(
+                            TextSpan(
+                              children: [
+                                TextSpan(text: 'Infra'),
+                                TextSpan(
+                                  text: 'Track',
+                                  style: TextStyle(color: clay),
+                                ),
+                              ],
+                            ),
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 30,

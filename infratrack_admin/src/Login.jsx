@@ -110,7 +110,10 @@ export default function Login({ onLogin }) {
               <Building2 size={21} />
             </div>
             <div>
-              <strong>InfraTrack</strong>
+              <strong className="brand-wordmark">
+                <span>Infra</span>
+                <span className="brand-wordmark-accent">Track</span>
+              </strong>
               <small>Admin Portal · Mati</small>
             </div>
           </div>
