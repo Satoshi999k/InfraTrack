@@ -8939,6 +8939,38 @@ tbody tr:last-child td {
   margin-bottom: 16px;
 }
 
+.issue-ai-assessment {
+  margin: 0 0 16px;
+  padding: 12px;
+  border: 1px solid #cde3df;
+  border-radius: 11px;
+  background: #f0f8f6;
+}
+
+.issue-ai-assessment-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: #164a4a;
+  font-size: calc((12px) * var(--appearance-text-scale, 1));
+}
+
+.issue-ai-assessment p {
+  margin: 8px 0 0;
+  color: var(--ink);
+  font-size: calc((12px) * var(--appearance-text-scale, 1));
+  line-height: 1.5;
+}
+
+.issue-ai-assessment small {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: calc((10px) * var(--appearance-text-scale, 1));
+  line-height: 1.45;
+}
+
 .issue-detail-modal .case-management label {
   margin: 15px 0 0;
   color: #52635e;
@@ -9116,10 +9148,15 @@ tbody tr:last-child td {
 :root[data-theme="dark"] .analytics-error,
 :root[data-theme="dark"] .issue-detail-modal .issue-modal-metadata-item,
 :root[data-theme="dark"] .issue-detail-modal .discussion,
-:root[data-theme="dark"] .issue-detail-modal .case-management {
+:root[data-theme="dark"] .issue-detail-modal .case-management,
+:root[data-theme="dark"] .issue-ai-assessment {
   border-color: var(--line);
   background: #1b3035;
   color: var(--ink);
+}
+
+:root[data-theme="dark"] .issue-ai-assessment-heading {
+  color: #b8e1d8;
 }
 
 :root[data-theme="dark"] .analytics-empty-notice span,
@@ -9127,7 +9164,9 @@ tbody tr:last-child td {
 :root[data-theme="dark"] .issue-detail-modal .issue-description p,
 :root[data-theme="dark"] .issue-detail-modal .discussion p,
 :root[data-theme="dark"] .issue-detail-modal .case-management label,
-:root[data-theme="dark"] .issue-detail-modal .discussion-head small {
+:root[data-theme="dark"] .issue-detail-modal .discussion-head small,
+:root[data-theme="dark"] .issue-ai-assessment p,
+:root[data-theme="dark"] .issue-ai-assessment small {
   color: var(--muted);
 }
 

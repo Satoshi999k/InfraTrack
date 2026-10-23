@@ -824,23 +824,6 @@ export function IssueModal({ data, onClose, onSave }) {
                 <h3>Description</h3>
                 <p>{data.description || "No description provided."}</p>
               </div>
-              {data.ai_analysis && (
-                <div className="discussion official ai-assessment">
-                  <div className="discussion-head">
-                    <b>AI assessment for admin review</b>
-                    <span
-                      className={`issue-modal-status ${(data.ai_severity || "Medium").toLowerCase()}`}
-                    >
-                      Suggested {data.ai_severity || "Medium"}
-                    </span>
-                  </div>
-                  <p>{data.ai_analysis}</p>
-                  <small>
-                    This is an AI estimate from the report description and
-                    submitted evidence. Review it before setting priority.
-                  </small>
-                </div>
-              )}
               <div className="modal-section discussion-section">
                 <div className="discussion-section-heading">
                   <div>
@@ -963,7 +946,27 @@ export function IssueModal({ data, onClose, onSave }) {
             <div className="modal-section case-management">
               <div className="case-management-heading">
                 <h3>Case management</h3>
-                <p>Update ownership and report progress.</p>
+                <p>Review the AI findings, then set ownership and priority.</p>
+              </div>
+              <div className="issue-ai-assessment" aria-live="polite">
+                <div className="issue-ai-assessment-heading">
+                  <b>AI assessment</b>
+                  {data.ai_severity && (
+                    <span
+                      className={`issue-modal-status ${data.ai_severity.toLowerCase()}`}
+                    >
+                      Suggested {data.ai_severity}
+                    </span>
+                  )}
+                </div>
+                <p>
+                  {data.ai_analysis ||
+                    "No AI analysis is saved for this report. It may have been submitted before AI analysis was enabled, or the assessment was unavailable at submission."}
+                </p>
+                <small>
+                  AI findings are advisory. Review the report and evidence, then
+                  choose the priority below.
+                </small>
               </div>
               <label>
                 Status
