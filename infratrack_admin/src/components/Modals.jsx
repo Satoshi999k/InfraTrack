@@ -11,6 +11,8 @@ import {
   Clock3,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   ClipboardList,
   FileText,
   Eye,
@@ -530,6 +532,7 @@ export function IssueModal({ data, onClose, onSave }) {
   );
   const [progressNote, setProgressNote] = useState("");
   const [discussion, setDiscussion] = useState([]);
+  const [discussionExpanded, setDiscussionExpanded] = useState(false);
   const [discussionLoading, setDiscussionLoading] = useState(true);
   const [discussionError, setDiscussionError] = useState("");
   const [reply, setReply] = useState("");
@@ -550,6 +553,7 @@ export function IssueModal({ data, onClose, onSave }) {
     if (!data.id) return undefined;
     let active = true;
     setDiscussion([]);
+    setDiscussionExpanded(false);
     setDiscussionError("");
     setDiscussionLoading(true);
     const refreshDiscussion = async () => {
@@ -865,11 +869,15 @@ export function IssueModal({ data, onClose, onSave }) {
                   </div>
                 )}
                 <div
-                  className="discussion-stream"
+                  className={`discussion-stream ${discussionExpanded ? "expanded" : ""}`}
+                  id="issue-discussion-replies"
                   aria-live="polite"
                   aria-busy={discussionLoading}
                 >
-                  {discussion.map((comment) => (
+                  {(discussionExpanded || discussion.length <= 2
+                    ? discussion
+                    : discussion.slice(-2)
+                  ).map((comment) => (
                     <article
                       className={`discussion ${comment.author_role === "resident" ? "resident" : "official"}`}
                       key={comment.id}
@@ -900,6 +908,27 @@ export function IssueModal({ data, onClose, onSave }) {
                     </p>
                   )}
                 </div>
+                {!discussionLoading && discussion.length > 2 && (
+                  <button
+                    type="button"
+                    className="discussion-toggle"
+                    aria-expanded={discussionExpanded}
+                    aria-controls="issue-discussion-replies"
+                    onClick={() => setDiscussionExpanded((expanded) => !expanded)}
+                  >
+                    {discussionExpanded ? (
+                      <>
+                        <ChevronUp size={15} />
+                        Show latest replies
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown size={15} />
+                        View all {discussion.length} replies
+                      </>
+                    )}
+                  </button>
+                )}
                 {discussionError && (
                   <p className="form-error" role="alert">
                     {discussionError}

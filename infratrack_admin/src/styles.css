@@ -8823,11 +8823,45 @@ tbody tr:last-child td {
 
 .discussion-stream {
   display: grid;
-  max-height: 320px;
   gap: 0;
+  min-height: 0;
+}
+
+.discussion-stream.expanded {
+  max-height: 320px;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding-right: 3px;
+}
+
+.discussion-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  margin-top: 10px;
+  padding: 7px 11px;
+  border: 1px solid #c8dfdb;
+  border-radius: 9px;
+  background: #eef7f5;
+  color: #226f69;
+  font: 700 calc((11px) * var(--appearance-text-scale, 1)) Inter, sans-serif;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.discussion-toggle:hover {
+  border-color: #93c7be;
+  background: #e3f2ef;
+}
+
+.discussion-toggle:focus-visible {
+  outline: 3px solid rgba(27, 138, 131, 0.24);
+  outline-offset: 2px;
 }
 
 .discussion-stream .discussion:first-child {
@@ -9317,6 +9351,17 @@ tbody tr:last-child td {
 :root[data-theme="dark"] .issue-detail-modal .discussion.official {
   border-color: #38645e;
   background: #173a3a;
+}
+
+:root[data-theme="dark"] .discussion-toggle {
+  border-color: #38645e;
+  background: #173a3a;
+  color: #a8ded2;
+}
+
+:root[data-theme="dark"] .discussion-toggle:hover {
+  border-color: #4b8277;
+  background: #204641;
 }
 
 :root[data-theme="dark"] .discussion-reply {
