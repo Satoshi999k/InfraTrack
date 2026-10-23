@@ -153,12 +153,14 @@ and `GROQ_LLAMA_MODEL=llama-3.3-70b-versatile`. Do not use Gemini TTS/Gemma
 or Groq prompt-guard model IDs for chat; the API maps unsupported model
 overrides to compatible chat defaults.
 
-The mobile report form can use Gemini to suggest a severity once when the
-resident submits a report. It sends the short description, category, and
-optional evidence to the API; video analysis samples one frame. The AI response
-is limited to a severity label, and residents can switch to manual severity.
-Without `GEMINI_API_KEY` or if analysis fails, report submission continues as
-Medium severity. Configure `GEMINI_API_KEY` on the API service to enable this.
+The mobile report form can ask Gemini to assess the description, category, and
+optional evidence once on submission; video analysis samples one frame. The
+report stores a concise AI explanation and suggested severity for admin review.
+The AI suggestion does not set the report priority: an admin reviews the
+analysis and manually chooses the priority in the issue modal. Without
+`GEMINI_API_KEY` or if analysis fails, the report is still submitted for admin
+review with no AI findings attached. Configure `GEMINI_API_KEY` on the API
+service to enable AI analysis.
 
 For durable profile-photo uploads on hosts with ephemeral filesystems such as
 Render, configure `CLOUDINARY_CLOUD_NAME` and `CLOUDINARY_UPLOAD_PRESET` in the

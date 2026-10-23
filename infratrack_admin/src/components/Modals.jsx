@@ -757,7 +757,7 @@ export function IssueModal({ data, onClose, onSave }) {
             <span
               className={`issue-modal-status ${severity.toLowerCase()}`}
             >
-              <AlertTriangle size={13} /> {severity}
+              <AlertTriangle size={13} /> Priority {severity}
             </span>
             <span className="issue-modal-current-status">{status}</span>
           </div>
@@ -824,6 +824,23 @@ export function IssueModal({ data, onClose, onSave }) {
                 <h3>Description</h3>
                 <p>{data.description || "No description provided."}</p>
               </div>
+              {data.ai_analysis && (
+                <div className="discussion official ai-assessment">
+                  <div className="discussion-head">
+                    <b>AI assessment for admin review</b>
+                    <span
+                      className={`issue-modal-status ${(data.ai_severity || "Medium").toLowerCase()}`}
+                    >
+                      Suggested {data.ai_severity || "Medium"}
+                    </span>
+                  </div>
+                  <p>{data.ai_analysis}</p>
+                  <small>
+                    This is an AI estimate from the report description and
+                    submitted evidence. Review it before setting priority.
+                  </small>
+                </div>
+              )}
               <div className="modal-section discussion-section">
                 <div className="discussion-section-heading">
                   <div>
@@ -1017,7 +1034,7 @@ export function IssueModal({ data, onClose, onSave }) {
                 </>
               )}
               <label>
-                Priority
+                Admin priority
                 <select
                   value={severity}
                   onChange={(event) => setSeverity(event.target.value)}
@@ -1028,8 +1045,7 @@ export function IssueModal({ data, onClose, onSave }) {
                   <option>Low</option>
                 </select>
                 <small>
-                  Priority follows report severity. AI-assessed severity appears
-                  here automatically; you can adjust it manually.
+                  Set by the admin after reviewing the report and AI assessment.
                 </small>
               </label>
               {(status === "Resolved" || status === "Rejected") && (

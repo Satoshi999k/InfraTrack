@@ -5,6 +5,7 @@ export const REPORT_SEVERITIES = ["Low", "Medium", "High", "Critical"];
 
 const MAX_DESCRIPTION_LENGTH = 600;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_ANALYSIS_LENGTH = 320;
 
 export function parseSeverityResponse(value) {
   const text = String(value ?? "")
@@ -20,7 +21,11 @@ export function parseSeverityResponse(value) {
   if (!REPORT_SEVERITIES.includes(result?.severity)) {
     throw new Error("AI returned an unsupported report severity.");
   }
-  return result.severity;
+  const analysis = String(result.analysis ?? "").trim().slice(0, MAX_ANALYSIS_LENGTH);
+  if (!analysis) {
+    throw new Error("AI did not return an assessment explanation.");
+  }
+  return { severity: result.severity, analysis };
 }
 
 export function extractVideoFrame(videoBuffer, executable = ffmpegPath) {
@@ -138,7 +143,7 @@ export async function assessReportSeverity({
     .replace(/^models\//i, "");
   const parts = [
     {
-      text: `Classify infrastructure damage severity as exactly Low, Medium, High, or Critical. Use only report evidence. Low: minor, non-urgent defect. Medium: repair needed, limited immediate risk. High: major damage or likely safety/access risk. Critical: immediate serious danger or essential access/service failure. If uncertain choose Medium. Return only JSON: {"severity":"Medium"}.\nCategory: ${String(category ?? "").slice(0, 80)}\nReport: ${String(description).trim().slice(0, MAX_DESCRIPTION_LENGTH)}`,
+      text: `Assess infrastructure report evidence for staff review. Estimate severity as Low, Medium, High, or Critical: Low=minimal risk; Medium=repair needed, limited immediate risk; High=major damage or likely safety/access risk; Critical=immediate serious danger or essential access/service failure. Use only visible/stated evidence, do not invent facts, and state uncertainty when evidence is limited. Return JSON with severity and one concise evidence-based analysis sentence (max 240 characters): {"severity":"Medium","analysis":"..."}.\nCategory: ${String(category ?? "").slice(0, 80)}\nReport: ${String(description).trim().slice(0, MAX_DESCRIPTION_LENGTH)}`,
     },
   ];
   if (imageBuffer) {
@@ -159,7 +164,7 @@ export async function assessReportSeverity({
       body: JSON.stringify({
         contents: [{ role: "user", parts }],
         generationConfig: {
-          maxOutputTokens: 24,
+          maxOutputTokens: 100,
           temperature: 0,
           thinkingConfig: { thinkingBudget: 0 },
           responseMimeType: "application/json",

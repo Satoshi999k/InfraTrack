@@ -20,10 +20,6 @@ class _ReportPageState extends State<ReportPage> {
   final _imagePicker = ImagePicker();
   final _descriptionController = TextEditingController();
   String category = 'Roads';
-  bool _useAiSeverity = true;
-  String _manualSeverity = 'Medium';
-  String _aiSeverity = 'Medium';
-  String? _severityNotice;
   XFile? _capturedMedia;
   bool _capturedVideo = false;
   Position? _position;
@@ -64,7 +60,6 @@ class _ReportPageState extends State<ReportPage> {
     }
 
     setState(() => _submitting = true);
-    _severityNotice = null;
     final stage = ValueNotifier(_ReportSubmissionStage.locating);
     final dialogResult = showDialog<bool>(
       context: context,
@@ -72,9 +67,9 @@ class _ReportPageState extends State<ReportPage> {
       builder: (_) => _ReportSubmissionDialog(
         stage: stage,
         hasEvidence: _capturedMedia != null,
-        usesAiSeverity: _useAiSeverity,
       ),
     );
+    var aiAssessmentUnavailable = false;
     try {
       if (_position == null) {
         stage.value = _ReportSubmissionStage.locating;
@@ -86,33 +81,21 @@ class _ReportPageState extends State<ReportPage> {
         }
       }
 
-      var severity = _manualSeverity;
-      if (_useAiSeverity) {
-        stage.value = _ReportSubmissionStage.assessingSeverity;
-        try {
-          severity = await ApiService.assessReportSeverity(
-            description: _descriptionController.text.trim(),
-            category: category,
-            evidence: _capturedMedia == null
-                ? null
-                : File(_capturedMedia!.path),
-            isVideo: _capturedVideo,
-          );
-          if (mounted) {
-            setState(() {
-              _aiSeverity = severity;
-              _severityNotice = 'AI suggested $severity for this report.';
-            });
-          }
-        } catch (error) {
-          severity = 'Medium';
-          if (mounted) {
-            setState(() {
-              _aiSeverity = severity;
-              _severityNotice = 'AI assessment was unavailable; this report will use Medium severity. You can select a manual severity instead.';
-            });
-          }
-        }
+      String? aiSeverity;
+      String? aiAnalysis;
+      stage.value = _ReportSubmissionStage.assessingSeverity;
+      try {
+        final assessment = await ApiService.assessReportSeverity(
+          description: _descriptionController.text.trim(),
+          category: category,
+          evidence: _capturedMedia == null ? null : File(_capturedMedia!.path),
+          isVideo: _capturedVideo,
+        );
+        aiSeverity = assessment.severity;
+        aiAnalysis = assessment.analysis;
+      } catch (error) {
+        debugPrint('Report AI assessment unavailable: $error');
+        aiAssessmentUnavailable = true;
       }
 
       final mediaUrl = _capturedMedia == null
@@ -124,7 +107,9 @@ class _ReportPageState extends State<ReportPage> {
         description: _descriptionController.text.trim(),
         category: category,
         location: 'Mati City',
-        severity: severity,
+        severity: 'Medium',
+        aiSeverity: aiSeverity,
+        aiAnalysis: aiAnalysis,
         latitude: _position!.latitude,
         longitude: _position!.longitude,
         mediaUrl: mediaUrl,
@@ -138,9 +123,18 @@ class _ReportPageState extends State<ReportPage> {
       });
       stage.value = _ReportSubmissionStage.success;
       final openReports = await dialogResult;
-      if (!mounted || openReports != true) return;
-      await Navigator.of(context)
-          .push(MaterialPageRoute(builder: (_) => const MyReportsPage()));
+      if (!mounted) return;
+      if (openReports == true) {
+        await Navigator.of(context)
+            .push(MaterialPageRoute(builder: (_) => const MyReportsPage()));
+      }
+      if (mounted && aiAssessmentUnavailable) {
+        showInfraNotice(
+          context,
+          'AI analysis was unavailable. The admin can still review your report and set its priority.',
+          kind: InfraNoticeKind.warning,
+        );
+      }
     } catch (error) {
       if (mounted) {
         Navigator.of(context, rootNavigator: true).pop();
@@ -529,138 +523,35 @@ class _ReportPageState extends State<ReportPage> {
             const SizedBox(height: 16),
             const _ReportSectionHeading(
               step: '05',
-              title: 'Choose severity',
-              detail: 'Use a low-cost AI suggestion or set the level yourself.',
+              title: 'AI assessment',
+              detail:
+                  'An admin reviews the findings and sets the report priority.',
             ),
             Container(
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(color: line),
               ),
-              child: Column(
+              child: const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  InkWell(
-                    onTap: _submitting
-                        ? null
-                        : () => setState(() {
-                            _useAiSeverity = !_useAiSeverity;
-                            _severityNotice = null;
-                          }),
-                    borderRadius: BorderRadius.circular(18),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Automatic AI severity',
-                                  style: TextStyle(
-                                    color: navy,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  _useAiSeverity
-                                      ? 'AI will assess the report once when you submit.'
-                                      : 'Choose a severity level manually.',
-                                  style: const TextStyle(
-                                    color: inkSoft,
-                                    fontSize: 11,
-                                    height: 1.35,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Switch.adaptive(
-                            value: _useAiSeverity,
-                            onChanged: _submitting
-                                ? null
-                                : (value) => setState(() {
-                                    _useAiSeverity = value;
-                                    _severityNotice = null;
-                                  }),
-                            activeTrackColor: teal,
-                          ),
-                        ],
+                  Icon(Icons.auto_awesome_outlined, size: 18, color: teal),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'When you submit, AI reviews your description and attached image or a frame from your video. Its findings are saved with your report for the admin to review; AI does not set the priority.',
+                      style: TextStyle(
+                        color: inkSoft,
+                        fontSize: 11,
+                        height: 1.45,
                       ),
                     ),
                   ),
-                  if (_useAiSeverity)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.auto_awesome_outlined,
-                            size: 16,
-                            color: teal,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Current suggestion: $_aiSeverity · You can switch to manual anytime.',
-                              style: const TextStyle(
-                                color: inkSoft,
-                                fontSize: 11,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  else
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-                      child: DropdownButtonFormField<String>(
-                        initialValue: _manualSeverity,
-                        decoration: InputDecoration(
-                          labelText: 'Manual severity',
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        items: const ['Low', 'Medium', 'High', 'Critical']
-                            .map(
-                              (value) => DropdownMenuItem(
-                                value: value,
-                                child: Text(value),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: _submitting
-                            ? null
-                            : (value) {
-                                if (value != null) {
-                                  setState(() => _manualSeverity = value);
-                                }
-                              },
-                      ),
-                    ),
                 ],
               ),
             ),
-            if (_severityNotice != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                _severityNotice!,
-                style: const TextStyle(
-                  color: inkSoft,
-                  fontSize: 11,
-                  height: 1.4,
-                ),
-              ),
-            ],
             const SizedBox(height: 8),
             const Text(
               'AI uses your report text and selected evidence for one short analysis. Videos are reduced to one frame and sent to Gemini.',
@@ -861,12 +752,10 @@ class _ReportSubmissionDialog extends StatelessWidget {
   const _ReportSubmissionDialog({
     required this.stage,
     required this.hasEvidence,
-    required this.usesAiSeverity,
   });
 
   final ValueNotifier<_ReportSubmissionStage> stage;
   final bool hasEvidence;
-  final bool usesAiSeverity;
 
   @override
   Widget build(BuildContext context) =>
@@ -900,7 +789,6 @@ class _ReportSubmissionDialog extends StatelessWidget {
                     : _ReportSubmissionProgress(
                         stage: currentStage,
                         hasEvidence: hasEvidence,
-                        usesAiSeverity: usesAiSeverity,
                       ),
               ),
             ),
@@ -913,12 +801,10 @@ class _ReportSubmissionProgress extends StatelessWidget {
   const _ReportSubmissionProgress({
     required this.stage,
     required this.hasEvidence,
-    required this.usesAiSeverity,
   });
 
   final _ReportSubmissionStage stage;
   final bool hasEvidence;
-  final bool usesAiSeverity;
 
   @override
   Widget build(BuildContext context) {
@@ -944,18 +830,12 @@ class _ReportSubmissionProgress extends StatelessWidget {
         : assessing
         ? 1
         : uploading
-        ? (usesAiSeverity ? 2 : 1)
-        : usesAiSeverity && hasEvidence
+        ? 2
+        : hasEvidence
         ? 3
-        : usesAiSeverity || hasEvidence
-        ? 2
-        : 1;
-    final evidenceStep = usesAiSeverity ? 2 : 1;
-    final submitStep = hasEvidence
-        ? evidenceStep + 1
-        : usesAiSeverity
-        ? 2
-        : 1;
+        : 2;
+    const evidenceStep = 2;
+    final submitStep = hasEvidence ? 3 : 2;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -1001,17 +881,15 @@ class _ReportSubmissionProgress extends StatelessWidget {
               : _SubmissionStepState.waiting,
         ),
         const SizedBox(height: 10),
-        if (usesAiSeverity) ...[
-          _SubmissionStep(
-            label: 'Assess severity',
-            state: activeStep > 1
-                ? _SubmissionStepState.complete
-                : activeStep == 1
-                ? _SubmissionStepState.active
-                : _SubmissionStepState.waiting,
-          ),
-          const SizedBox(height: 10),
-        ],
+        _SubmissionStep(
+          label: 'Analyze report',
+          state: activeStep > 1
+              ? _SubmissionStepState.complete
+              : activeStep == 1
+              ? _SubmissionStepState.active
+              : _SubmissionStepState.waiting,
+        ),
+        const SizedBox(height: 10),
         if (hasEvidence) ...[
           _SubmissionStep(
             label: 'Upload evidence',

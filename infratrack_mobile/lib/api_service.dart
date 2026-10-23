@@ -18,6 +18,16 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
+class ReportSeverityAssessment {
+  const ReportSeverityAssessment({
+    required this.severity,
+    required this.analysis,
+  });
+
+  final String severity;
+  final String analysis;
+}
+
 const _configuredApiBaseUrl = String.fromEnvironment('API_BASE_URL');
 const _productionApiBaseUrl = 'https://infratrack-3a8u.onrender.com/api';
 
@@ -607,6 +617,8 @@ class ApiService {
     required String category,
     required String location,
     required String severity,
+    String? aiSeverity,
+    String? aiAnalysis,
     double? latitude,
     double? longitude,
     String? mediaUrl,
@@ -623,6 +635,8 @@ class ApiService {
         'category': category,
         'location': location,
         'severity': severity,
+        'aiSeverity': aiSeverity,
+        'aiAnalysis': aiAnalysis,
         'latitude': latitude,
         'longitude': longitude,
         'mediaUrl': mediaUrl,
@@ -632,7 +646,7 @@ class ApiService {
     return Map<String, dynamic>.from(body['report'] as Map);
   }
 
-  static Future<String> assessReportSeverity({
+  static Future<ReportSeverityAssessment> assessReportSeverity({
     required String description,
     required String category,
     File? evidence,
@@ -679,13 +693,16 @@ class ApiService {
       }
       final body = _decodeResponse(response);
       final severity = body['severity'];
+      final analysis = body['analysis'];
       if (severity is! String ||
-          !const ['Low', 'Medium', 'High', 'Critical'].contains(severity)) {
+          !const ['Low', 'Medium', 'High', 'Critical'].contains(severity) ||
+          analysis is! String ||
+          analysis.trim().isEmpty) {
         throw const FormatException(
-          'The severity service returned an invalid result.',
+          'The AI assessment service returned an invalid result.',
         );
       }
-      return severity;
+      return ReportSeverityAssessment(severity: severity, analysis: analysis);
     } on SocketException {
       connectionIssue.value = 'Could not connect to InfraTrack. Check your internet connection and try again.';
       rethrow;

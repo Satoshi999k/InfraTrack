@@ -589,6 +589,8 @@ async function initializeDatabase() {
   await pool.query("ALTER TABLE reports ADD COLUMN IF NOT EXISTS duplicate_reason VARCHAR(255) NULL");
   await pool.query("ALTER TABLE reports ADD COLUMN IF NOT EXISTS escalated_at TIMESTAMP NULL");
   await pool.query("ALTER TABLE reports ADD COLUMN IF NOT EXISTS progress_percentage TINYINT UNSIGNED NOT NULL DEFAULT 0");
+  await pool.query("ALTER TABLE reports ADD COLUMN IF NOT EXISTS ai_severity VARCHAR(30) NULL");
+  await pool.query("ALTER TABLE reports ADD COLUMN IF NOT EXISTS ai_analysis VARCHAR(320) NULL");
   await pool.query(`CREATE TABLE IF NOT EXISTS report_events (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, report_id INT UNSIGNED NOT NULL,
     status VARCHAR(40) NOT NULL, note TEXT, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1137,13 +1139,13 @@ app.post("/api/mobile/reports/severity", (req, res) => {
       return res.status(400).json({ error: "Severity evidence file is missing." });
     }
     try {
-      const severity = await assessReportSeverity({
+      const assessment = await assessReportSeverity({
         description,
         category: normalizedCategory,
         mediaBuffer: req.file?.buffer ?? null,
         mediaType: req.file ? mediaType : null,
       });
-      res.json({ severity });
+      res.json(assessment);
     } catch (error) {
       if ((error.status ?? 500) >= 500) {
         console.warn("Report severity assessment failed:", error.message);
@@ -1155,13 +1157,34 @@ app.post("/api/mobile/reports/severity", (req, res) => {
   });
 });
 app.post("/api/mobile/reports", async (req, res) => {
-  const { title, description, category, location, latitude, longitude, severity = "Medium", mediaUrl, mediaType = "photo" } = req.body ?? {};
+  const {
+    title,
+    description,
+    category,
+    location,
+    latitude,
+    longitude,
+    severity = "Medium",
+    aiSeverity = null,
+    aiAnalysis = null,
+    mediaUrl,
+    mediaType = "photo",
+  } = req.body ?? {};
   const normalizedCategory = normalizeReportCategory(category);
   if (!title || !description || !normalizedCategory) {
     return res.status(400).json({ error: `Title, description, and a valid category are required (${REPORT_CATEGORIES.join(", ")})` });
   }
   if (!REPORT_SEVERITIES.includes(severity)) {
     return res.status(400).json({ error: "Choose a valid report severity." });
+  }
+  if (
+    (aiSeverity != null || aiAnalysis != null) &&
+    (!REPORT_SEVERITIES.includes(aiSeverity) ||
+      typeof aiAnalysis !== "string" ||
+      !aiAnalysis.trim() ||
+      aiAnalysis.length > 320)
+  ) {
+    return res.status(400).json({ error: "Provide a valid AI assessment." });
   }
   const [[preferences]] = await pool.query(
     "SELECT show_location_on_reports FROM user_preferences WHERE user_id = ?",
@@ -1216,8 +1239,8 @@ app.post("/api/mobile/reports", async (req, res) => {
     await connection.beginTransaction();
     const id = publicId();
     const [result] = await connection.query(
-      "INSERT INTO reports (public_id, title, description, category, location, latitude, longitude, severity, reporter_id, due_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 3 DAY))",
-      [id, title, description, normalizedCategory, resolvedLocation, parsedLat, parsedLng, severity, req.auth.id],
+      "INSERT INTO reports (public_id, title, description, category, location, latitude, longitude, severity, ai_severity, ai_analysis, reporter_id, due_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 3 DAY))",
+      [id, title, description, normalizedCategory, resolvedLocation, parsedLat, parsedLng, severity, aiSeverity, aiAnalysis?.trim() ?? null, req.auth.id],
     );
     await connection.query(
       "INSERT INTO report_events (report_id, status, note) VALUES (?, 'Reported', ?)",

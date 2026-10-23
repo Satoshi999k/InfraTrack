@@ -72,11 +72,13 @@ void main() {
     expect(find.text('Water'), findsNothing);
   });
 
-  testWidgets('automatically assesses severity once when submitting a report', (
+  testWidgets('saves AI findings for admin review without assigning priority', (
     tester,
   ) async {
     var assessmentRequests = 0;
     String? submittedSeverity;
+    String? submittedAiSeverity;
+    String? submittedAiAnalysis;
     ApiService.httpClientFactory = () => MockClient((request) async {
       if (request.url.path.endsWith('/mobile/profile')) {
         return _verifiedProfileResponse();
@@ -84,15 +86,19 @@ void main() {
       if (request.url.path.endsWith('/mobile/reports/severity')) {
         assessmentRequests++;
         return http.Response(
-          jsonEncode({'severity': 'High'}),
+          jsonEncode({
+            'severity': 'High',
+            'analysis': 'The image shows a deep pothole affecting one lane.',
+          }),
           200,
           headers: {'content-type': 'application/json'},
         );
       }
       if (request.url.path.endsWith('/mobile/reports')) {
-        submittedSeverity =
-            (jsonDecode(request.body) as Map<String, dynamic>)['severity']
-                as String?;
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        submittedSeverity = body['severity'] as String?;
+        submittedAiSeverity = body['aiSeverity'] as String?;
+        submittedAiAnalysis = body['aiAnalysis'] as String?;
         return http.Response(
           jsonEncode({
             'report': {'id': 102},
@@ -114,70 +120,16 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(assessmentRequests, 1);
-    expect(submittedSeverity, 'High');
+    expect(submittedSeverity, 'Medium');
+    expect(submittedAiSeverity, 'High');
+    expect(
+      submittedAiAnalysis,
+      'The image shows a deep pothole affecting one lane.',
+    );
     expect(find.text('Report submitted'), findsOneWidget);
     await tester.tap(find.text('Done'));
     await tester.pumpAndSettle();
   });
-
-  testWidgets(
-    'manual severity skips AI assessment and is submitted as chosen',
-    (tester) async {
-      var assessmentRequests = 0;
-      String? submittedSeverity;
-      ApiService.httpClientFactory = () => MockClient((request) async {
-        if (request.url.path.endsWith('/mobile/profile')) {
-          return _verifiedProfileResponse();
-        }
-        if (request.url.path.endsWith('/mobile/reports/severity')) {
-          assessmentRequests++;
-          return http.Response(
-            jsonEncode({'severity': 'High'}),
-            200,
-            headers: {'content-type': 'application/json'},
-          );
-        }
-        if (request.url.path.endsWith('/mobile/reports')) {
-          submittedSeverity =
-              (jsonDecode(request.body) as Map<String, dynamic>)['severity']
-                  as String?;
-          return http.Response(
-            jsonEncode({
-              'report': {'id': 103},
-            }),
-            201,
-            headers: {'content-type': 'application/json'},
-          );
-        }
-        return http.Response('Not found', 404);
-      });
-
-      await _openReportForm(tester);
-      await tester.enterText(
-        find.byType(TextField),
-        'A damaged streetlight near the school.',
-      );
-      await tester.ensureVisible(find.text('Automatic AI severity'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Automatic AI severity'));
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(find.byType(DropdownButtonFormField<String>));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byType(DropdownButtonFormField<String>));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Critical').last);
-      await tester.pumpAndSettle();
-      await _scrollToSubmitButton(tester);
-      await tester.tap(find.text('Submit report'));
-      await tester.pumpAndSettle();
-
-      expect(assessmentRequests, 0);
-      expect(submittedSeverity, 'Critical');
-      expect(find.text('Report submitted'), findsOneWidget);
-      await tester.tap(find.text('Done'));
-      await tester.pumpAndSettle();
-    },
-  );
 
   testWidgets(
     'shows truthful no-evidence progress and blocks duplicate submissions',
@@ -187,6 +139,16 @@ void main() {
       ApiService.httpClientFactory = () => MockClient((request) async {
         if (request.url.path.endsWith('/mobile/profile')) {
           return _verifiedProfileResponse();
+        }
+        if (request.url.path.endsWith('/mobile/reports/severity')) {
+          return http.Response(
+            jsonEncode({
+              'severity': 'Medium',
+              'analysis': 'No immediate danger is described.',
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
         }
         if (request.url.path.endsWith('/mobile/reports')) {
           reportRequestCount++;
@@ -208,6 +170,7 @@ void main() {
       expect(find.text('Submitting your report'), findsOneWidget);
       expect(find.text('Upload evidence'), findsNothing);
       expect(find.text('Confirm location'), findsOneWidget);
+      expect(find.text('Analyze report'), findsOneWidget);
       expect(find.text('Send report'), findsOneWidget);
       expect(reportRequestCount, 1);
       final submitButton = tester.widget<FilledButton>(
@@ -240,6 +203,16 @@ void main() {
     ApiService.httpClientFactory = () => MockClient((request) async {
       if (request.url.path.endsWith('/mobile/profile')) {
         return _verifiedProfileResponse();
+      }
+      if (request.url.path.endsWith('/mobile/reports/severity')) {
+        return http.Response(
+          jsonEncode({
+            'severity': 'Medium',
+            'analysis': 'The description needs more detail.',
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
       }
       if (request.url.path.endsWith('/mobile/reports')) {
         return http.Response(
