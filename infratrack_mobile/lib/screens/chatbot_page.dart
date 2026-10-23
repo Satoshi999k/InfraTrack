@@ -78,7 +78,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: sand,
+    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
     appBar: AppBar(
       backgroundColor: deepNavy,
       foregroundColor: Colors.white,

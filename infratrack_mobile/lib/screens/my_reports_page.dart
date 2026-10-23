@@ -125,7 +125,7 @@ class _MyReportsPageState extends State<MyReportsPage> {
         ? reports
         : reports.where((item) => item.status == filter).toList();
     return Scaffold(
-      backgroundColor: sand,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: PageEntrance(
           child: RefreshIndicator(
@@ -720,7 +720,7 @@ class MyReportDetailsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: sand,
+    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
     body: SafeArea(
       child: PageEntrance(
         child: AppScroll(

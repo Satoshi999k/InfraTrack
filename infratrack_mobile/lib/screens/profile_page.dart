@@ -148,7 +148,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
     final result = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: sand,
+        backgroundColor: Theme.of(dialogContext).colorScheme.surface,
         title: Text(
           'Edit profile',
           style: infraHeading(
@@ -386,7 +386,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
     final shouldLogout = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: sand,
+        backgroundColor: Theme.of(dialogContext).colorScheme.surface,
         insetPadding: const EdgeInsets.symmetric(horizontal: 22),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         icon: Container(
@@ -457,10 +457,10 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
 
     @override
     Widget build(BuildContext context) => Scaffold(
-      backgroundColor: sand,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Identity verification'),
-        backgroundColor: sand,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         foregroundColor: navy,
         elevation: 0,
       ),
@@ -662,10 +662,10 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
 
     @override
     Widget build(BuildContext context) => Scaffold(
-      backgroundColor: sand,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Privacy & security'),
-        backgroundColor: sand,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         foregroundColor: navy,
         elevation: 0,
       ),
@@ -805,6 +805,9 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
           const SizedBox(height: 20),
           const _ProfileSectionTitle(title: 'ACCOUNT SETTINGS'),
           _TrustSettingsGroup(
+            onAppearanceTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AppearanceSettingsPage()),
+            ),
             onPrivacyTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const PrivacySecurityPage()),
             ),
@@ -1494,8 +1497,12 @@ class _SettingsGroup extends StatelessWidget {
 }
 
 class _TrustSettingsGroup extends StatelessWidget {
-  const _TrustSettingsGroup({required this.onPrivacyTap});
+  const _TrustSettingsGroup({
+    required this.onAppearanceTap,
+    required this.onPrivacyTap,
+  });
 
+  final VoidCallback onAppearanceTap;
   final VoidCallback onPrivacyTap;
 
   @override
@@ -1509,6 +1516,14 @@ class _TrustSettingsGroup extends StatelessWidget {
     child: Column(
       children: [
         MenuRow(
+          icon: Icons.palette_outlined,
+          title: 'Appearance',
+          subtitle: 'Theme, color, text, and layout',
+          accentColor: teal,
+          inGroup: true,
+          onTap: onAppearanceTap,
+        ),
+        MenuRow(
           icon: Icons.lock_outline,
           title: 'Privacy & security',
           subtitle: 'Password and account access',
@@ -1518,6 +1533,439 @@ class _TrustSettingsGroup extends StatelessWidget {
           onTap: onPrivacyTap,
         ),
       ],
+    ),
+  );
+}
+
+class AppearanceSettingsPage extends StatefulWidget {
+  const AppearanceSettingsPage({super.key});
+
+  @override
+  State<AppearanceSettingsPage> createState() => _AppearanceSettingsPageState();
+}
+
+class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
+  bool _saving = false;
+  String? _saveError;
+
+  Future<void> _update(InfraAppearance next) async {
+    setState(() {
+      _saving = true;
+      _saveError = null;
+    });
+    try {
+      await saveInfraAppearance(next);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _saveError = 'Could not save appearance settings: $error');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Widget _section({
+    required String title,
+    required String subtitle,
+    required Widget child,
+  }) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 11,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 14),
+          child,
+        ],
+      ),
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+    appBar: AppBar(title: const Text('Appearance')),
+    body: AppScroll(
+      child: ValueListenableBuilder<InfraAppearance>(
+        valueListenable: infraAppearance,
+        builder: (context, appearance, _) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [deepNavy, navy],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.tune_rounded, color: Colors.white, size: 24),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Make InfraTrack yours',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Changes are saved on this device and apply immediately.',
+                          style: TextStyle(
+                            color: Color(0xFFD5E4E5),
+                            fontSize: 10,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (_saveError != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.errorContainer,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Text(
+                  _saveError!,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onErrorContainer,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            _section(
+              title: 'Theme',
+              subtitle: 'Choose a comfortable display for your surroundings.',
+              child: Row(
+                children: [
+                  for (final option in [
+                    (
+                      value: 'light',
+                      label: 'Light',
+                      icon: Icons.light_mode_outlined,
+                    ),
+                    (
+                      value: 'dark',
+                      label: 'Dark',
+                      icon: Icons.dark_mode_outlined,
+                    ),
+                    (
+                      value: 'system',
+                      label: 'System',
+                      icon: Icons.settings_brightness_outlined,
+                    ),
+                  ])
+                    Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                          right: option.value == 'system' ? 0 : 8,
+                        ),
+                        child: _AppearanceChoice(
+                          selected: appearance.theme == option.value,
+                          label: option.label,
+                          icon: option.icon,
+                          onTap: _saving
+                              ? null
+                              : () => _update(
+                                  appearance.copyWith(theme: option.value),
+                                ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            _section(
+              title: 'Accent color',
+              subtitle: 'Personalize buttons, selections, and highlights.',
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  for (final option in [
+                    (value: 'teal', label: 'InfraTrack'),
+                    (value: 'blue', label: 'Blue'),
+                    (value: 'emerald', label: 'Emerald'),
+                    (value: 'violet', label: 'Violet'),
+                    (value: 'amber', label: 'Amber'),
+                    (value: 'rose', label: 'Rose'),
+                  ])
+                    _AccentChoice(
+                      label: option.label,
+                      color: appearanceAccentColors[option.value]!,
+                      selected: appearance.accent == option.value,
+                      onTap: _saving
+                          ? null
+                          : () => _update(
+                              appearance.copyWith(accent: option.value),
+                            ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            _section(
+              title: 'Typeface',
+              subtitle: 'Choose a style that is comfortable to read.',
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final option in [
+                    (value: 'inter', label: 'Inter'),
+                    (value: 'system', label: 'System'),
+                    (value: 'arial', label: 'Arial'),
+                    (value: 'roboto', label: 'Roboto'),
+                    (value: 'lato', label: 'Lato'),
+                    (value: 'open-sans', label: 'Open Sans'),
+                    (value: 'poppins', label: 'Poppins'),
+                    (value: 'nunito', label: 'Nunito'),
+                  ])
+                    ChoiceChip(
+                      label: Text(
+                        option.label,
+                        style: TextStyle(
+                          fontFamily: option.value == 'system'
+                              ? null
+                              : option.value == 'open-sans'
+                              ? 'Open Sans'
+                              : option.value[0].toUpperCase() +
+                                    option.value.substring(1),
+                        ),
+                      ),
+                      selected: appearance.typeface == option.value,
+                      onSelected: _saving
+                          ? null
+                          : (_) => _update(
+                              appearance.copyWith(typeface: option.value),
+                            ),
+                      avatar: appearance.typeface == option.value
+                          ? const Icon(Icons.check, size: 16)
+                          : null,
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            _section(
+              title: 'Text size',
+              subtitle:
+                  'Adjust readability while keeping your phone’s text setting.',
+              child: SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(value: 'compact', label: Text('Compact')),
+                  ButtonSegment(value: 'regular', label: Text('Regular')),
+                  ButtonSegment(value: 'large', label: Text('Large')),
+                ],
+                selected: {appearance.textSize},
+                onSelectionChanged: _saving
+                    ? null
+                    : (selection) => _update(
+                        appearance.copyWith(textSize: selection.first),
+                      ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _section(
+              title: 'Corners',
+              subtitle: 'Set the shape of cards, fields, and controls.',
+              child: SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(value: 'square', label: Text('Square')),
+                  ButtonSegment(value: 'rounded', label: Text('Rounded')),
+                  ButtonSegment(value: 'soft', label: Text('Soft')),
+                ],
+                selected: {appearance.corners},
+                onSelectionChanged: _saving
+                    ? null
+                    : (selection) => _update(
+                        appearance.copyWith(corners: selection.first),
+                      ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              child: SwitchListTile.adaptive(
+                value: appearance.highContrast,
+                onChanged: _saving
+                    ? null
+                    : (value) =>
+                          _update(appearance.copyWith(highContrast: value)),
+                title: const Text(
+                  'High contrast',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                ),
+                subtitle: const Text(
+                  'Strengthen text and control boundaries.',
+                  style: TextStyle(fontSize: 10, height: 1.4),
+                ),
+                secondary: const Icon(Icons.contrast_rounded),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: _saving
+                    ? null
+                    : () => _update(const InfraAppearance()),
+                icon: const Icon(Icons.restart_alt_rounded, size: 17),
+                label: const Text('Reset to defaults'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _AppearanceChoice extends StatelessWidget {
+  const _AppearanceChoice({
+    required this.selected,
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final bool selected;
+  final String label;
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+    final border = Theme.of(context).colorScheme.outline;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '$label theme',
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+          decoration: BoxDecoration(
+            color: selected ? accent.withValues(alpha: .09) : null,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: selected ? accent : border),
+          ),
+          child: Column(
+            children: [
+              Icon(icon, color: selected ? accent : null, size: 20),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AccentChoice extends StatelessWidget {
+  const _AccentChoice({
+    required this.label,
+    required this.color,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final Color color;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    selected: selected,
+    label: '$label accent',
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: SizedBox(
+        width: 64,
+        child: Column(
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: selected
+                      ? Theme.of(context).colorScheme.onSurface
+                      : Colors.transparent,
+                  width: selected ? 2 : 0,
+                ),
+                boxShadow: [
+                  if (selected)
+                    BoxShadow(
+                      color: color.withValues(alpha: .28),
+                      blurRadius: 8,
+                    ),
+                ],
+              ),
+              child: selected
+                  ? const Icon(Icons.check, color: Colors.white, size: 18)
+                  : null,
+            ),
+            const SizedBox(height: 5),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
     ),
   );
 }
@@ -1577,10 +2025,10 @@ class _IdentityVerificationPageState extends State<IdentityVerificationPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: sand,
+    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
     appBar: AppBar(
       title: const Text('Identity verification'),
-      backgroundColor: sand,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       foregroundColor: navy,
       elevation: 0,
     ),
@@ -2135,7 +2583,7 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => Dialog(
-          backgroundColor: sand,
+          backgroundColor: Theme.of(context).colorScheme.surface,
           insetPadding: const EdgeInsets.symmetric(
             horizontal: 20,
             vertical: 24,
@@ -2333,10 +2781,10 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: sand,
+    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
     appBar: AppBar(
       title: const Text('Privacy & security'),
-      backgroundColor: sand,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       foregroundColor: navy,
       elevation: 0,
     ),

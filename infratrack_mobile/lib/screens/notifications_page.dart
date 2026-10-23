@@ -198,7 +198,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     final groups = visible.map((item) => item.group).toSet();
 
     return Scaffold(
-      backgroundColor: sand,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: PageEntrance(
           child: RefreshIndicator(

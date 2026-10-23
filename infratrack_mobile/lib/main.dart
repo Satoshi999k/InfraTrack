@@ -16,6 +16,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:video_player/video_player.dart';
 
 import 'api_service.dart';
+import 'appearance_preferences.dart';
 import 'biometric_sign_in.dart';
 import 'report_categories.dart';
 
@@ -157,64 +158,64 @@ void showInfraNotice(
 
 void main() => runApp(const InfraTrackApp());
 
-class InfraTrackApp extends StatelessWidget {
+class InfraTrackApp extends StatefulWidget {
   const InfraTrackApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'InfraTrack',
-      theme: ThemeData(
-        useMaterial3: true,
-        scaffoldBackgroundColor: sand,
-        colorScheme: ColorScheme.fromSeed(seedColor: navy),
-        fontFamily: GoogleFonts.inter().fontFamily,
-        textTheme: GoogleFonts.interTextTheme(),
-        cardTheme: CardThemeData(
-          color: Colors.white,
-          elevation: 0,
-          margin: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-            side: const BorderSide(color: line),
-          ),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: Colors.white,
-          contentPadding: const EdgeInsets.all(16),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: line),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: teal, width: 1.5),
-          ),
-        ),
-      ),
-      builder: (context, child) => ValueListenableBuilder<String?>(
-        valueListenable: ApiService.connectionIssue,
-        builder: (context, issue, _) => Stack(
-          fit: StackFit.expand,
-          children: [
-            ?child,
-            if (issue != null)
-              _ConnectionUnavailablePage(
-                message: issue,
-                onRetry: ApiService.checkServerConnection,
-              ),
-          ],
-        ),
-      ),
-      home: const AppLoadingPage(),
-    );
+  State<InfraTrackApp> createState() => _InfraTrackAppState();
+}
+
+class _InfraTrackAppState extends State<InfraTrackApp> {
+  @override
+  void initState() {
+    super.initState();
+    unawaited(loadInfraAppearance());
   }
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<InfraAppearance>(
+    valueListenable: infraAppearance,
+    builder: (context, appearance, _) {
+      final textScale = switch (appearance.textSize) {
+        'compact' => .9,
+        'large' => 1.12,
+        _ => 1.0,
+      };
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'InfraTrack',
+        theme: buildInfraTheme(appearance, Brightness.light),
+        darkTheme: buildInfraTheme(appearance, Brightness.dark),
+        themeMode: switch (appearance.theme) {
+          'dark' => ThemeMode.dark,
+          'system' => ThemeMode.system,
+          _ => ThemeMode.light,
+        },
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(
+              MediaQuery.textScalerOf(context).scale(1) * textScale,
+            ),
+          ),
+          child: ValueListenableBuilder<String?>(
+            valueListenable: ApiService.connectionIssue,
+            builder: (context, issue, _) => Stack(
+              fit: StackFit.expand,
+              children: [
+                ?child,
+                if (issue != null)
+                  _ConnectionUnavailablePage(
+                    message: issue,
+                    onRetry: ApiService.checkServerConnection,
+                  ),
+              ],
+            ),
+          ),
+        ),
+        home: const AppLoadingPage(),
+      );
+    },
+  );
 }
 
 class _ConnectionUnavailablePage extends StatefulWidget {
@@ -273,7 +274,7 @@ class _ConnectionUnavailablePageState extends State<_ConnectionUnavailablePage>
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: sand,
+    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
     body: SafeArea(
       child: Center(
         child: SingleChildScrollView(
