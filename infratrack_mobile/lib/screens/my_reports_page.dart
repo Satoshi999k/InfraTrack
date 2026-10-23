@@ -794,12 +794,23 @@ class MyReportDetailsPage extends StatelessWidget {
                   _DetailMetaChip(icon: report.icon, label: report.status),
                 ],
               ),
+              if (report.status == 'Resolved') ...[
+                const SizedBox(height: 18),
+                _ReportRatingSection(reportId: report.reportId),
+              ],
               if (report.status == 'In progress') ...[
                 const SizedBox(height: 18),
                 _ReportProgressCard(
                   progressPercentage: report.progressPercentage,
                   updates: report.progressUpdates,
                   statusHistory: report.statusHistory,
+                ),
+              ],
+              if (report.status != 'Archived') ...[
+                const SizedBox(height: 18),
+                _ReportDiscussionSection(
+                  reportId: report.reportId,
+                  status: report.status,
                 ),
               ],
               const SizedBox(height: 18),
@@ -876,6 +887,842 @@ String _locationFor(
   })
   report,
 ) => report.location;
+
+class _ReportDiscussionSection extends StatefulWidget {
+  const _ReportDiscussionSection({
+    required this.reportId,
+    required this.status,
+  });
+
+  final String reportId;
+  final String status;
+
+  @override
+  State<_ReportDiscussionSection> createState() =>
+      _ReportDiscussionSectionState();
+}
+
+class _ReportDiscussionSectionState extends State<_ReportDiscussionSection> {
+  final _replyController = TextEditingController();
+  final _threadController = ScrollController();
+  List<Map<String, dynamic>> _comments = [];
+  bool _loading = true;
+  bool _sending = false;
+  bool _expanded = false;
+  String? _loadError;
+  String? _replyError;
+
+  bool get _repliesOpen =>
+      !{'Resolved', 'Rejected', 'Archived'}.contains(widget.status);
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDiscussion();
+  }
+
+  @override
+  void dispose() {
+    _replyController.dispose();
+    _threadController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadDiscussion() async {
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
+    try {
+      final comments = await ApiService.reportDiscussion(widget.reportId);
+      if (!mounted) return;
+      setState(() => _comments = comments);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = error.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _sendReply() async {
+    final message = _replyController.text.trim();
+    if (message.isEmpty) {
+      setState(() => _replyError = 'Write a reply before sending.');
+      return;
+    }
+    if (message.length > reportCommentMaxLength) {
+      setState(
+        () => _replyError =
+            'Replies must be $reportCommentMaxLength characters or fewer.',
+      );
+      return;
+    }
+
+    setState(() {
+      _sending = true;
+      _replyError = null;
+    });
+    try {
+      final comment = await ApiService.postReportDiscussionReply(
+        reportId: widget.reportId,
+        message: message,
+      );
+      if (!mounted) return;
+      setState(() {
+        _comments = [..._comments, comment];
+        _replyController.clear();
+        _expanded = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _replyError = error.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  void _toggleExpanded() {
+    final expand = !_expanded;
+    setState(() => _expanded = expand);
+    if (expand) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_threadController.hasClients) {
+          _threadController.animateTo(
+            _threadController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleComments = _expanded || _comments.length <= 2
+        ? _comments
+        : _comments.skip(_comments.length - 2).toList();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: line),
+        boxShadow: [
+          BoxShadow(
+            color: navy.withValues(alpha: .035),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: teal.withValues(alpha: .11),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.forum_outlined, color: teal, size: 19),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'OFFICIAL FOLLOW-UP',
+                      style: TextStyle(
+                        color: inkSoft,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: .8,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '${_comments.length} ${_comments.length == 1 ? 'reply' : 'replies'}',
+                      style: const TextStyle(
+                        color: navy,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                decoration: BoxDecoration(
+                  color: teal.withValues(alpha: .09),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text(
+                  'Semi-public',
+                  style: TextStyle(
+                    color: teal,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 2),
+              IconButton(
+                tooltip: 'Refresh follow-up',
+                visualDensity: VisualDensity.compact,
+                onPressed: _loading ? null : _loadDiscussion,
+                icon: _loading
+                    ? const SizedBox(
+                        width: 17,
+                        height: 17,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: teal,
+                        ),
+                      )
+                    : const Icon(Icons.refresh_rounded, color: teal, size: 19),
+              ),
+            ],
+          ),
+          const SizedBox(height: 7),
+          const Text(
+            'Visible to the community. Only you and the response team can reply.',
+            style: TextStyle(color: inkSoft, fontSize: 10, height: 1.45),
+          ),
+          if (_loadError != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(11),
+              decoration: BoxDecoration(
+                color: clay.withValues(alpha: .07),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.cloud_off_outlined, color: clay, size: 17),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _loadError!,
+                      style: const TextStyle(
+                        color: inkSoft,
+                        fontSize: 10,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _loading ? null : _loadDiscussion,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (_loading && _comments.isEmpty && _loadError == null) ...[
+            const SizedBox(height: 20),
+            const Center(
+              child: SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2, color: teal),
+              ),
+            ),
+            const SizedBox(height: 20),
+          ] else if (_comments.isEmpty && _loadError == null) ...[
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+              decoration: BoxDecoration(
+                color: sand,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                'No follow-up replies yet. You can ask a question or share a helpful update below.',
+                style: TextStyle(color: inkSoft, fontSize: 10, height: 1.5),
+              ),
+            ),
+          ] else if (_comments.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            if (_expanded)
+              SizedBox(
+                height: 260,
+                child: ListView(
+                  controller: _threadController,
+                  padding: EdgeInsets.zero,
+                  children: [
+                    for (final comment in visibleComments)
+                      _ReportDiscussionReply(comment: comment),
+                  ],
+                ),
+              )
+            else
+              for (final comment in visibleComments)
+                _ReportDiscussionReply(comment: comment),
+            if (_comments.length > 2) ...[
+              Align(
+                alignment: Alignment.center,
+                child: TextButton.icon(
+                  onPressed: _toggleExpanded,
+                  icon: Icon(
+                    _expanded ? Icons.expand_less : Icons.expand_more,
+                    size: 19,
+                  ),
+                  label: Text(
+                    _expanded
+                        ? 'Show latest replies'
+                        : 'View all ${_comments.length} replies',
+                  ),
+                  style: TextButton.styleFrom(
+                    foregroundColor: teal,
+                    textStyle: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+          const SizedBox(height: 12),
+          const Divider(height: 1, color: line),
+          const SizedBox(height: 12),
+          if (_repliesOpen) ...[
+            TextField(
+              controller: _replyController,
+              enabled: !_sending,
+              minLines: 2,
+              maxLines: 4,
+              maxLength: reportCommentMaxLength,
+              onChanged: (_) {
+                if (_replyError != null) setState(() => _replyError = null);
+              },
+              decoration: InputDecoration(
+                labelText: 'Reply to the follow-up',
+                hintText: 'Ask a question or share an update…',
+                alignLabelWithHint: true,
+                counterStyle: const TextStyle(fontSize: 9, color: inkSoft),
+                filled: true,
+                fillColor: sand.withValues(alpha: .55),
+                contentPadding: const EdgeInsets.all(12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(13),
+                  borderSide: const BorderSide(color: line),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(13),
+                  borderSide: const BorderSide(color: line),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(13),
+                  borderSide: const BorderSide(color: teal, width: 1.5),
+                ),
+              ),
+            ),
+            if (_replyError != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                _replyError!,
+                style: const TextStyle(color: clay, fontSize: 10),
+              ),
+            ],
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton.icon(
+                onPressed: _sending ? null : _sendReply,
+                icon: _sending
+                    ? const SizedBox(
+                        width: 15,
+                        height: 15,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.send_rounded, size: 15),
+                label: Text(_sending ? 'Sending…' : 'Send reply'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: teal,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 11,
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+          ] else ...[
+            Row(
+              children: [
+                const Icon(Icons.lock_outline, color: inkSoft, size: 15),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: Text(
+                    'Replies are closed for ${widget.status.toLowerCase()} reports. You can still read the follow-up.',
+                    style: const TextStyle(
+                      color: inkSoft,
+                      fontSize: 10,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ReportDiscussionReply extends StatelessWidget {
+  const _ReportDiscussionReply({required this.comment});
+
+  final Map<String, dynamic> comment;
+
+  @override
+  Widget build(BuildContext context) {
+    final isResident = comment['author_role'] == 'resident';
+    final createdAt = comment['created_at']?.toString() ?? '';
+    final body = comment['body']?.toString() ?? '';
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isResident ? sand : teal.withValues(alpha: .07),
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(
+          color: isResident ? line : teal.withValues(alpha: .13),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isResident ? Icons.person_outline : Icons.support_agent,
+                color: isResident ? inkSoft : teal,
+                size: 15,
+              ),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  comment['author_name']?.toString() ??
+                      (isResident ? 'Resident' : 'Response team'),
+                  style: const TextStyle(
+                    color: navy,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              if (createdAt.isNotEmpty)
+                Text(
+                  _formatReportDate(createdAt),
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(color: inkSoft, fontSize: 8.5),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            body,
+            style: const TextStyle(color: ink, fontSize: 11, height: 1.45),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReportRatingSection extends StatefulWidget {
+  const _ReportRatingSection({required this.reportId});
+
+  final String reportId;
+
+  @override
+  State<_ReportRatingSection> createState() => _ReportRatingSectionState();
+}
+
+class _ReportRatingSectionState extends State<_ReportRatingSection> {
+  final _feedbackController = TextEditingController();
+  Map<String, dynamic>? _savedRating;
+  int? _selectedRating;
+  bool _loading = true;
+  bool _submitting = false;
+  String? _error;
+  String? _validationError;
+
+  static const _ratingLabels = [
+    'Needs improvement',
+    'Fair',
+    'Good',
+    'Very good',
+    'Excellent',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRating();
+  }
+
+  @override
+  void dispose() {
+    _feedbackController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadRating() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final rating = await ApiService.reportRating(widget.reportId);
+      if (!mounted) return;
+      setState(() => _savedRating = rating);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _submitRating() async {
+    final rating = _selectedRating;
+    if (rating == null) {
+      setState(() => _validationError = 'Choose a star rating to continue.');
+      return;
+    }
+    setState(() {
+      _submitting = true;
+      _validationError = null;
+      _error = null;
+    });
+    try {
+      final saved = await ApiService.submitReportRating(
+        reportId: widget.reportId,
+        rating: rating,
+        comment: _feedbackController.text.trim(),
+      );
+      if (!mounted) return;
+      setState(() => _savedRating = saved);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Widget _stars(int rating, {bool interactive = false}) => Row(
+    mainAxisAlignment: interactive
+        ? MainAxisAlignment.center
+        : MainAxisAlignment.start,
+    children: [
+      for (var star = 1; star <= 5; star++)
+        if (interactive)
+          Semantics(
+            button: true,
+            selected: _selectedRating == star,
+            label: '$star ${star == 1 ? 'star' : 'stars'}',
+            child: IconButton(
+              tooltip: '$star ${star == 1 ? 'star' : 'stars'}',
+              onPressed: _submitting
+                  ? null
+                  : () => setState(() {
+                      _selectedRating = star;
+                      _validationError = null;
+                    }),
+              visualDensity: VisualDensity.compact,
+              constraints: const BoxConstraints(minWidth: 43, minHeight: 43),
+              padding: const EdgeInsets.all(4),
+              icon: Icon(
+                star <= (_selectedRating ?? 0)
+                    ? Icons.star_rounded
+                    : Icons.star_outline_rounded,
+                size: 32,
+                color: star <= (_selectedRating ?? 0) ? amber : line,
+              ),
+            ),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.only(right: 2),
+            child: Icon(
+              star <= rating ? Icons.star_rounded : Icons.star_outline_rounded,
+              size: 19,
+              color: star <= rating ? amber : line,
+            ),
+          ),
+    ],
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final savedValue = int.tryParse('${_savedRating?['rating']}') ?? 0;
+    final selectedLabel = _selectedRating == null
+        ? 'Tap a star to rate the completed work'
+        : _ratingLabels[_selectedRating! - 1];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: line),
+        boxShadow: [
+          BoxShadow(
+            color: navy.withValues(alpha: .035),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: amber.withValues(alpha: .14),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.rate_review_outlined,
+                  color: amber,
+                  size: 19,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _savedRating == null ? 'HOW DID WE DO?' : 'YOUR FEEDBACK',
+                      style: const TextStyle(
+                        color: inkSoft,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: .8,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      _savedRating == null
+                          ? 'Rate the completed work'
+                          : 'Thank you for helping Mati improve',
+                      style: const TextStyle(
+                        color: navy,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 7),
+          const Text(
+            'Your rating helps the city team improve future repairs. You can rate each completed report once.',
+            style: TextStyle(color: inkSoft, fontSize: 10, height: 1.45),
+          ),
+          if (_loading && _savedRating == null) ...[
+            const SizedBox(height: 18),
+            const Center(
+              child: SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2, color: amber),
+              ),
+            ),
+            const SizedBox(height: 18),
+          ] else if (_error != null && _savedRating == null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(11),
+              decoration: BoxDecoration(
+                color: clay.withValues(alpha: .07),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.cloud_off_outlined, color: clay, size: 17),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _error!,
+                      style: const TextStyle(
+                        color: inkSoft,
+                        fontSize: 10,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _loading ? null : _loadRating,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+          ] else if (_savedRating != null) ...[
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                _stars(savedValue),
+                const SizedBox(width: 8),
+                Text(
+                  _ratingLabels[(savedValue.clamp(1, 5)) - 1],
+                  style: const TextStyle(
+                    color: navy,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            if ((_savedRating?['comment']?.toString() ?? '').trim().isNotEmpty)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(top: 10),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: sand,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  _savedRating!['comment'].toString(),
+                  style: const TextStyle(
+                    color: ink,
+                    fontSize: 11,
+                    height: 1.45,
+                  ),
+                ),
+              ),
+          ] else ...[
+            const SizedBox(height: 8),
+            _stars(0, interactive: true),
+            Center(
+              child: Text(
+                selectedLabel,
+                style: const TextStyle(
+                  color: inkSoft,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _feedbackController,
+              enabled: !_submitting,
+              minLines: 2,
+              maxLines: 4,
+              maxLength: reportRatingCommentMaxLength,
+              decoration: InputDecoration(
+                labelText: 'Optional feedback',
+                hintText: 'Tell us what went well or could be better',
+                alignLabelWithHint: true,
+                counterStyle: const TextStyle(fontSize: 9, color: inkSoft),
+                filled: true,
+                fillColor: sand.withValues(alpha: .55),
+                contentPadding: const EdgeInsets.all(12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(13),
+                  borderSide: const BorderSide(color: line),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(13),
+                  borderSide: const BorderSide(color: line),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(13),
+                  borderSide: const BorderSide(color: amber, width: 1.5),
+                ),
+              ),
+            ),
+            if (_validationError != null) ...[
+              const SizedBox(height: 3),
+              Text(
+                _validationError!,
+                style: const TextStyle(color: clay, fontSize: 10),
+              ),
+            ],
+            if (_error != null) ...[
+              const SizedBox(height: 3),
+              Text(_error!, style: const TextStyle(color: clay, fontSize: 10)),
+            ],
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton.icon(
+                onPressed: _submitting ? null : _submitRating,
+                icon: _submitting
+                    ? const SizedBox(
+                        width: 15,
+                        height: 15,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.star_rounded, size: 16),
+                label: Text(_submitting ? 'Saving…' : 'Submit rating'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: amber,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 11,
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
 
 class _ReportProgressCard extends StatelessWidget {
   const _ReportProgressCard({

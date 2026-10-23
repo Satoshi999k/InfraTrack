@@ -28,6 +28,9 @@ class ReportSeverityAssessment {
   final String analysis;
 }
 
+const reportCommentMaxLength = 1000;
+const reportRatingCommentMaxLength = 500;
+
 const _configuredApiBaseUrl = String.fromEnvironment('API_BASE_URL');
 const _productionApiBaseUrl = 'https://infratrack-3a8u.onrender.com/api';
 
@@ -411,6 +414,72 @@ class ApiService {
       await _request('GET', '/mobile/reports', authenticated: true),
       'reports',
     );
+  }
+
+  static Future<List<Map<String, dynamic>>> reportDiscussion(
+    String reportId,
+  ) async {
+    final body = await _request(
+      'GET',
+      '/mobile/issues/${Uri.encodeComponent(reportId)}/discussion',
+      authenticated: true,
+    );
+    final comments = body['comments'];
+    if (comments is! List) {
+      throw Exception('The server returned an invalid report discussion.');
+    }
+    return comments
+        .map((comment) => Map<String, dynamic>.from(comment as Map))
+        .toList();
+  }
+
+  static Future<Map<String, dynamic>> postReportDiscussionReply({
+    required String reportId,
+    required String message,
+  }) async {
+    final body = await _request(
+      'POST',
+      '/mobile/issues/${Uri.encodeComponent(reportId)}/discussion',
+      authenticated: true,
+      body: {'body': message},
+    );
+    final comment = body['comment'];
+    if (comment is! Map) {
+      throw Exception('The server returned an invalid discussion reply.');
+    }
+    return Map<String, dynamic>.from(comment);
+  }
+
+  static Future<Map<String, dynamic>?> reportRating(String reportId) async {
+    final body = await _request(
+      'GET',
+      '/mobile/issues/${Uri.encodeComponent(reportId)}/rating',
+      authenticated: true,
+    );
+    final rating = body['rating'];
+    if (rating == null) return null;
+    if (rating is! Map) {
+      throw Exception('The server returned an invalid report rating.');
+    }
+    return Map<String, dynamic>.from(rating);
+  }
+
+  static Future<Map<String, dynamic>> submitReportRating({
+    required String reportId,
+    required int rating,
+    String? comment,
+  }) async {
+    final body = await _request(
+      'POST',
+      '/mobile/issues/${Uri.encodeComponent(reportId)}/rating',
+      authenticated: true,
+      body: {'rating': rating, 'comment': comment},
+    );
+    final savedRating = body['rating'];
+    if (savedRating is! Map) {
+      throw Exception('The server returned an invalid saved report rating.');
+    }
+    return Map<String, dynamic>.from(savedRating);
   }
 
   static Future<List<Map<String, dynamic>>> issues({

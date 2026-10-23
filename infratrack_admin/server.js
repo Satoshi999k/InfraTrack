@@ -53,6 +53,11 @@ import {
   validateReportComment,
 } from "./reportDiscussion.js";
 import {
+  canOwnReportRating,
+  canRateReport,
+  validateReportRating,
+} from "./reportRating.js";
+import {
   aggregateReportCategories,
   normalizeReportCategory,
   REPORT_CATEGORIES,
@@ -1033,6 +1038,68 @@ app.post("/api/mobile/issues/:id/discussion", async (req, res) => {
     return res.status(404).json({ error: "Report not found" });
   }
   await insertDiscussionComment(req, res, report);
+});
+app.get("/api/mobile/issues/:id/rating", async (req, res) => {
+  const report = await findDiscussionReport(req.params.id);
+  if (!report || !canRateReport(req.auth, report)) {
+    return res.status(404).json({
+      error: "Ratings are available only for resolved reports you submitted.",
+    });
+  }
+  const [[rating]] = await pool.query(
+    `SELECT rating, comment, created_at FROM report_ratings
+     WHERE report_id = ? AND user_id = ?`,
+    [report.id, req.auth.id],
+  );
+  res.json({
+    rating: rating
+      ? {
+          rating: Number(rating.rating),
+          comment: rating.comment || "",
+          created_at: rating.created_at,
+        }
+      : null,
+  });
+});
+app.post("/api/mobile/issues/:id/rating", async (req, res) => {
+  const report = await findDiscussionReport(req.params.id);
+  if (!report || !canOwnReportRating(req.auth, report)) {
+    return res.status(404).json({ error: "Report not found" });
+  }
+  if (report.status !== "Resolved") {
+    return res.status(409).json({
+      error: "You can rate this report after the work is marked resolved.",
+    });
+  }
+  const { rating, comment } = req.body ?? {};
+  const validationError = validateReportRating(rating, comment);
+  if (validationError) return res.status(400).json({ error: validationError });
+
+  let isNewRating = true;
+  try {
+    await pool.query(
+      `INSERT INTO report_ratings (report_id, user_id, rating, comment)
+       VALUES (?, ?, ?, ?)`,
+      [report.id, req.auth.id, rating, comment?.trim() || null],
+    );
+  } catch (error) {
+    if (error.code !== "ER_DUP_ENTRY") throw error;
+    isNewRating = false;
+  }
+
+  const [[savedRating]] = await pool.query(
+    `SELECT rating, comment, created_at FROM report_ratings
+     WHERE report_id = ? AND user_id = ?`,
+    [report.id, req.auth.id],
+  );
+  res.status(isNewRating ? 201 : 200).json({
+    rating: {
+      rating: Number(savedRating.rating),
+      comment: savedRating.comment || "",
+      created_at: savedRating.created_at,
+    },
+    alreadyRated: !isNewRating,
+  });
 });
 app.get("/api/mobile/issues", async (req, res) => {
   const homeUpdatesOnly = req.query.home_updates_only === "true";
