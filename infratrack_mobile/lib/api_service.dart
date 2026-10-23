@@ -600,7 +600,7 @@ class ApiService {
             Uri.parse('$apiBaseUrl/mobile/profile/photo'),
           )
           ..headers['Accept'] = 'application/json'
-          ..headers['Authorization'] = '******'
+          ..headers['Authorization'] = 'Bearer $requestToken'
           ..files.add(
             await http.MultipartFile.fromPath(
               'photo',
@@ -732,7 +732,7 @@ class ApiService {
             Uri.parse('$apiBaseUrl/mobile/reports/severity'),
           )
           ..headers['Accept'] = 'application/json'
-          ..headers['Authorization'] = '******'
+          ..headers['Authorization'] = 'Bearer $requestToken'
           ..fields['description'] = description
           ..fields['category'] = category;
     if (evidence != null) {

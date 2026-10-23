@@ -76,6 +76,9 @@ void main() {
     tester,
   ) async {
     var assessmentRequests = 0;
+    String? assessmentAuthorization;
+    String? reportAuthorization;
+    final sessionExpiryCount = ApiService.sessionExpired.value;
     String? submittedSeverity;
     String? submittedAiSeverity;
     String? submittedAiAnalysis;
@@ -85,6 +88,7 @@ void main() {
       }
       if (request.url.path.endsWith('/mobile/reports/severity')) {
         assessmentRequests++;
+        assessmentAuthorization = request.headers['Authorization'];
         return http.Response(
           jsonEncode({
             'severity': 'High',
@@ -95,6 +99,7 @@ void main() {
         );
       }
       if (request.url.path.endsWith('/mobile/reports')) {
+        reportAuthorization = request.headers['Authorization'];
         final body = jsonDecode(request.body) as Map<String, dynamic>;
         submittedSeverity = body['severity'] as String?;
         submittedAiSeverity = body['aiSeverity'] as String?;
@@ -120,6 +125,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(assessmentRequests, 1);
+    expect(assessmentAuthorization, 'Bearer report-submission-test-token');
+    expect(reportAuthorization, 'Bearer report-submission-test-token');
+    expect(ApiService.sessionExpired.value, sessionExpiryCount);
     expect(submittedSeverity, 'Medium');
     expect(submittedAiSeverity, 'High');
     expect(
