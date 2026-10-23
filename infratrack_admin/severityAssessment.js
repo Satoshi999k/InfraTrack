@@ -6,6 +6,94 @@ export const REPORT_SEVERITIES = ["Low", "Medium", "High", "Critical"];
 const MAX_DESCRIPTION_LENGTH = 600;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_ANALYSIS_LENGTH = 320;
+const GEMINI_MODEL = "gemini-2.5-flash-lite";
+const GROQ_VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
+
+function configuredModel(value, fallback) {
+  return String(value ?? "")
+    .trim()
+    .replace(/^(['"])(.*)\1$/, "$2")
+    .trim() || fallback;
+}
+
+function severityPrompt(description, category) {
+  return `Assess infrastructure report evidence for staff review. Estimate severity as Low, Medium, High, or Critical: Low=minimal risk; Medium=repair needed, limited immediate risk; High=major damage or likely safety/access risk; Critical=immediate serious danger or essential access/service failure. Use only visible/stated evidence, do not invent facts, and state uncertainty when evidence is limited. Return JSON with severity and one concise evidence-based analysis sentence (max 240 characters): {"severity":"Medium","analysis":"..."}.\nCategory: ${String(category ?? "").slice(0, 80)}\nReport: ${String(description).trim().slice(0, MAX_DESCRIPTION_LENGTH)}`;
+}
+
+function upstreamError(provider, status) {
+  const error = new Error(`${provider} severity request failed (${status}).`);
+  error.status = status === 429 ? 429 : 502;
+  return error;
+}
+
+async function requestGemini({ apiKey, model, prompt, imageBuffer, fetchImpl }) {
+  const parts = [{ text: prompt }];
+  if (imageBuffer) {
+    parts.push({
+      inlineData: {
+        mimeType: "image/jpeg",
+        data: imageBuffer.toString("base64"),
+      },
+    });
+  }
+  const response = await fetchImpl(
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(12_000),
+      body: JSON.stringify({
+        contents: [{ role: "user", parts }],
+        generationConfig: {
+          maxOutputTokens: 100,
+          temperature: 0,
+          thinkingConfig: { thinkingBudget: 0 },
+          responseMimeType: "application/json",
+        },
+      }),
+    },
+  );
+  if (!response.ok) throw upstreamError("Gemini", response.status);
+  const result = await response.json();
+  const generatedText = result.candidates?.[0]?.content?.parts
+    ?.map((part) => part.text || "")
+    .join("")
+    .trim();
+  return parseSeverityResponse(generatedText);
+}
+
+async function requestGroq({ apiKey, model, prompt, imageBuffer, fetchImpl }) {
+  const content = [{ type: "text", text: prompt }];
+  if (imageBuffer) {
+    content.push({
+      type: "image_url",
+      image_url: {
+        url: `data:image/jpeg;base64,${imageBuffer.toString("base64")}`,
+      },
+    });
+  }
+  const response = await fetchImpl(
+    "https://api.groq.com/openai/v1/chat/completions",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      signal: AbortSignal.timeout(12_000),
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "user", content }],
+        max_tokens: 160,
+        temperature: 0,
+        response_format: { type: "json_object" },
+      }),
+    },
+  );
+  if (!response.ok) throw upstreamError("Groq", response.status);
+  const result = await response.json();
+  return parseSeverityResponse(result.choices?.[0]?.message?.content);
+}
 
 export function parseSeverityResponse(value) {
   const text = String(value ?? "")
@@ -112,7 +200,7 @@ export async function assessReportSeverity({
   fetchImpl = fetch,
   videoFrameExtractor = extractVideoFrame,
 }) {
-  if (!env.GEMINI_API_KEY) {
+  if (!env.GEMINI_API_KEY && !env.GROQ_API_KEY) {
     const error = new Error("AI severity assessment is not configured.");
     error.status = 503;
     throw error;
@@ -138,49 +226,46 @@ export async function assessReportSeverity({
     throw error;
   }
 
-  const model = String(env.SEVERITY_AI_MODEL || "gemini-2.5-flash-lite")
-    .trim()
-    .replace(/^models\//i, "");
-  const parts = [
-    {
-      text: `Assess infrastructure report evidence for staff review. Estimate severity as Low, Medium, High, or Critical: Low=minimal risk; Medium=repair needed, limited immediate risk; High=major damage or likely safety/access risk; Critical=immediate serious danger or essential access/service failure. Use only visible/stated evidence, do not invent facts, and state uncertainty when evidence is limited. Return JSON with severity and one concise evidence-based analysis sentence (max 240 characters): {"severity":"Medium","analysis":"..."}.\nCategory: ${String(category ?? "").slice(0, 80)}\nReport: ${String(description).trim().slice(0, MAX_DESCRIPTION_LENGTH)}`,
-    },
-  ];
-  if (imageBuffer) {
-    parts.push({
-      inlineData: {
-        mimeType: "image/jpeg",
-        data: imageBuffer.toString("base64"),
-      },
-    });
+  const prompt = severityPrompt(description, category);
+  let geminiError;
+  if (env.GEMINI_API_KEY) {
+    try {
+      return await requestGemini({
+        apiKey: env.GEMINI_API_KEY,
+        model: configuredModel(env.SEVERITY_AI_MODEL, GEMINI_MODEL).replace(
+          /^models\//i,
+          "",
+        ),
+        prompt,
+        imageBuffer,
+        fetchImpl,
+      });
+    } catch (error) {
+      geminiError = error;
+    }
   }
-
-  const response = await fetchImpl(
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      signal: AbortSignal.timeout(12_000),
-      body: JSON.stringify({
-        contents: [{ role: "user", parts }],
-        generationConfig: {
-          maxOutputTokens: 100,
-          temperature: 0,
-          thinkingConfig: { thinkingBudget: 0 },
-          responseMimeType: "application/json",
-        },
-      }),
-    },
-  );
-  if (!response.ok) {
-    const error = new Error(`Gemini severity request failed (${response.status}).`);
-    error.status = response.status === 429 ? 429 : 502;
-    throw error;
+  if (env.GROQ_API_KEY) {
+    try {
+      return await requestGroq({
+        apiKey: env.GROQ_API_KEY,
+        model: configuredModel(
+          env.GROQ_SEVERITY_AI_MODEL,
+          GROQ_VISION_MODEL,
+        ),
+        prompt,
+        imageBuffer,
+        fetchImpl,
+      });
+    } catch (groqError) {
+      if (geminiError) {
+        const error = new Error(
+          `Severity AI providers failed. ${geminiError.message} ${groqError.message}`,
+        );
+        error.status = 502;
+        throw error;
+      }
+      throw groqError;
+    }
   }
-  const result = await response.json();
-  const generatedText = result.candidates?.[0]?.content?.parts
-    ?.map((part) => part.text || "")
-    .join("")
-    .trim();
-  return parseSeverityResponse(generatedText);
+  throw geminiError;
 }

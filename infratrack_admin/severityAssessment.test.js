@@ -94,7 +94,45 @@ test("severity request sends only the prepared JPEG frame with the compact promp
   assert.equal(requestBody.contents[0].parts[1].inlineData.mimeType, "image/jpeg");
 });
 
-test("severity request fails explicitly without a Gemini key or valid model output", async () => {
+test("severity request falls back to Groq vision when Gemini is unavailable", async () => {
+  const requests = [];
+  const assessment = await assessReportSeverity({
+    description: "A damaged road edge.",
+    category: "Roads",
+    mediaType: "photo",
+    mediaBuffer: Buffer.from("small jpeg"),
+    env: {
+      GEMINI_API_KEY: "gemini-test",
+      GROQ_API_KEY: "groq-test",
+    },
+    fetchImpl: async (url, options) => {
+      requests.push({ url, options });
+      if (url.includes("generativelanguage.googleapis.com")) {
+        return { ok: false, status: 503 };
+      }
+      return Response.json({
+        choices: [{
+          message: {
+            content: '{"severity":"High","analysis":"The image shows a damaged road edge."}',
+          },
+        }],
+      });
+    },
+  });
+
+  assert.equal(assessment.severity, "High");
+  assert.match(assessment.analysis, /damaged road edge/);
+  assert.equal(requests.length, 2);
+  assert.match(requests[1].url, /api\.groq\.com\/openai\/v1\/chat\/completions/);
+  const groqBody = JSON.parse(requests[1].options.body);
+  assert.equal(groqBody.model, "meta-llama/llama-4-scout-17b-16e-instruct");
+  assert.match(
+    groqBody.messages[0].content[1].image_url.url,
+    /^data:image\/jpeg;base64,/,
+  );
+});
+
+test("severity request fails explicitly without an AI key or valid model output", async () => {
   await assert.rejects(
     assessReportSeverity({
       description: "Pothole.",

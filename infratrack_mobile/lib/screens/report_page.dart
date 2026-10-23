@@ -554,7 +554,7 @@ class _ReportPageState extends State<ReportPage> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'AI uses your report text and selected evidence for one short analysis. Videos are reduced to one frame and sent to Gemini.',
+              'AI uses your report text and selected evidence for one short analysis. Videos are reduced to one frame before analysis.',
               style: TextStyle(color: inkSoft, fontSize: 10, height: 1.4),
             ),
             const SizedBox(height: 12),

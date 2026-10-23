@@ -753,9 +753,9 @@ class ApiService {
     try {
       final streamedResponse = await client
           .send(request)
-          .timeout(const Duration(seconds: 25));
+          .timeout(const Duration(seconds: 45));
       final response = await http.Response.fromStream(streamedResponse)
-          .timeout(const Duration(seconds: 25));
+          .timeout(const Duration(seconds: 45));
       _markConnected();
       if (response.statusCode != 401) {
         await _recordSessionActivity(requestToken);
