@@ -22,8 +22,33 @@ function severityPrompt(description, category) {
 
 function upstreamError(provider, status) {
   const error = new Error(`${provider} severity request failed (${status}).`);
+  error.provider = provider;
   error.status = status === 429 ? 429 : 502;
+  error.upstreamStatus = status;
   return error;
+}
+
+async function listGeminiModels(apiKey, fetchImpl) {
+  const response = await fetchImpl(
+    `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`,
+    { signal: AbortSignal.timeout(12_000) },
+  );
+  if (!response.ok) return [];
+  const data = await response.json();
+  return (Array.isArray(data.models) ? data.models : [])
+    .filter(
+      (item) =>
+        Array.isArray(item.supportedGenerationMethods) &&
+        item.supportedGenerationMethods.includes("generateContent"),
+    )
+    .map((item) => String(item.name || "").replace(/^models\//i, ""))
+    .filter(
+      (model) =>
+        /^gemini-/i.test(model) &&
+        !/(?:tts|text-to-speech|speech|embedding|imagen|veo|audio|transcri|whisper|aqa|live|computer-use|robotics|deep-research)/i.test(
+          model,
+        ),
+    );
 }
 
 async function requestGemini({ apiKey, model, prompt, imageBuffer, fetchImpl }) {
@@ -62,6 +87,33 @@ async function requestGemini({ apiKey, model, prompt, imageBuffer, fetchImpl }) 
   return parseSeverityResponse(generatedText);
 }
 
+async function requestGeminiWithFallback(options) {
+  try {
+    return await requestGemini(options);
+  } catch (error) {
+    if (error.upstreamStatus !== 404) throw error;
+    const availableModels = await listGeminiModels(
+      options.apiKey,
+      options.fetchImpl,
+    );
+    const candidates = [GEMINI_MODEL, "gemini-2.5-flash", ...availableModels]
+      .filter(
+        (model, index, all) =>
+          model !== options.model && all.indexOf(model) === index,
+      );
+    let lastError = error;
+    for (const model of candidates) {
+      try {
+        return await requestGemini({ ...options, model });
+      } catch (candidateError) {
+        if (candidateError.upstreamStatus !== 404) throw candidateError;
+        lastError = candidateError;
+      }
+    }
+    throw lastError;
+  }
+}
+
 async function requestGroq({ apiKey, model, prompt, imageBuffer, fetchImpl }) {
   const content = [{ type: "text", text: prompt }];
   if (imageBuffer) {
@@ -93,6 +145,61 @@ async function requestGroq({ apiKey, model, prompt, imageBuffer, fetchImpl }) {
   if (!response.ok) throw upstreamError("Groq", response.status);
   const result = await response.json();
   return parseSeverityResponse(result.choices?.[0]?.message?.content);
+}
+
+function isGroqVisionModel(item) {
+  const model = String(item.id || "");
+  const capabilities = item.capabilities ?? {};
+  const modalities = [
+    ...(Array.isArray(item.input_modalities) ? item.input_modalities : []),
+    ...(Array.isArray(item.architecture?.input_modalities)
+      ? item.architecture.input_modalities
+      : []),
+  ].map((modality) => String(modality).toLowerCase());
+  return (
+    capabilities.vision === true ||
+    modalities.includes("image") ||
+    /(?:vision|scout|maverick|llava|pixtral)/i.test(model)
+  );
+}
+
+async function listGroqVisionModels(apiKey, fetchImpl) {
+  const response = await fetchImpl("https://api.groq.com/openai/v1/models", {
+    headers: { Authorization: `Bearer ${apiKey}` },
+    signal: AbortSignal.timeout(12_000),
+  });
+  if (!response.ok) return [];
+  const data = await response.json();
+  return (Array.isArray(data.data) ? data.data : [])
+    .filter((item) => item.active !== false && isGroqVisionModel(item))
+    .map((item) => String(item.id || ""))
+    .filter(Boolean);
+}
+
+async function requestGroqWithFallback(options) {
+  try {
+    return await requestGroq(options);
+  } catch (error) {
+    if (error.upstreamStatus !== 404) throw error;
+    const availableModels = await listGroqVisionModels(
+      options.apiKey,
+      options.fetchImpl,
+    );
+    const candidates = availableModels.filter(
+      (model, index, all) =>
+        model !== options.model && all.indexOf(model) === index,
+    );
+    let lastError = error;
+    for (const model of candidates) {
+      try {
+        return await requestGroq({ ...options, model });
+      } catch (candidateError) {
+        if (candidateError.upstreamStatus !== 404) throw candidateError;
+        lastError = candidateError;
+      }
+    }
+    throw lastError;
+  }
 }
 
 export function parseSeverityResponse(value) {
@@ -230,7 +337,7 @@ export async function assessReportSeverity({
   let geminiError;
   if (env.GEMINI_API_KEY) {
     try {
-      return await requestGemini({
+      return await requestGeminiWithFallback({
         apiKey: env.GEMINI_API_KEY,
         model: configuredModel(env.SEVERITY_AI_MODEL, GEMINI_MODEL).replace(
           /^models\//i,
@@ -246,7 +353,7 @@ export async function assessReportSeverity({
   }
   if (env.GROQ_API_KEY) {
     try {
-      return await requestGroq({
+      return await requestGroqWithFallback({
         apiKey: env.GROQ_API_KEY,
         model: configuredModel(
           env.GROQ_SEVERITY_AI_MODEL,

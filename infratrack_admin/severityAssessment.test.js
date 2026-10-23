@@ -57,6 +57,51 @@ test("severity request uses a compact prompt and no image when absent", async ()
   assert.match(requestBody.contents[0].parts[0].text, /Pothole near the market/);
 });
 
+test("severity request discovers a supported Gemini model after a 404", async () => {
+  const requestedModels = [];
+  const assessment = await assessReportSeverity({
+    description: "Pothole near the market.",
+    category: "Roads",
+    env: { GEMINI_API_KEY: "gemini-test" },
+    fetchImpl: async (url) => {
+      if (url.includes("/v1beta/models?")) {
+        return Response.json({
+          models: [
+            {
+              name: "models/gemini-2.5-flash-preview-tts",
+              supportedGenerationMethods: ["generateContent"],
+            },
+            {
+              name: "models/gemini-2.5-flash",
+              supportedGenerationMethods: ["generateContent"],
+            },
+          ],
+        });
+      }
+      const model = decodeURIComponent(url.match(/models\/([^:]+)/)[1]);
+      requestedModels.push(model);
+      if (model === "gemini-2.5-flash-lite") {
+        return { ok: false, status: 404 };
+      }
+      return Response.json({
+        candidates: [{
+          content: {
+            parts: [{
+              text: '{"severity":"Medium","analysis":"The report indicates a repair is needed."}',
+            }],
+          },
+        }],
+      });
+    },
+  });
+
+  assert.equal(assessment.severity, "Medium");
+  assert.deepEqual(requestedModels, [
+    "gemini-2.5-flash-lite",
+    "gemini-2.5-flash",
+  ]);
+});
+
 test("severity request sends only the prepared JPEG frame with the compact prompt", async () => {
   let requestBody;
   let extracted = false;
@@ -92,6 +137,49 @@ test("severity request sends only the prepared JPEG frame with the compact promp
     Buffer.from("small jpeg frame").toString("base64"),
   );
   assert.equal(requestBody.contents[0].parts[1].inlineData.mimeType, "image/jpeg");
+});
+
+test("severity request discovers an available Groq vision model after a 404", async () => {
+  const requestedModels = [];
+  const assessment = await assessReportSeverity({
+    description: "A damaged road edge.",
+    category: "Roads",
+    mediaType: "photo",
+    mediaBuffer: Buffer.from("small jpeg"),
+    env: { GROQ_API_KEY: "groq-test" },
+    fetchImpl: async (url, options) => {
+      if (url.endsWith("/models")) {
+        return Response.json({
+          data: [
+            { id: "text-only-model", active: true },
+            {
+              id: "available-vision-model",
+              active: true,
+              capabilities: { vision: true },
+            },
+          ],
+        });
+      }
+      const body = JSON.parse(options.body);
+      requestedModels.push(body.model);
+      if (body.model === "meta-llama/llama-4-scout-17b-16e-instruct") {
+        return { ok: false, status: 404 };
+      }
+      return Response.json({
+        choices: [{
+          message: {
+            content: '{"severity":"High","analysis":"The image shows a damaged road edge."}',
+          },
+        }],
+      });
+    },
+  });
+
+  assert.equal(assessment.severity, "High");
+  assert.deepEqual(requestedModels, [
+    "meta-llama/llama-4-scout-17b-16e-instruct",
+    "available-vision-model",
+  ]);
 });
 
 test("severity request falls back to Groq vision when Gemini is unavailable", async () => {
