@@ -19,10 +19,12 @@ import {
   MapPin,
   Map,
   Megaphone,
+  ScanEye,
   ScrollText,
   Send,
   ShieldAlert,
   ShieldCheck,
+  Sparkles,
   Users,
   X,
 } from "lucide-react";
@@ -950,23 +952,37 @@ export function IssueModal({ data, onClose, onSave }) {
               </div>
               <div className="issue-ai-assessment" aria-live="polite">
                 <div className="issue-ai-assessment-heading">
-                  <b>AI assessment</b>
-                  {data.ai_severity && (
-                    <span
-                      className={`issue-modal-status ${data.ai_severity.toLowerCase()}`}
-                    >
-                      Suggested {data.ai_severity}
-                    </span>
-                  )}
+                  <span className="issue-ai-icon" aria-hidden="true">
+                    <Sparkles size={16} />
+                  </span>
+                  <div className="issue-ai-title">
+                    <b>AI assessment</b>
+                    <span>Evidence review</span>
+                  </div>
+                  <span className="issue-ai-status">
+                    <ScanEye size={13} />
+                    {data.ai_analysis ? "Analyzed" : "Not available"}
+                  </span>
                 </div>
+                {data.ai_severity && (
+                  <div
+                    className={`issue-ai-suggestion ${data.ai_severity.toLowerCase()}`}
+                  >
+                    <span>Suggested severity</span>
+                    <b>{data.ai_severity}</b>
+                  </div>
+                )}
                 <p>
                   {data.ai_analysis ||
                     "No AI analysis is saved for this report. It may have been submitted before AI analysis was enabled, or the assessment was unavailable at submission."}
                 </p>
-                <small>
-                  AI findings are advisory. Review the report and evidence, then
-                  choose the priority below.
-                </small>
+                <div className="issue-ai-advisory">
+                  <ShieldCheck size={14} aria-hidden="true" />
+                  <small>
+                    AI is advisory. Review the report and evidence, then set
+                    priority below.
+                  </small>
+                </div>
               </div>
               <label>
                 Status
