@@ -34,6 +34,7 @@ const navy = Color(0xFF0E3A4C);
 const deepNavy = Color(0xFF092732);
 const teal = Color(0xFF1B8A83);
 const clay = Color(0xFFC1592B);
+const brandOrange = Color(0xFFFF956B);
 const sand = Color(0xFFF3EFE6);
 const ink = Color(0xFF17231F);
 const inkSoft = Color(0xFF5B6B67);
@@ -488,7 +489,7 @@ class _AppLoadingPageState extends State<AppLoadingPage>
                                       ],
                                     ),
                                     child: const Icon(
-                                      Icons.apartment_outlined,
+                                      Icons.add_location_alt,
                                       color: Colors.white,
                                       size: 43,
                                     ),
@@ -504,7 +505,7 @@ class _AppLoadingPageState extends State<AppLoadingPage>
                                 TextSpan(text: 'Infra'),
                                 TextSpan(
                                   text: 'Track',
-                                  style: TextStyle(color: clay),
+                                  style: TextStyle(color: brandOrange),
                                 ),
                               ],
                             ),
@@ -869,7 +870,7 @@ class _LoginPageState extends State<LoginPage> {
                                         TextSpan(
                                           text: 'Track',
                                           style: infraHeading(
-                                            color: clay,
+                                            color: brandOrange,
                                             fontSize: 20,
                                             weight: FontWeight.w800,
                                           ),

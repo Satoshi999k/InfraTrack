@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import {
   ArrowRight,
-  Building2,
   Eye,
   EyeOff,
   Landmark,
   LockKeyhole,
+  MapPinPlusInside,
   Mail,
   Monitor,
   Moon,
@@ -107,7 +107,7 @@ export default function Login({ onLogin }) {
         >
           <div className="login-brand">
             <div className="login-brand-mark">
-              <Building2 size={21} />
+              <MapPinPlusInside size={22} />
             </div>
             <div>
               <strong className="brand-wordmark">

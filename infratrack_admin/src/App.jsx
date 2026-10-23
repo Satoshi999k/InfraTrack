@@ -5,7 +5,6 @@ import {
   AlertTriangle,
   BarChart3,
   Bell,
-  Building2,
   Camera,
   CheckCircle2,
   ChevronDown,
@@ -19,6 +18,7 @@ import {
   LogOut,
   Map,
   MapPin,
+  MapPinPlusInside,
   Menu,
   Megaphone,
   Monitor,
@@ -425,7 +425,7 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
       <aside className={`sidebar ${drawer ? "open" : ""}`}>
         <div className="brand">
           <div className="brand-mark">
-            <Icon icon={Building2} size={21} />
+            <Icon icon={MapPinPlusInside} size={22} />
           </div>
           <div>
             <strong className="brand-wordmark">
