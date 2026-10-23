@@ -2379,6 +2379,9 @@ app.post("/api/reports", async (req, res) => {
 });
 app.patch("/api/issues/:id", async (req, res) => {
   const { status, assignedTeam, resolutionNote, severity, progressPercentage, progressNote, beforeMediaUrl, afterMediaUrl } = req.body ?? {};
+  if (severity != null && !REPORT_SEVERITIES.includes(severity)) {
+    return res.status(400).json({ error: "Choose a valid report severity." });
+  }
   const parsedProgress = Number(progressPercentage);
   const progress = Number.isFinite(parsedProgress)
     ? Math.min(100, Math.max(0, Math.round(parsedProgress)))

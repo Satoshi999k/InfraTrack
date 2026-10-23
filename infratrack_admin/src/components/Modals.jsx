@@ -510,6 +510,11 @@ export function IssueModal({ data, onClose, onSave }) {
   const [status, setStatus] = useState(
     data.status === "New report" ? "Reported" : data.status,
   );
+  const [severity, setSeverity] = useState(
+    ["Low", "Medium", "High", "Critical"].includes(data.severity)
+      ? data.severity
+      : "Medium",
+  );
   const isSlaOverdue = Boolean(
     data.due_at &&
     new Date(data.due_at).getTime() < Date.now() &&
@@ -654,6 +659,7 @@ export function IssueModal({ data, onClose, onSave }) {
     void saveChanges({
       status,
       assignedTeam: assigned,
+      severity,
       resolutionNote: note,
       progressPercentage,
       progressNote,
@@ -749,9 +755,9 @@ export function IssueModal({ data, onClose, onSave }) {
           )}
           <div className="issue-modal-hero-badges">
             <span
-              className={`issue-modal-status ${data.severity.toLowerCase()}`}
+              className={`issue-modal-status ${severity.toLowerCase()}`}
             >
-              <AlertTriangle size={13} /> {data.severity}
+              <AlertTriangle size={13} /> {severity}
             </span>
             <span className="issue-modal-current-status">{status}</span>
           </div>
@@ -1012,12 +1018,19 @@ export function IssueModal({ data, onClose, onSave }) {
               )}
               <label>
                 Priority
-                <select>
+                <select
+                  value={severity}
+                  onChange={(event) => setSeverity(event.target.value)}
+                >
                   <option>Critical</option>
                   <option>High</option>
                   <option>Medium</option>
                   <option>Low</option>
                 </select>
+                <small>
+                  Priority follows report severity. AI-assessed severity appears
+                  here automatically; you can adjust it manually.
+                </small>
               </label>
               {(status === "Resolved" || status === "Rejected") && (
                 <>
