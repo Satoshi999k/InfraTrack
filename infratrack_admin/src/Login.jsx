@@ -5,7 +5,6 @@ import {
   EyeOff,
   Landmark,
   LockKeyhole,
-  MapPinPlusInside,
   Mail,
   Monitor,
   Moon,
@@ -17,6 +16,7 @@ import matiAerial from "./assets/images/mati_aerial.jpg";
 import { API_BASE } from "./api";
 import { readAppearance, saveAppearance } from "./appearance";
 import { getRememberedEmail, saveAuthSession } from "./authSession";
+import { BrandMark } from "./components/BrandMark";
 
 const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "";
 
@@ -107,7 +107,7 @@ export default function Login({ onLogin }) {
         >
           <div className="login-brand">
             <div className="login-brand-mark">
-              <MapPinPlusInside size={22} />
+              <BrandMark className="brand-mark-icon" />
             </div>
             <div>
               <strong className="brand-wordmark">

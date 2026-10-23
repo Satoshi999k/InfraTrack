@@ -18,7 +18,6 @@ import {
   LogOut,
   Map,
   MapPin,
-  MapPinPlusInside,
   Menu,
   Megaphone,
   Monitor,
@@ -41,6 +40,7 @@ import {
 import { Modal } from "./components/Modals";
 import IssueQueuePage from "./pages/IssueQueuePage";
 import MapPage, { LeafletInfrastructureMap } from "./pages/MapPage";
+import { BrandMark } from "./components/BrandMark";
 import UsersPage from "./pages/UsersPage";
 import AdvisoryPage from "./pages/AdvisoryPage";
 import SettingsPage from "./pages/SettingsPage";
@@ -425,7 +425,7 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
       <aside className={`sidebar ${drawer ? "open" : ""}`}>
         <div className="brand">
           <div className="brand-mark">
-            <Icon icon={MapPinPlusInside} size={22} />
+            <BrandMark className="brand-mark-icon" />
           </div>
           <div>
             <strong className="brand-wordmark">

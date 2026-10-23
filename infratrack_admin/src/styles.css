@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Archivo+Expanded:wght@600;700;800&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&family=Lato:wght@400;700&family=Nunito:wght@400;500;600;700;800&family=Open+Sans:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&family=Roboto:wght@400;500;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Archivo+Expanded:wght@600;700;800&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&family=Lato:wght@400;700&family=Nunito:wght@400;500;600;700;800&family=Open+Sans:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&family=Roboto:wght@400;500;700;800&display=swap");
 :root {
   --navy: #0e3a4c;
   --deep: #092732;
@@ -121,8 +121,8 @@ a:focus-visible,
   box-shadow: 0 8px 18px rgba(193, 89, 43, 0.35);
 }
 .login-brand strong {
-  font: 800 calc(24px * var(--appearance-text-scale, 1)) "Archivo Expanded";
-  letter-spacing: -0.06em;
+  font: 800 calc(22px * var(--appearance-text-scale, 1)) "Archivo";
+  letter-spacing: -0.04em;
 }
 .login-brand small {
   display: block;
@@ -659,6 +659,11 @@ a:focus-visible,
   place-items: center;
   box-shadow: 0 6px 14px #c1592b8c;
 }
+.brand-mark-icon {
+  width: 22px;
+  height: 22px;
+  color: #fff;
+}
 .brand strong {
   display: block;
   font: 800 calc(16px * var(--appearance-text-scale, 1)) "Archivo Expanded";
@@ -666,10 +671,11 @@ a:focus-visible,
 }
 .brand-wordmark {
   display: inline-flex !important;
-  gap: 0.12em;
+  gap: 0;
   color: #fff;
-  font-family: Inter, system-ui, sans-serif !important;
+  font-family: "Archivo", system-ui, sans-serif !important;
   font-weight: 800 !important;
+  letter-spacing: -0.04em;
 }
 .brand-wordmark-accent {
   color: #ff956b;
@@ -7243,6 +7249,10 @@ tbody tr:last-child td {
 .login-brand-mark {
   display: grid;
   place-items: center;
+}
+.login-brand-mark .brand-mark-icon {
+  width: 25px;
+  height: 25px;
 }
 .login-brand,
 .login-visual-copy,
