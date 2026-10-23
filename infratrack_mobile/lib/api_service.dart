@@ -606,6 +606,7 @@ class ApiService {
     required String description,
     required String category,
     required String location,
+    required String severity,
     double? latitude,
     double? longitude,
     String? mediaUrl,
@@ -621,6 +622,7 @@ class ApiService {
         'description': description,
         'category': category,
         'location': location,
+        'severity': severity,
         'latitude': latitude,
         'longitude': longitude,
         'mediaUrl': mediaUrl,
@@ -628,6 +630,74 @@ class ApiService {
       },
     );
     return Map<String, dynamic>.from(body['report'] as Map);
+  }
+
+  static Future<String> assessReportSeverity({
+    required String description,
+    required String category,
+    File? evidence,
+    bool isVideo = false,
+  }) async {
+    if (_sessionToken == null) {
+      throw Exception('Please sign in before assessing report severity.');
+    }
+    _requireVerifiedAccount();
+    final requestToken = _sessionToken;
+    final request =
+        http.MultipartRequest(
+            'POST',
+            Uri.parse('$apiBaseUrl/mobile/reports/severity'),
+          )
+          ..headers['Accept'] = 'application/json'
+          ..headers['Authorization'] = '******'
+          ..fields['description'] = description
+          ..fields['category'] = category;
+    if (evidence != null) {
+      request.fields['mediaType'] = isVideo ? 'video' : 'photo';
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'evidence',
+          evidence.path,
+          filename: isVideo ? 'severity-evidence.mp4' : 'severity-evidence.jpg',
+          contentType: isVideo
+              ? MediaType('video', 'mp4')
+              : MediaType('image', 'jpeg'),
+        ),
+      );
+    }
+
+    final client = httpClientFactory();
+    try {
+      final streamedResponse = await client
+          .send(request)
+          .timeout(const Duration(seconds: 25));
+      final response = await http.Response.fromStream(streamedResponse)
+          .timeout(const Duration(seconds: 25));
+      _markConnected();
+      if (response.statusCode != 401) {
+        await _recordSessionActivity(requestToken);
+      }
+      final body = _decodeResponse(response);
+      final severity = body['severity'];
+      if (severity is! String ||
+          !const ['Low', 'Medium', 'High', 'Critical'].contains(severity)) {
+        throw const FormatException(
+          'The severity service returned an invalid result.',
+        );
+      }
+      return severity;
+    } on SocketException {
+      connectionIssue.value = 'Could not connect to InfraTrack. Check your internet connection and try again.';
+      rethrow;
+    } on http.ClientException {
+      connectionIssue.value = 'Could not connect to InfraTrack. Check your internet connection and try again.';
+      rethrow;
+    } on TimeoutException {
+      connectionIssue.value = 'The server took too long to respond. Check your connection and try again.';
+      rethrow;
+    } finally {
+      client.close();
+    }
   }
 
   static Future<String> uploadMedia(File file, {required bool isVideo}) async {

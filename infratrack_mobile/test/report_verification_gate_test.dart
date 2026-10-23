@@ -69,6 +69,7 @@ void main() {
           description: 'A damaged road.',
           category: 'Roads',
           location: 'Mati City',
+          severity: 'Medium',
         ),
         throwsA(
           isA<ApiException>().having(

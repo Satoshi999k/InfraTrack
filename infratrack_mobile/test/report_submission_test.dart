@@ -72,6 +72,113 @@ void main() {
     expect(find.text('Water'), findsNothing);
   });
 
+  testWidgets('automatically assesses severity once when submitting a report', (
+    tester,
+  ) async {
+    var assessmentRequests = 0;
+    String? submittedSeverity;
+    ApiService.httpClientFactory = () => MockClient((request) async {
+      if (request.url.path.endsWith('/mobile/profile')) {
+        return _verifiedProfileResponse();
+      }
+      if (request.url.path.endsWith('/mobile/reports/severity')) {
+        assessmentRequests++;
+        return http.Response(
+          jsonEncode({'severity': 'High'}),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }
+      if (request.url.path.endsWith('/mobile/reports')) {
+        submittedSeverity =
+            (jsonDecode(request.body) as Map<String, dynamic>)['severity']
+                as String?;
+        return http.Response(
+          jsonEncode({
+            'report': {'id': 102},
+          }),
+          201,
+          headers: {'content-type': 'application/json'},
+        );
+      }
+      return http.Response('Not found', 404);
+    });
+
+    await _openReportForm(tester);
+    await tester.enterText(
+      find.byType(TextField),
+      'A large pothole is blocking one lane.',
+    );
+    await _scrollToSubmitButton(tester);
+    await tester.tap(find.text('Submit report'));
+    await tester.pumpAndSettle();
+
+    expect(assessmentRequests, 1);
+    expect(submittedSeverity, 'High');
+    expect(find.text('Report submitted'), findsOneWidget);
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets(
+    'manual severity skips AI assessment and is submitted as chosen',
+    (tester) async {
+      var assessmentRequests = 0;
+      String? submittedSeverity;
+      ApiService.httpClientFactory = () => MockClient((request) async {
+        if (request.url.path.endsWith('/mobile/profile')) {
+          return _verifiedProfileResponse();
+        }
+        if (request.url.path.endsWith('/mobile/reports/severity')) {
+          assessmentRequests++;
+          return http.Response(
+            jsonEncode({'severity': 'High'}),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path.endsWith('/mobile/reports')) {
+          submittedSeverity =
+              (jsonDecode(request.body) as Map<String, dynamic>)['severity']
+                  as String?;
+          return http.Response(
+            jsonEncode({
+              'report': {'id': 103},
+            }),
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response('Not found', 404);
+      });
+
+      await _openReportForm(tester);
+      await tester.enterText(
+        find.byType(TextField),
+        'A damaged streetlight near the school.',
+      );
+      await tester.ensureVisible(find.text('Automatic AI severity'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Automatic AI severity'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byType(DropdownButtonFormField<String>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DropdownButtonFormField<String>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Critical').last);
+      await tester.pumpAndSettle();
+      await _scrollToSubmitButton(tester);
+      await tester.tap(find.text('Submit report'));
+      await tester.pumpAndSettle();
+
+      expect(assessmentRequests, 0);
+      expect(submittedSeverity, 'Critical');
+      expect(find.text('Report submitted'), findsOneWidget);
+      await tester.tap(find.text('Done'));
+      await tester.pumpAndSettle();
+    },
+  );
+
   testWidgets(
     'shows truthful no-evidence progress and blocks duplicate submissions',
     (tester) async {

@@ -15,6 +15,7 @@ import {
   resolveMysqlDumpPath,
 } from "./databaseBackup.js";
 import { serializeAdminAuthUser } from "./authUser.js";
+import { assessReportSeverity, REPORT_SEVERITIES } from "./severityAssessment.js";
 import ffmpegPath from "ffmpeg-static";
 import { computeDuplicateMatch, escalateIssueSeverity } from "./automation.js";
 import {
@@ -121,6 +122,20 @@ const profilePhotoUpload = multer({
       return callback(null, true);
     }
     callback(new Error("Choose a JPG, PNG, or WebP profile photo."));
+  },
+});
+const severityAssessmentUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (_req, file, callback) => {
+    if (
+      file.mimetype === "image/jpeg" ||
+      file.mimetype === "video/mp4" ||
+      file.mimetype === "video/quicktime"
+    ) {
+      return callback(null, true);
+    }
+    callback(new Error("Use a JPG photo or MP4/MOV video for severity analysis."));
   },
 });
 const cloudinaryCloudName = String(process.env.CLOUDINARY_CLOUD_NAME || "").trim();
@@ -1102,11 +1117,51 @@ app.get("/api/mobile/reports", async (req, res) => {
     media_url: publicMediaUrl(req, report.media_url),
   })) });
 });
+app.post("/api/mobile/reports/severity", (req, res) => {
+  severityAssessmentUpload.single("evidence")(req, res, async (uploadError) => {
+    if (uploadError) {
+      const status = uploadError.code === "LIMIT_FILE_SIZE" ? 413 : 400;
+      return res.status(status).json({ error: uploadError.message });
+    }
+    const { description, category, mediaType } = req.body ?? {};
+    const normalizedCategory = normalizeReportCategory(category);
+    if (!description || !String(description).trim() || !normalizedCategory) {
+      return res.status(400).json({
+        error: `A report description and valid category are required (${REPORT_CATEGORIES.join(", ")}).`,
+      });
+    }
+    if (req.file && !["photo", "video"].includes(mediaType)) {
+      return res.status(400).json({ error: "Invalid severity evidence type." });
+    }
+    if (!req.file && mediaType) {
+      return res.status(400).json({ error: "Severity evidence file is missing." });
+    }
+    try {
+      const severity = await assessReportSeverity({
+        description,
+        category: normalizedCategory,
+        mediaBuffer: req.file?.buffer ?? null,
+        mediaType: req.file ? mediaType : null,
+      });
+      res.json({ severity });
+    } catch (error) {
+      if ((error.status ?? 500) >= 500) {
+        console.warn("Report severity assessment failed:", error.message);
+      }
+      res.status(error.status ?? 502).json({
+        error: error.message || "Could not assess report severity.",
+      });
+    }
+  });
+});
 app.post("/api/mobile/reports", async (req, res) => {
   const { title, description, category, location, latitude, longitude, severity = "Medium", mediaUrl, mediaType = "photo" } = req.body ?? {};
   const normalizedCategory = normalizeReportCategory(category);
   if (!title || !description || !normalizedCategory) {
     return res.status(400).json({ error: `Title, description, and a valid category are required (${REPORT_CATEGORIES.join(", ")})` });
+  }
+  if (!REPORT_SEVERITIES.includes(severity)) {
+    return res.status(400).json({ error: "Choose a valid report severity." });
   }
   const [[preferences]] = await pool.query(
     "SELECT show_location_on_reports FROM user_preferences WHERE user_id = ?",
