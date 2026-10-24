@@ -10,6 +10,17 @@ import 'package:infatrack/main.dart';
 import 'package:latlong2/latlong.dart';
 
 void main() {
+  testWidgets('map falls back to a land-based Mati City center', (
+    tester,
+  ) async {
+    ApiService.currentUser = null;
+
+    await tester.pumpWidget(const MaterialApp(home: MapPage()));
+
+    final map = tester.widget<FlutterMap>(find.byType(FlutterMap));
+    expect(map.options.initialCenter, const LatLng(6.9612515, 126.2069944));
+  });
+
   testWidgets('map starts centered on a Central resident barangay', (
     tester,
   ) async {
@@ -52,8 +63,8 @@ void main() {
                 id: 1,
                 title: 'Road damage',
                 category: 'Roads',
-                latitude: 6.953,
-                longitude: 126.228,
+                latitude: 6.9612515,
+                longitude: 126.2069944,
               ),
               _issue(
                 id: 2,
@@ -109,36 +120,36 @@ void main() {
                   id: 1,
                   title: 'Road damage',
                   category: 'Roads',
-                  latitude: 6.953,
-                  longitude: 126.228,
+                  latitude: 6.9612515,
+                  longitude: 126.2069944,
                 ),
                 _issue(
                   id: 2,
                   title: 'Damaged barangay hall',
                   category: 'Public Buildings',
-                  latitude: 6.953,
-                  longitude: 126.228,
+                  latitude: 6.9612515,
+                  longitude: 126.2069944,
                 ),
                 _issue(
                   id: 3,
                   title: 'Blocked drainage',
                   category: 'Drainage',
-                  latitude: 6.953,
-                  longitude: 126.228,
+                  latitude: 6.9612515,
+                  longitude: 126.2069944,
                 ),
                 _issue(
                   id: 4,
                   title: 'Streetlight outage',
                   category: 'Streetlights',
-                  latitude: 6.953,
-                  longitude: 126.228,
+                  latitude: 6.9612515,
+                  longitude: 126.2069944,
                 ),
                 _issue(
                   id: 5,
                   title: 'Leaning electric pole',
                   category: 'Electric Poles',
-                  latitude: 6.953,
-                  longitude: 126.228,
+                  latitude: 6.9612515,
+                  longitude: 126.2069944,
                 ),
               ],
             }),
@@ -160,7 +171,7 @@ void main() {
           (marker) =>
               marker.key?.toString().contains('report-cluster-') ?? false,
         );
-        expect(clusterMarker.point, const LatLng(6.953, 126.228));
+        expect(clusterMarker.point, const LatLng(6.9612515, 126.2069944));
         expect(
           markers.where(
             (marker) =>
@@ -195,6 +206,72 @@ void main() {
       }
     },
   );
+
+  testWidgets('nearby overlapping reports render as a single cluster', (
+    tester,
+  ) async {
+    final originalClientFactory = ApiService.httpClientFactory;
+    ApiService.httpClientFactory = () => MockClient((request) async {
+      if (request.url.path.endsWith('/mobile/issues')) {
+        return http.Response(
+          jsonEncode({
+            'issues': [
+              _issue(
+                id: 1,
+                title: 'Road damage',
+                category: 'Roads',
+                latitude: 6.953,
+                longitude: 126.212,
+              ),
+              _issue(
+                id: 2,
+                title: 'Damaged barangay hall',
+                category: 'Public Buildings',
+                latitude: 6.9534,
+                longitude: 126.2122,
+              ),
+              _issue(
+                id: 3,
+                title: 'Streetlight outage',
+                category: 'Streetlights',
+                latitude: 6.96,
+                longitude: 126.212,
+              ),
+            ],
+          }),
+          200,
+        );
+      }
+      return http.Response('Not found', 404);
+    });
+
+    try {
+      await tester.pumpWidget(const MaterialApp(home: MapPage()));
+      await tester.pumpAndSettle();
+
+      final markers = tester
+          .widget<MarkerLayer>(find.byType(MarkerLayer))
+          .markers;
+      expect(
+        markers.where(
+          (marker) =>
+              marker.key?.toString().contains('report-cluster-') ?? false,
+        ),
+        hasLength(1),
+      );
+      expect(
+        markers.where(
+          (marker) =>
+              marker.key?.toString().contains('report-marker-') ?? false,
+        ),
+        hasLength(1),
+      );
+      expect(find.text('3 matching reports'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    } finally {
+      ApiService.httpClientFactory = originalClientFactory;
+    }
+  });
 
   testWidgets('map report loading error offers retry', (tester) async {
     final originalClientFactory = ApiService.httpClientFactory;

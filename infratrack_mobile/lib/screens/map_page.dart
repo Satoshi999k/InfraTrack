@@ -18,7 +18,7 @@ class MapPage extends StatefulWidget {
 }
 
 class _MapPageState extends State<MapPage> {
-  static const _matiCity = LatLng(6.9530, 126.2280);
+  static const _matiCity = LatLng(6.9612515, 126.2069944);
   static const _barangayCenters = {
     'central': LatLng(6.9612515, 126.2069944),
     'purok 3': LatLng(6.9612515, 126.2069944),
@@ -217,16 +217,25 @@ class _MapPageState extends State<MapPage> {
   }
 
   List<Marker> get _reportMarkers {
-    final groups = <String, List<_MapReport>>{};
+    final groups = <List<_MapReport>>[];
     for (final report in _visibleReports) {
-      final key =
-          '${report.point.latitude.toStringAsPrecision(15)},'
-          '${report.point.longitude.toStringAsPrecision(15)}';
-      groups.putIfAbsent(key, () => []).add(report);
+      List<_MapReport>? nearbyGroup;
+      for (final group in groups) {
+        if (_distanceInMeters(group.first.point, report.point) <=
+            _clusterRadiusMeters(report.point)) {
+          nearbyGroup = group;
+          break;
+        }
+      }
+      if (nearbyGroup == null) {
+        groups.add([report]);
+      } else {
+        nearbyGroup.add(report);
+      }
     }
 
     final markers = <Marker>[];
-    for (final group in groups.values) {
+    for (final group in groups) {
       if (group.length > 1) {
         markers.add(
           Marker(
@@ -268,6 +277,29 @@ class _MapPageState extends State<MapPage> {
       }
     }
     return markers;
+  }
+
+  double _clusterRadiusMeters(LatLng point) {
+    final metersPerPixel =
+        math.cos(point.latitude * math.pi / 180) *
+        40075016.686 /
+        (256 * math.pow(2, _zoom));
+    return math.max(12, metersPerPixel * 40);
+  }
+
+  double _distanceInMeters(LatLng first, LatLng second) {
+    const metersPerDegree = 111320.0;
+    final meanLatitude = (first.latitude + second.latitude) / 2 * math.pi / 180;
+    final northSouthDistance =
+        (first.latitude - second.latitude) * metersPerDegree;
+    final eastWestDistance =
+        (first.longitude - second.longitude) *
+        metersPerDegree *
+        math.cos(meanLatitude);
+    return math.sqrt(
+      northSouthDistance * northSouthDistance +
+          eastWestDistance * eastWestDistance,
+    );
   }
 
   Future<void> _showCoincidentReports(List<_MapReport> reports) async {
