@@ -112,6 +112,38 @@ void main() {
     tester.view.resetDevicePixelRatio();
   });
 
+  testWidgets('appearance option cards share the same full width', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 1200);
+    tester.view.devicePixelRatio = 1;
+    SharedPreferences.setMockInitialValues({});
+    infraAppearance.value = const InfraAppearance();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildInfraTheme(infraAppearance.value, Brightness.light),
+        darkTheme: buildInfraTheme(infraAppearance.value, Brightness.dark),
+        home: const AppearanceSettingsPage(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final themeCard = find.byKey(const ValueKey('appearance-section-Theme'));
+    final accentCard = find.byKey(
+      const ValueKey('appearance-section-Accent color'),
+    );
+    final typefaceCard = find.byKey(
+      const ValueKey('appearance-section-Typeface'),
+    );
+    final expectedWidth = tester.getSize(themeCard).width;
+
+    expect(tester.getSize(accentCard).width, expectedWidth);
+    expect(tester.getSize(typefaceCard).width, expectedWidth);
+
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+
   test('selected typeface styles previews and app text consistently', () {
     final preview = appearanceFontStyle(
       'roboto',

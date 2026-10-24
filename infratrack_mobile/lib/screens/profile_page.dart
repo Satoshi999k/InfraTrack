@@ -1583,28 +1583,33 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
     required String title,
     required String subtitle,
     required Widget child,
-  }) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              fontSize: 11,
-              height: 1.4,
+  }) => SizedBox(
+    width: double.infinity,
+    child: Card(
+      key: ValueKey('appearance-section-$title'),
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
             ),
-          ),
-          const SizedBox(height: 14),
-          child,
-        ],
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontSize: 11,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 14),
+            child,
+          ],
+        ),
       ),
     ),
   );
