@@ -2,6 +2,7 @@ import 'package:infatrack/biometric_sign_in.dart';
 import 'package:infatrack/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:infatrack/appearance_preferences.dart';
 import 'package:infatrack/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -83,6 +84,49 @@ void main() {
 
     expect(find.text('Biometric sign-in'), findsOneWidget);
     expect(find.text('Biometric app lock'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('privacy and security text is readable in dark mode', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    const appearance = InfraAppearance(theme: 'dark');
+    final darkTheme = buildInfraTheme(appearance, Brightness.dark);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: darkTheme,
+        darkTheme: darkTheme,
+        themeMode: ThemeMode.dark,
+        home: const PrivacySecurityPage(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<Text>(find.text('Show location on reports')).style?.color,
+      darkTheme.colorScheme.onSurface,
+    );
+    expect(
+      tester.widget<Text>(find.text('Change password')).style?.color,
+      darkTheme.colorScheme.onSurface,
+    );
+    expect(
+      tester
+          .widget<Text>(find.text('Helps the city locate reported issues'))
+          .style
+          ?.color,
+      darkTheme.inputDecorationTheme.hintStyle?.color,
+    );
+
+    final info = tester.widget<Container>(
+      find.byKey(const ValueKey('privacy-security-info')),
+    );
+    expect(
+      (info.decoration! as BoxDecoration).color,
+      darkTheme.colorScheme.surface,
+    );
     expect(tester.takeException(), isNull);
   });
 

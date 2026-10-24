@@ -666,7 +666,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
       appBar: AppBar(
         title: const Text('Privacy & security'),
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        foregroundColor: navy,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
         elevation: 0,
       ),
       body: AppScroll(
@@ -2961,7 +2961,9 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
             children: [
               _PrivacySettingTile(
                 icon: Icons.fingerprint,
-                color: navy,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? const Color(0xFF75D5CF)
+                    : navy,
                 title: 'Biometric sign-in',
                 subtitle: 'Use fingerprint or face recognition to sign in',
                 value: _biometric,
@@ -2978,21 +2980,30 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
           ),
           const SizedBox(height: 16),
           Container(
+            key: const ValueKey('privacy-security-info'),
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: .56),
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: line),
+              border: Border.all(color: Theme.of(context).colorScheme.outline),
             ),
-            child: const Row(
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.info_outline, color: inkSoft, size: 18),
-                SizedBox(width: 10),
+                Icon(
+                  Icons.info_outline,
+                  color: infraMutedTextColor(context),
+                  size: 18,
+                ),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     'Your password is stored in encrypted device storage for biometric sign-in. Face and fingerprint data stay on your device.',
-                    style: TextStyle(color: inkSoft, fontSize: 11, height: 1.5),
+                    style: TextStyle(
+                      color: infraMutedTextColor(context),
+                      fontSize: 11,
+                      height: 1.5,
+                    ),
                   ),
                 ),
               ],
@@ -3103,13 +3114,16 @@ class _SecuritySectionLabel extends StatelessWidget {
         Text(
           title,
           style: infraMono(
-            color: inkSoft,
+            color: infraMutedTextColor(context),
             fontSize: 10,
             weight: FontWeight.w800,
           ),
         ),
         const SizedBox(height: 3),
-        Text(subtitle, style: const TextStyle(color: inkSoft, fontSize: 11)),
+        Text(
+          subtitle,
+          style: TextStyle(color: infraMutedTextColor(context), fontSize: 11),
+        ),
       ],
     ),
   );
@@ -3175,17 +3189,17 @@ class _PrivacySettingTile extends StatelessWidget {
       leading: _SettingsIcon(icon: icon, color: color),
       title: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w700,
-          color: ink,
+          color: Theme.of(context).colorScheme.onSurface,
         ),
       ),
       subtitle: Padding(
         padding: const EdgeInsets.only(top: 3),
         child: Text(
           subtitle,
-          style: const TextStyle(fontSize: 10.5, color: inkSoft),
+          style: TextStyle(fontSize: 10.5, color: infraMutedTextColor(context)),
         ),
       ),
       trailing: Switch.adaptive(value: value, onChanged: onChanged),
@@ -3217,20 +3231,20 @@ class _ActionSettingTile extends StatelessWidget {
       leading: _SettingsIcon(icon: icon, color: color),
       title: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w700,
-          color: ink,
+          color: Theme.of(context).colorScheme.onSurface,
         ),
       ),
       subtitle: Padding(
         padding: const EdgeInsets.only(top: 3),
         child: Text(
           subtitle,
-          style: const TextStyle(fontSize: 10.5, color: inkSoft),
+          style: TextStyle(fontSize: 10.5, color: infraMutedTextColor(context)),
         ),
       ),
-      trailing: const Icon(Icons.chevron_right, color: inkSoft),
+      trailing: Icon(Icons.chevron_right, color: infraMutedTextColor(context)),
     ),
   );
 }
