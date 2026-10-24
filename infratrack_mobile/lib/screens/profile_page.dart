@@ -1494,7 +1494,9 @@ class _SettingsGroup extends StatelessWidget {
           title: 'Chatbot assistant',
           subtitle: 'Ask about reports and city updates',
           badge: 'Chat',
-          accentColor: navy,
+          accentColor: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF75D5CF)
+              : navy,
           inGroup: true,
           lastInGroup: true,
           onTap: onChatbotTap,
@@ -3114,30 +3116,33 @@ class _SettingsCard extends StatelessWidget {
   final List<Widget> children;
 
   @override
-  Widget build(BuildContext context) => Container(
-    clipBehavior: Clip.antiAlias,
-    decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: .70),
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: Colors.white.withValues(alpha: .90)),
-      boxShadow: [
-        BoxShadow(
-          color: navy.withValues(alpha: .05),
-          blurRadius: 15,
-          offset: const Offset(0, 6),
-        ),
-      ],
-    ),
-    child: Column(
-      children: [
-        for (var index = 0; index < children.length; index++) ...[
-          children[index],
-          if (index != children.length - 1)
-            const Divider(height: 1, indent: 70),
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: theme.colorScheme.outline),
+        boxShadow: [
+          BoxShadow(
+            color: navy.withValues(alpha: .05),
+            blurRadius: 15,
+            offset: const Offset(0, 6),
+          ),
         ],
-      ],
-    ),
-  );
+      ),
+      child: Column(
+        children: [
+          for (var index = 0; index < children.length; index++) ...[
+            children[index],
+            if (index != children.length - 1)
+              Divider(height: 1, indent: 70, color: theme.dividerColor),
+          ],
+        ],
+      ),
+    );
+  }
 }
 
 class _PrivacySettingTile extends StatelessWidget {

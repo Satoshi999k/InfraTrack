@@ -2252,8 +2252,10 @@ class AppHeader extends StatelessWidget {
             children: [
               Text(
                 eyebrow,
-                style: const TextStyle(
-                  color: teal,
+                style: TextStyle(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFF75D5CF)
+                      : teal,
                   fontSize: 10,
                   letterSpacing: 1,
                   fontWeight: FontWeight.w700,
@@ -2274,7 +2276,10 @@ class AppHeader extends StatelessWidget {
                 const SizedBox(height: 3),
                 Text(
                   subtitle!,
-                  style: const TextStyle(color: inkSoft, fontSize: 11.5),
+                  style: TextStyle(
+                    color: infraMutedTextColor(context),
+                    fontSize: 11.5,
+                  ),
                 ),
               ],
             ],

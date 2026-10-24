@@ -690,7 +690,10 @@ class _NotificationCard extends StatelessWidget {
                       const SizedBox(width: 8),
                       Text(
                         item.time,
-                        style: infraMono(fontSize: 9, color: inkSoft),
+                        style: infraMono(
+                          fontSize: 9,
+                          color: infraMutedTextColor(context),
+                        ),
                       ),
                     ],
                   ),

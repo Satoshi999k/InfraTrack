@@ -292,7 +292,9 @@ class _NewsPageState extends State<NewsPage> {
                           'See all previous reports (${visibleIssues.length - _initialIssueLimit})',
                         ),
                         style: TextButton.styleFrom(
-                          foregroundColor: navy,
+                          foregroundColor: Theme.of(context)
+                              .colorScheme
+                              .onSurface,
                           textStyle: const TextStyle(
                             fontWeight: FontWeight.w800,
                             fontSize: 12,
@@ -575,58 +577,57 @@ class _NewsEmptyState extends StatelessWidget {
   final String message;
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    margin: const EdgeInsets.only(bottom: 10),
-    padding: const EdgeInsets.fromLTRB(16, 17, 16, 17),
-    decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: .82),
-      borderRadius: BorderRadius.circular(18),
-      border: Border.all(color: line.withValues(alpha: .8)),
-    ),
-    child: Row(
-      children: [
-        Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: teal.withValues(alpha: .1),
-            borderRadius: BorderRadius.circular(14),
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.fromLTRB(16, 17, 16, 17),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: theme.colorScheme.outline),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: teal.withValues(alpha: .1),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: teal, size: 21),
           ),
-          child: Icon(icon, color: teal, size: 21),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: infraHeading(
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? const Color(0xFFEAF6F4)
-                      : navy,
-                  fontSize: 13,
-                  weight: FontWeight.w700,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: infraHeading(
+                    color: theme.colorScheme.onSurface,
+                    fontSize: 13,
+                    weight: FontWeight.w700,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                message,
-                style: TextStyle(
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? const Color(0xFFB2C9CC)
-                      : inkSoft,
-                  fontSize: 10.5,
-                  height: 1.4,
+                const SizedBox(height: 4),
+                Text(
+                  message,
+                  style: TextStyle(
+                    color: infraMutedTextColor(context),
+                    fontSize: 10.5,
+                    height: 1.4,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
 class _ReportUpdateCard extends StatelessWidget {
@@ -658,109 +659,107 @@ class _ReportUpdateCard extends StatelessWidget {
       button: true,
       label: 'Open report details for $title',
       child: Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: navy.withValues(alpha: .035),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Material(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(18),
-        child: InkWell(
-          onTap: onTap,
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(18),
-          child: Container(
-            padding: const EdgeInsets.all(13),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: theme.colorScheme.outline),
+          boxShadow: [
+            BoxShadow(
+              color: navy.withValues(alpha: .035),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: .11),
-                    borderRadius: BorderRadius.circular(14),
+          ],
+        ),
+        child: Material(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(18),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(18),
+            child: Container(
+              padding: const EdgeInsets.all(13),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: theme.colorScheme.outline),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: .11),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(icon, color: color, size: 22),
                   ),
-                  child: Icon(icon, color: color, size: 22),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: infraHeading(
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? const Color(0xFFEAF6F4)
-                              : ink,
-                          fontSize: 13,
-                          weight: FontWeight.w700,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: infraHeading(
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                ? const Color(0xFFEAF6F4)
+                                : ink,
+                            fontSize: 13,
+                            weight: FontWeight.w700,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 5),
-                      Row(
-                        children: [
-                          StatusPill(label: status ?? body, color: color),
-                          if (location != null) ...[
-                            const SizedBox(width: 7),
-                            const Icon(
-                              Icons.location_on_outlined,
-                              color: muted,
-                              size: 13,
-                            ),
-                            const SizedBox(width: 3),
-                            Expanded(
-                              child: Text(
-                                location!,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: muted,
-                                  fontSize: 10,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                      if (date.isNotEmpty) ...[
-                        const SizedBox(height: 7),
+                        const SizedBox(height: 5),
                         Row(
                           children: [
-                            const Icon(
-                              Icons.schedule_rounded,
-                              size: 12,
-                              color: muted,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              date,
-                              style: TextStyle(color: muted, fontSize: 9.5),
-                            ),
+                            StatusPill(label: status ?? body, color: color),
+                            if (location != null) ...[
+                              const SizedBox(width: 7),
+                              Icon(
+                                Icons.location_on_outlined,
+                                color: muted,
+                                size: 13,
+                              ),
+                              const SizedBox(width: 3),
+                              Expanded(
+                                child: Text(
+                                  location!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(color: muted, fontSize: 10),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
+                        if (date.isNotEmpty) ...[
+                          const SizedBox(height: 7),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.schedule_rounded,
+                                size: 12,
+                                color: muted,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                date,
+                                style: TextStyle(color: muted, fontSize: 9.5),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -876,11 +875,7 @@ class _PublicAdvisoryCard extends StatelessWidget {
                   advisory['message'] as String? ?? '',
                   maxLines: 5,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: muted,
-                    fontSize: 11.5,
-                    height: 1.5,
-                  ),
+                  style: TextStyle(color: muted, fontSize: 11.5, height: 1.5),
                 ),
                 const SizedBox(height: 12),
                 Divider(height: 1, color: theme.dividerColor),
@@ -907,16 +902,9 @@ class _PublicAdvisoryCard extends StatelessWidget {
                     ),
                     if (date.isNotEmpty) ...[
                       const SizedBox(width: 8),
-                      const Icon(
-                        Icons.schedule_rounded,
-                        color: muted,
-                        size: 12,
-                      ),
+                      Icon(Icons.schedule_rounded, color: muted, size: 12),
                       const SizedBox(width: 4),
-                      Text(
-                        date,
-                        style: TextStyle(color: muted, fontSize: 9),
-                      ),
+                      Text(date, style: TextStyle(color: muted, fontSize: 9)),
                     ],
                   ],
                 ),

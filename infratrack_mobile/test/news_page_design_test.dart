@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:infatrack/api_service.dart';
+import 'package:infatrack/appearance_preferences.dart';
 import 'package:infatrack/main.dart';
 
 void main() {
@@ -97,6 +98,89 @@ void main() {
       ApiService.httpClientFactory = originalClientFactory;
     }
   });
+
+  testWidgets(
+    'News report and announcement cards remain readable in dark mode',
+    (WidgetTester tester) async {
+      final originalClientFactory = ApiService.httpClientFactory;
+      ApiService.httpClientFactory = () => MockClient((request) async {
+        if (request.url.path.endsWith('/mobile/issues')) {
+          return http.Response(
+            jsonEncode({
+              'issues': [
+                _issue(1, 'Dark mode road update', 'Roads', 'In progress'),
+              ],
+            }),
+            200,
+          );
+        }
+        if (request.url.path.endsWith('/mobile/advisories')) {
+          return http.Response(
+            jsonEncode({
+              'advisories': [_advisory(2, 'Dark mode city notice', 'gen')],
+            }),
+            200,
+          );
+        }
+        if (request.url.path.endsWith('/mobile/reports')) {
+          return http.Response(jsonEncode({'reports': []}), 200);
+        }
+        return http.Response('{}', 404);
+      });
+      final darkTheme = buildInfraTheme(
+        const InfraAppearance(theme: 'dark'),
+        Brightness.dark,
+      );
+
+      try {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: darkTheme,
+            darkTheme: darkTheme,
+            themeMode: ThemeMode.dark,
+            home: const NewsPage(),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final reportTitle = tester.widget<Text>(
+          find.text('Dark mode road update'),
+        );
+        expect(reportTitle.style?.color, darkTheme.colorScheme.onSurface);
+        final reportMaterial = tester.widget<Material>(
+          find
+              .ancestor(
+                of: find.text('Dark mode road update'),
+                matching: find.byType(Material),
+              )
+              .first,
+        );
+        expect(reportMaterial.color, darkTheme.colorScheme.surface);
+
+        await tester.ensureVisible(find.text('CITY ANNOUNCEMENT'));
+        expect(
+          tester.widget<Text>(find.text('CITY ANNOUNCEMENT')).style?.color,
+          const Color(0xFF75D5CF),
+        );
+        expect(
+          tester.widget<Text>(find.text('Dark mode city notice')).style?.color,
+          darkTheme.colorScheme.onSurface,
+        );
+        final advisoryMaterial = tester.widget<Material>(
+          find
+              .ancestor(
+                of: find.text('Dark mode city notice'),
+                matching: find.byType(Material),
+              )
+              .first,
+        );
+        expect(advisoryMaterial.color, darkTheme.colorScheme.surface);
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+        ApiService.httpClientFactory = originalClientFactory;
+      }
+    },
+  );
 
   testWidgets('News shows only approved reports and reveals older updates', (
     WidgetTester tester,

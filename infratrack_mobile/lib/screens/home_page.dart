@@ -631,27 +631,34 @@ class _NoNearbyReports extends StatelessWidget {
   const _NoNearbyReports();
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 20),
-    decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: .76),
-      borderRadius: BorderRadius.circular(18),
-      border: Border.all(color: line),
-    ),
-    child: const Row(
-      children: [
-        Icon(Icons.check_circle_outline_rounded, color: teal, size: 22),
-        SizedBox(width: 11),
-        Expanded(
-          child: Text(
-            'All clear for this category. New community reports will show up here.',
-            style: TextStyle(color: inkSoft, fontSize: 12, height: 1.4),
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 20),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: theme.colorScheme.outline),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle_outline_rounded, color: teal, size: 22),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Text(
+              'All clear for this category. New community reports will show up here.',
+              style: TextStyle(
+                color: infraMutedTextColor(context),
+                fontSize: 12,
+                height: 1.4,
+              ),
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
 class _ReportFilter extends StatelessWidget {
@@ -716,26 +723,31 @@ class _HeroUpdate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final createdAt = issue['created_at']?.toString() ?? '';
+    final dark = Theme.of(context).brightness == Brightness.dark;
     return ClipRRect(
       borderRadius: BorderRadius.circular(18),
       child: BackdropFilter(
         filter: ui.ImageFilter.blur(sigmaX: 14, sigmaY: 14),
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: .58),
+            color: Theme.of(context).colorScheme.surface
+                .withValues(alpha: dark ? .92 : .78),
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.white.withValues(alpha: .9)),
+            border: Border.all(color: Theme.of(context).colorScheme.outline),
           ),
           child: ListTile(
             contentPadding: const EdgeInsets.all(13),
-            leading: const CircleAvatar(
-              backgroundColor: Color(0xB8E4F2F0),
-              child: Icon(Icons.sync, color: teal),
+            leading: CircleAvatar(
+              backgroundColor: teal.withValues(alpha: dark ? .2 : .12),
+              child: Icon(
+                Icons.sync,
+                color: dark ? const Color(0xFF75D5CF) : teal,
+              ),
             ),
             title: Text(
               'REPORT UPDATE${createdAt.isEmpty ? '' : ' · $createdAt'}',
-              style: const TextStyle(
-                color: teal,
+              style: TextStyle(
+                color: dark ? const Color(0xFF75D5CF) : teal,
                 fontSize: 10,
                 fontWeight: FontWeight.w800,
               ),
@@ -744,10 +756,16 @@ class _HeroUpdate extends StatelessWidget {
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 '${issue['title'] ?? 'Infrastructure report'} · ${issue['status'] ?? 'Reported'}',
-                style: const TextStyle(fontWeight: FontWeight.w700, color: ink),
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
               ),
             ),
-            trailing: const Icon(Icons.chevron_right, color: inkSoft),
+            trailing: Icon(
+              Icons.chevron_right,
+              color: infraMutedTextColor(context),
+            ),
           ),
         ),
       ),

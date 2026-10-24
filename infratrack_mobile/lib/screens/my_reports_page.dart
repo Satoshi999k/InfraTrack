@@ -608,139 +608,142 @@ class _MyReportCard extends StatelessWidget {
   report;
 
   @override
-  Widget build(BuildContext context) => Card(
-    margin: const EdgeInsets.only(bottom: 12),
-    color: Colors.white,
-    elevation: 0,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(18),
-      side: const BorderSide(color: line),
-    ),
-    child: InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => MyReportDetailsPage(report: report, canReply: true),
-        ),
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final muted = infraMutedTextColor(context);
+    final dark = theme.brightness == Brightness.dark;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      color: theme.colorScheme.surface,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: theme.colorScheme.outline),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(13),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: SizedBox(
-                width: 72,
-                height: 82,
-                child: report.image.isEmpty
-                    ? _ReportThumbnailPlaceholder(report: report)
-                    : Image.network(
-                        report.image,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) =>
-                            _ReportThumbnailPlaceholder(report: report),
-                      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => MyReportDetailsPage(report: report, canReply: true),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(13),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: SizedBox(
+                  width: 72,
+                  height: 82,
+                  child: report.image.isEmpty
+                      ? _ReportThumbnailPlaceholder(report: report)
+                      : Image.network(
+                          report.image,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) =>
+                              _ReportThumbnailPlaceholder(report: report),
+                        ),
+                ),
               ),
-            ),
-            const SizedBox(width: 13),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Row(
-                          children: [
-                            Icon(report.icon, color: teal, size: 14),
-                            const SizedBox(width: 5),
-                            Expanded(
-                              child: Text(
-                                report.category,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: teal,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Icon(report.icon, color: teal, size: 14),
+                              const SizedBox(width: 5),
+                              Expanded(
+                                child: Text(
+                                  report.category,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: dark
+                                        ? const Color(0xFF75D5CF)
+                                        : teal,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      StatusPill(label: report.status, color: report.color),
-                    ],
-                  ),
-                  const SizedBox(height: 7),
-                  Text(
-                    report.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: infraHeading(
-                      color: ink,
-                      fontSize: 13,
-                      weight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.location_on_outlined,
-                        size: 14,
-                        color: inkSoft,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          report.location,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: inkSoft,
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w600,
+                            ],
                           ),
                         ),
+                        const SizedBox(width: 8),
+                        StatusPill(label: report.status, color: report.color),
+                      ],
+                    ),
+                    const SizedBox(height: 7),
+                    Text(
+                      report.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: infraHeading(
+                        color: theme.colorScheme.onSurface,
+                        fontSize: 13,
+                        weight: FontWeight.w800,
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 5),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.schedule_rounded,
-                        size: 13,
-                        color: inkSoft,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          'Filed ${_formatReportDate(report.age)}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: inkSoft, fontSize: 9.5),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.location_on_outlined,
+                          size: 14,
+                          color: muted,
                         ),
-                      ),
-                      const SizedBox(width: 4),
-                      const Icon(
-                        Icons.arrow_forward_ios_rounded,
-                        size: 12,
-                        color: inkSoft,
-                      ),
-                    ],
-                  ),
-                ],
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            report.location,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: muted,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 5),
+                    Row(
+                      children: [
+                        Icon(Icons.schedule_rounded, size: 13, color: muted),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            'Filed ${_formatReportDate(report.age)}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: muted, fontSize: 9.5),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          size: 12,
+                          color: inkSoft,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _ReportThumbnailPlaceholder extends StatelessWidget {
