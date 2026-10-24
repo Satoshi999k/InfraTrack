@@ -1,7 +1,9 @@
 part of '../main.dart';
 
 class NotificationsPage extends StatefulWidget {
-  const NotificationsPage({super.key});
+  const NotificationsPage({super.key, this.onCityUpdateSelected});
+
+  final VoidCallback? onCityUpdateSelected;
 
   @override
   State<NotificationsPage> createState() => _NotificationsPageState();
@@ -118,6 +120,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
   Future<void> _openNotification(_NotificationItem notification) async {
     await _markRead(notification);
     if (!mounted || notification.advisoryId == null) return;
+    final onCityUpdateSelected = widget.onCityUpdateSelected;
+    if (onCityUpdateSelected != null) {
+      Navigator.of(context).pop();
+      onCityUpdateSelected();
+      return;
+    }
     await Navigator.of(context)
         .push(MaterialPageRoute<void>(builder: (_) => const NewsPage()));
   }

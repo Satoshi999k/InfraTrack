@@ -1864,7 +1864,7 @@ class _MainShellState extends State<MainShell> {
   final _profileKey = GlobalKey<_ProfilePageState>();
 
   late final pages = [
-    HomePage(key: _homeKey),
+    HomePage(key: _homeKey, onOpenNews: openNewsTab),
     MapPage(key: _mapKey),
     ReportPage(key: _reportKey),
     NewsPage(key: _newsKey),
@@ -1946,6 +1946,12 @@ class _MainShellState extends State<MainShell> {
       case 4:
         await _profileKey.currentState?.refresh();
     }
+  }
+
+  void openNewsTab() {
+    if (!mounted) return;
+    setState(() => index = 3);
+    unawaited(_refreshPage(3));
   }
 
   @override

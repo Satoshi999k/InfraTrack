@@ -267,14 +267,19 @@ void main() {
       if (request.url.path.endsWith('/mobile/reports')) {
         return http.Response(jsonEncode({'reports': []}), 200);
       }
+      if (request.url.path.endsWith('/mobile/overview')) {
+        return http.Response(jsonEncode({'overview': {}}), 200);
+      }
       return http.Response('Not found', 404);
     });
 
     try {
       await ApiService.login('resident@example.test', 'test-password');
-      await tester.pumpWidget(const MaterialApp(home: NotificationsPage()));
+      await tester.pumpWidget(const MaterialApp(home: MainShell()));
       await tester.pumpAndSettle();
 
+      await tester.tap(find.byTooltip('Notifications'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('City updates'));
       await tester.pumpAndSettle();
       expect(find.text('MAINTENANCE'), findsOneWidget);
@@ -284,9 +289,13 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(markedRead, isTrue);
-      expect(find.text('City updates'), findsOneWidget);
+      expect(find.byType(NavigationBar), findsOneWidget);
+      expect(
+        tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+        3,
+      );
       expect(find.text('Road maintenance tonight'), findsOneWidget);
-      expect(find.text('MAINTENANCE'), findsOneWidget);
+      expect(find.text('City advisories'), findsOneWidget);
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
       ApiService.httpClientFactory = originalClientFactory;

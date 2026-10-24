@@ -651,10 +651,13 @@ class _ReportUpdateCard extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    label: 'Open report details for $title',
-    child: Container(
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final muted = infraMutedTextColor(context);
+    return Semantics(
+      button: true,
+      label: 'Open report details for $title',
+      child: Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
@@ -667,7 +670,7 @@ class _ReportUpdateCard extends StatelessWidget {
         ],
       ),
       child: Material(
-        color: Colors.white,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(18),
         child: InkWell(
           onTap: onTap,
@@ -676,7 +679,7 @@ class _ReportUpdateCard extends StatelessWidget {
             padding: const EdgeInsets.all(13),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: line.withValues(alpha: .8)),
+              border: Border.all(color: theme.colorScheme.outline),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -715,7 +718,7 @@ class _ReportUpdateCard extends StatelessWidget {
                             const SizedBox(width: 7),
                             const Icon(
                               Icons.location_on_outlined,
-                              color: inkSoft,
+                              color: muted,
                               size: 13,
                             ),
                             const SizedBox(width: 3),
@@ -725,11 +728,7 @@ class _ReportUpdateCard extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  color:
-                                      Theme.of(context).brightness ==
-                                          Brightness.dark
-                                      ? const Color(0xFFB2C9CC)
-                                      : inkSoft,
+                                  color: muted,
                                   fontSize: 10,
                                 ),
                               ),
@@ -744,15 +743,12 @@ class _ReportUpdateCard extends StatelessWidget {
                             const Icon(
                               Icons.schedule_rounded,
                               size: 12,
-                              color: inkSoft,
+                              color: muted,
                             ),
                             const SizedBox(width: 4),
                             Text(
                               date,
-                              style: const TextStyle(
-                                color: inkSoft,
-                                fontSize: 9.5,
-                              ),
+                              style: TextStyle(color: muted, fontSize: 9.5),
                             ),
                           ],
                         ),
@@ -765,8 +761,9 @@ class _ReportUpdateCard extends StatelessWidget {
           ),
         ),
       ),
-    ),
-  );
+      ),
+    );
+  }
 }
 
 class _PublicAdvisoryCard extends StatelessWidget {
@@ -776,11 +773,14 @@ class _PublicAdvisoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final dark = theme.brightness == Brightness.dark;
+    final muted = infraMutedTextColor(context);
     final type = (advisory['type'] as String? ?? 'gen').toLowerCase();
     final color = switch (type) {
-      'alert' || 'advertisement' => clay,
-      'maint' => teal,
-      _ => navy,
+      'alert' || 'advertisement' => dark ? brandOrange : clay,
+      'maint' => dark ? const Color(0xFF75D5CF) : teal,
+      _ => dark ? const Color(0xFF75D5CF) : navy,
     };
     final label = switch (type) {
       'alert' || 'advertisement' => 'ADVERTISEMENT',
@@ -810,7 +810,7 @@ class _PublicAdvisoryCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(19),
-        side: const BorderSide(color: line),
+        side: BorderSide(color: theme.colorScheme.outline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -855,7 +855,7 @@ class _PublicAdvisoryCard extends StatelessWidget {
                         mediaKind == 'video'
                             ? Icons.play_circle_outline_rounded
                             : Icons.photo_outlined,
-                        color: inkSoft,
+                        color: muted,
                         size: 17,
                       ),
                   ],
@@ -866,9 +866,7 @@ class _PublicAdvisoryCard extends StatelessWidget {
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                   style: infraHeading(
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? const Color(0xFFEAF6F4)
-                        : navy,
+                    color: theme.colorScheme.onSurface,
                     fontSize: 15,
                     weight: FontWeight.w800,
                   ),
@@ -879,15 +877,13 @@ class _PublicAdvisoryCard extends StatelessWidget {
                   maxLines: 5,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? const Color(0xFFB2C9CC)
-                        : inkSoft,
+                    color: muted,
                     fontSize: 11.5,
                     height: 1.5,
                   ),
                 ),
                 const SizedBox(height: 12),
-                const Divider(height: 1, color: line),
+                Divider(height: 1, color: theme.dividerColor),
                 const SizedBox(height: 10),
                 Row(
                   children: [
@@ -903,9 +899,7 @@ class _PublicAdvisoryCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? const Color(0xFFB2C9CC)
-                              : inkSoft,
+                          color: muted,
                           fontSize: 9.5,
                           fontWeight: FontWeight.w600,
                         ),
@@ -915,13 +909,13 @@ class _PublicAdvisoryCard extends StatelessWidget {
                       const SizedBox(width: 8),
                       const Icon(
                         Icons.schedule_rounded,
-                        color: inkSoft,
+                        color: muted,
                         size: 12,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         date,
-                        style: const TextStyle(color: inkSoft, fontSize: 9),
+                        style: TextStyle(color: muted, fontSize: 9),
                       ),
                     ],
                   ],

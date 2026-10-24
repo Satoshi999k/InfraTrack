@@ -1,7 +1,9 @@
 part of '../main.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const HomePage({super.key, this.onOpenNews});
+
+  final VoidCallback? onOpenNews;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -129,7 +131,9 @@ class _HomePageState extends State<HomePage> {
                       ),
                       onPressed: () => Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (_) => const NotificationsPage(),
+                          builder: (_) => NotificationsPage(
+                            onCityUpdateSelected: widget.onOpenNews,
+                          ),
                         ),
                       ),
                       tooltip: 'Notifications',
