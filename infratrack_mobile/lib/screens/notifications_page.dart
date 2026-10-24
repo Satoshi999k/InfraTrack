@@ -115,6 +115,13 @@ class _NotificationsPageState extends State<NotificationsPage> {
     }
   }
 
+  Future<void> _openNotification(_NotificationItem notification) async {
+    await _markRead(notification);
+    if (!mounted || notification.advisoryId == null) return;
+    await Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => const NewsPage()));
+  }
+
   List<_NotificationItem> get notifications => _serverNotifications.map((item) {
     final rawType = (item['type'] as String? ?? 'system').toLowerCase();
     final title = item['title'] as String? ?? 'InfraTrack update';
@@ -123,6 +130,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
       'duplicate_issue' ||
       'priority_escalation' => 'Report updates',
       'account' => 'Account',
+      'advisory' ||
+      'announcement' ||
+      'advertisement' ||
+      'maintenance' ||
+      'city_update' => 'City updates',
       _ => 'City updates',
     };
     final createdAt = DateTime.tryParse(item['created_at']?.toString() ?? '');
@@ -155,7 +167,14 @@ class _NotificationsPageState extends State<NotificationsPage> {
       title: title,
       message: item['message'] as String? ?? '',
       time: createdAt?.toLocal().toString().split('.').first ?? '',
-      label: type == 'Account'
+      label: type == 'City updates'
+          ? switch (rawType) {
+              'announcement' => 'ANNOUNCEMENT',
+              'advertisement' => 'ADVERTISEMENT',
+              'maintenance' => 'MAINTENANCE',
+              _ => 'CITY UPDATE',
+            }
+          : type == 'Account'
           ? switch (title.toLowerCase()) {
               final value when value.contains('warn') => 'WARNING',
               final value when value.contains('suspend') => 'SUSPENSION',
@@ -169,6 +188,10 @@ class _NotificationsPageState extends State<NotificationsPage> {
           ? teal
           : type == 'Account'
           ? accountActionColor
+          : rawType == 'advertisement'
+          ? clay
+          : rawType == 'maintenance'
+          ? teal
           : amber,
       icon: type == 'Account'
           ? switch (title.toLowerCase()) {
@@ -184,9 +207,14 @@ class _NotificationsPageState extends State<NotificationsPage> {
             }
           : type == 'Report updates'
           ? Icons.sync
-          : Icons.notifications_active_outlined,
+          : rawType == 'advertisement'
+          ? Icons.local_offer_outlined
+          : rawType == 'maintenance'
+          ? Icons.build_outlined
+          : Icons.campaign_outlined,
       type: type,
       unread: item['read_at'] == null,
+      advisoryId: int.tryParse(item['advisory_id']?.toString() ?? ''),
     );
   }).toList();
 
@@ -262,7 +290,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                   .map(
                                     (item) => _NotificationCard(
                                       item: item,
-                                      onTap: () => _markRead(item),
+                                      onTap: () => _openNotification(item),
                                     ),
                                   ),
                               const SizedBox(height: 5),
@@ -489,12 +517,14 @@ class _NotificationItem {
     required this.icon,
     required this.type,
     required this.unread,
+    required this.advisoryId,
   });
   final int id;
   final String group, title, message, time, label, type;
   final Color color;
   final IconData icon;
   final bool unread;
+  final int? advisoryId;
 }
 
 class _NotificationBackButton extends StatelessWidget {

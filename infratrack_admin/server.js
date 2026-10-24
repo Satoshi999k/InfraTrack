@@ -370,6 +370,57 @@ async function queueNotification({ userId, reportId = null, advisoryId = null, t
   return { ok: true };
 }
 
+async function queueAdvisoryNotifications({
+  advisoryId,
+  advisoryType,
+  title,
+  message,
+  audience,
+}) {
+  const allBarangays = audience === "All barangays";
+  const targetBarangay = allBarangays
+    ? ""
+    : String(audience ?? "")
+        .trim()
+        .replace(/^(?:barangay|brgy\.?)\s*/i, "");
+  const notificationType =
+    advisoryType === "alert" || advisoryType === "advertisement"
+      ? "advertisement"
+      : advisoryType === "maint" || advisoryType === "maintenance"
+        ? "maintenance"
+        : "announcement";
+
+  await pool.query(
+    `INSERT INTO notifications
+      (user_id, advisory_id, type, title, message, channel)
+     SELECT u.id, ?, ?, ?, ?, 'push'
+     FROM users u
+     LEFT JOIN user_preferences preferences ON preferences.user_id = u.id
+     WHERE u.role = 'resident'
+       AND COALESCE(preferences.allow_notifications, 1) = 1
+       AND (
+         ? = 1
+         OR LOWER(TRIM(u.barangay)) = LOWER(?)
+         OR LOWER(TRIM(
+           REPLACE(
+             REPLACE(LOWER(u.barangay), 'barangay ', ''),
+             'brgy. ',
+             ''
+           )
+         )) = LOWER(?)
+       )`,
+    [
+      advisoryId,
+      notificationType,
+      title,
+      message,
+      allBarangays ? 1 : 0,
+      String(audience ?? ""),
+      targetBarangay,
+    ],
+  );
+}
+
 async function dispatchNotification({ channel = "email", recipient, subject, body }) {
   const resolvedChannel = channel || "email";
   if (resolvedChannel === "email" && process.env.BREVO_API_KEY) {
@@ -2210,6 +2261,13 @@ app.post("/api/advisories", async (req, res) => {
   if (!title?.trim() || !message?.trim()) return res.status(400).json({ error: "Title and message are required" });
   const [result] = await pool.query("INSERT INTO advisories (type, title, message, audience, barangay, created_by, published_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)", [type, title.trim(), message.trim(), targetAudience, targetBarangay, adminId ?? null]);
   if (mediaUrl) await pool.query("INSERT INTO advisory_media (advisory_id, file_path, media_type) VALUES (?, ?, ?)", [result.insertId, mediaUrl, mediaKind || "photo"]);
+  await queueAdvisoryNotifications({
+    advisoryId: result.insertId,
+    advisoryType: type,
+    title: title.trim(),
+    message: message.trim(),
+    audience: targetAudience,
+  });
   const [advisories] = await pool.query("SELECT * FROM advisories WHERE id = ?", [result.insertId]);
   await writeAuditLog(req, { actorId: adminId, action: "advisory_created", resourceType: "advisory", resourceId: result.insertId, details: { title: title.trim(), audience: targetAudience } });
   res.status(201).json({ advisory: advisories[0] });

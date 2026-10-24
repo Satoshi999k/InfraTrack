@@ -171,4 +171,126 @@ void main() {
       await ApiService.signOutForExpiredSession();
     }
   });
+
+  testWidgets('city advisory notification opens the News page', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final originalClientFactory = ApiService.httpClientFactory;
+    var markedRead = false;
+    ApiService.httpClientFactory = () => MockClient((request) async {
+      if (request.url.path.endsWith('/mobile/auth/login')) {
+        return http.Response(
+          jsonEncode({
+            'token': 'advisory-notification-test-token',
+            'user': {'id': 42, 'name': 'Test Resident', 'role': 'resident'},
+          }),
+          200,
+        );
+      }
+      if (request.url.path.endsWith('/mobile/notifications')) {
+        return http.Response(
+          jsonEncode({
+            'notifications': [
+              {
+                'id': 17,
+                'advisory_id': 88,
+                'type': 'maintenance',
+                'title': 'Road maintenance tonight',
+                'message': 'Roads will be closed from 8 PM to midnight.',
+                'created_at': '2026-10-24T10:00:00.000Z',
+                'read_at': null,
+              },
+              {
+                'id': 18,
+                'advisory_id': 89,
+                'type': 'announcement',
+                'title': 'Community meeting',
+                'message': 'Join the community meeting this weekend.',
+                'created_at': '2026-10-24T10:00:00.000Z',
+                'read_at': null,
+              },
+              {
+                'id': 19,
+                'advisory_id': 90,
+                'type': 'advertisement',
+                'title': 'Market day',
+                'message': 'Visit the local market this Saturday.',
+                'created_at': '2026-10-24T10:00:00.000Z',
+                'read_at': null,
+              },
+            ],
+          }),
+          200,
+        );
+      }
+      if (request.url.path.endsWith('/mobile/notifications/17/read')) {
+        markedRead = true;
+        return http.Response(jsonEncode({'ok': true}), 200);
+      }
+      if (request.url.path.endsWith('/mobile/advisories')) {
+        return http.Response(
+          jsonEncode({
+            'advisories': [
+              {
+                'id': 88,
+                'type': 'maint',
+                'title': 'Road maintenance tonight',
+                'message': 'Roads will be closed from 8 PM to midnight.',
+                'audience': 'All barangays',
+                'created_at': '2026-10-24T10:00:00.000Z',
+              },
+              {
+                'id': 89,
+                'type': 'gen',
+                'title': 'Community meeting',
+                'message': 'Join the community meeting this weekend.',
+                'audience': 'All barangays',
+                'created_at': '2026-10-24T10:00:00.000Z',
+              },
+              {
+                'id': 90,
+                'type': 'alert',
+                'title': 'Market day',
+                'message': 'Visit the local market this Saturday.',
+                'audience': 'All barangays',
+                'created_at': '2026-10-24T10:00:00.000Z',
+              },
+            ],
+          }),
+          200,
+        );
+      }
+      if (request.url.path.endsWith('/mobile/issues')) {
+        return http.Response(jsonEncode({'issues': []}), 200);
+      }
+      if (request.url.path.endsWith('/mobile/reports')) {
+        return http.Response(jsonEncode({'reports': []}), 200);
+      }
+      return http.Response('Not found', 404);
+    });
+
+    try {
+      await ApiService.login('resident@example.test', 'test-password');
+      await tester.pumpWidget(const MaterialApp(home: NotificationsPage()));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('City updates'));
+      await tester.pumpAndSettle();
+      expect(find.text('MAINTENANCE'), findsOneWidget);
+      expect(find.text('ANNOUNCEMENT'), findsOneWidget);
+      expect(find.text('ADVERTISEMENT'), findsOneWidget);
+      await tester.tap(find.text('Road maintenance tonight'));
+      await tester.pumpAndSettle();
+
+      expect(markedRead, isTrue);
+      expect(find.text('City updates'), findsOneWidget);
+      expect(find.text('Road maintenance tonight'), findsOneWidget);
+      expect(find.text('MAINTENANCE'), findsOneWidget);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      ApiService.httpClientFactory = originalClientFactory;
+      await ApiService.signOutForExpiredSession();
+    }
+  });
 }
