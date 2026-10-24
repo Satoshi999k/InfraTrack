@@ -213,7 +213,7 @@ void main() {
 
       expect(find.text('Media could not be loaded'), findsOneWidget);
       expect(find.text('Retry'), findsOneWidget);
-      expect(find.text('Advisory with unavailable media'), findsOneWidget);
+      expect(find.text('Advisory with unavailable media'), findsNWidgets(2));
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
       ApiService.httpClientFactory = originalClientFactory;
