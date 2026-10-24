@@ -179,7 +179,7 @@ void main() {
                 'description': 'A pothole near the central market.',
                 'latitude': 6.96,
                 'longitude': 126.2,
-              ),
+              },
             ],
           }),
           200,
@@ -188,9 +188,7 @@ void main() {
       if (request.url.path.endsWith('/mobile/advisories')) {
         return http.Response(jsonEncode({'advisories': []}), 200);
       }
-      if (request.url.path.endsWith(
-            '/mobile/issues/MT-2026-242/discussion',
-          ) &&
+      if (request.url.path.endsWith('/mobile/issues/MT-2026-242/discussion') &&
           request.method == 'GET') {
         discussionAuthorization = request.headers['authorization'];
         return http.Response(
@@ -224,7 +222,12 @@ void main() {
         find.text('The city crew is preparing the road repair.'),
         findsOneWidget,
       );
-      expect(find.text('Only the reporter and authorized staff can reply. Everyone can read this follow-up.'), findsOneWidget);
+      expect(
+        find.text(
+          'Only the reporter and authorized staff can reply. Everyone can read this follow-up.',
+        ),
+        findsOneWidget,
+      );
       expect(find.text('Send reply'), findsNothing);
       expect(discussionAuthorization, isNull);
     } finally {

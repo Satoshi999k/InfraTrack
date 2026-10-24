@@ -14,6 +14,8 @@ void main() {
   testWidgets(
     'Home shows every approved or in-progress report in the resident barangay',
     (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1;
       SharedPreferences.setMockInitialValues({});
       final originalClientFactory = ApiService.httpClientFactory;
       var requestedHomeUpdates = false;
@@ -128,8 +130,11 @@ void main() {
           (widget) =>
               widget is ReportCard && widget.title == 'Central approved 1',
         );
-        await tester.ensureVisible(firstReportCard);
-        await tester.tap(firstReportCard);
+        final firstReportTitle = find.descendant(
+          of: firstReportCard,
+          matching: find.text('Central approved 1'),
+        );
+        await tester.tap(firstReportTitle);
         await tester.pumpAndSettle();
         await tester.ensureVisible(find.text('OFFICIAL FOLLOW-UP'));
 
@@ -147,6 +152,8 @@ void main() {
         await tester.pumpWidget(const SizedBox.shrink());
         ApiService.httpClientFactory = originalClientFactory;
         await ApiService.signOutForExpiredSession();
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
       }
     },
   );
