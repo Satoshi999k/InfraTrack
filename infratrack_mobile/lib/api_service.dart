@@ -422,7 +422,7 @@ class ApiService {
     final body = await _request(
       'GET',
       '/mobile/issues/${Uri.encodeComponent(reportId)}/discussion',
-      authenticated: true,
+      authenticated: false,
     );
     final comments = body['comments'];
     if (comments is! List) {

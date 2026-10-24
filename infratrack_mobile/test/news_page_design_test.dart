@@ -158,6 +158,81 @@ void main() {
     }
   });
 
+  testWidgets('News report updates open public details and follow-up', (
+    WidgetTester tester,
+  ) async {
+    final originalClientFactory = ApiService.httpClientFactory;
+    String? discussionAuthorization;
+    ApiService.httpClientFactory = () => MockClient((request) async {
+      if (request.url.path.endsWith('/mobile/issues')) {
+        return http.Response(
+          jsonEncode({
+            'issues': [
+              {
+                ..._issue(
+                  242,
+                  'Central road repair update',
+                  'Roads',
+                  'In progress',
+                ),
+                'public_id': 'MT-2026-242',
+                'description': 'A pothole near the central market.',
+                'latitude': 6.96,
+                'longitude': 126.2,
+              ),
+            ],
+          }),
+          200,
+        );
+      }
+      if (request.url.path.endsWith('/mobile/advisories')) {
+        return http.Response(jsonEncode({'advisories': []}), 200);
+      }
+      if (request.url.path.endsWith(
+            '/mobile/issues/MT-2026-242/discussion',
+          ) &&
+          request.method == 'GET') {
+        discussionAuthorization = request.headers['authorization'];
+        return http.Response(
+          jsonEncode({
+            'comments': [
+              {
+                'id': 1,
+                'body': 'The city crew is preparing the road repair.',
+                'author_name': 'InfraTrack Staff',
+                'author_role': 'staff',
+                'created_at': '2026-10-22T06:00:00.000Z',
+              },
+            ],
+          }),
+          200,
+        );
+      }
+      return http.Response('{}', 404);
+    });
+
+    try {
+      await tester.pumpWidget(const MaterialApp(home: NewsPage()));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Central road repair update'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('OFFICIAL FOLLOW-UP'));
+
+      expect(find.text('Issue details'), findsOneWidget);
+      expect(find.text('A pothole near the central market.'), findsOneWidget);
+      expect(
+        find.text('The city crew is preparing the road repair.'),
+        findsOneWidget,
+      );
+      expect(find.text('Only the reporter and authorized staff can reply. Everyone can read this follow-up.'), findsOneWidget);
+      expect(find.text('Send reply'), findsNothing);
+      expect(discussionAuthorization, isNull);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      ApiService.httpClientFactory = originalClientFactory;
+    }
+  });
+
   testWidgets('News page shows helpful empty states for both feeds', (
     WidgetTester tester,
   ) async {
@@ -235,8 +310,10 @@ Map<String, dynamic> _issue(
   String status,
 ) => {
   'id': id,
+  'public_id': 'MT-2026-$id',
   'title': title,
   'category': category,
+  'description': 'An infrastructure issue reported by the community.',
   'status': status,
   'location': 'Brgy. Central',
   'severity': 'Medium',

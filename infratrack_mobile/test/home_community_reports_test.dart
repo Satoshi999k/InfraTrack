@@ -72,6 +72,22 @@ void main() {
         if (request.url.path.endsWith('/mobile/notifications')) {
           return http.Response(jsonEncode({'notifications': []}), 200);
         }
+        if (request.url.path.endsWith('/mobile/issues/1/discussion')) {
+          return http.Response(
+            jsonEncode({
+              'comments': [
+                {
+                  'id': 1,
+                  'body': 'The city team is inspecting this issue.',
+                  'author_name': 'InfraTrack Staff',
+                  'author_role': 'staff',
+                  'created_at': '2026-10-22T06:00:00.000Z',
+                },
+              ],
+            }),
+            200,
+          );
+        }
         return http.Response('Not found', 404);
       });
 
@@ -108,6 +124,25 @@ void main() {
           reportCards.map((card) => card.title),
           isNot(contains('Dawan active report')),
         );
+        final firstReportCard = find.byWidgetPredicate(
+          (widget) =>
+              widget is ReportCard && widget.title == 'Central approved 1',
+        );
+        await tester.ensureVisible(firstReportCard);
+        await tester.tap(firstReportCard);
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('OFFICIAL FOLLOW-UP'));
+
+        expect(find.text('Issue details'), findsOneWidget);
+        expect(
+          find.text('A neighborhood infrastructure report.'),
+          findsOneWidget,
+        );
+        expect(
+          find.text('The city team is inspecting this issue.'),
+          findsOneWidget,
+        );
+        expect(find.text('Send reply'), findsNothing);
       } finally {
         await tester.pumpWidget(const SizedBox.shrink());
         ApiService.httpClientFactory = originalClientFactory;
@@ -125,6 +160,7 @@ Map<String, dynamic> _issue(
   String? reporterBarangay,
 }) => {
   'id': id,
+  'public_id': '$id',
   'title': title,
   'description': 'A neighborhood infrastructure report.',
   'category': 'Roads',

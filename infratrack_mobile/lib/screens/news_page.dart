@@ -65,6 +65,7 @@ class _NewsPageState extends State<NewsPage> {
   bool _showAllIssues = false;
   List<Map<String, dynamic>> _advisories = [];
   List<Map<String, dynamic>> _issues = [];
+  List<Map<String, dynamic>> _myReports = [];
   bool _loading = true;
   String? _loadError;
 
@@ -96,11 +97,13 @@ class _NewsPageState extends State<NewsPage> {
       final results = await Future.wait([
         ApiService.advisories(),
         ApiService.issues(verifiedOnly: true),
+        ApiService.reports(),
       ]);
       if (!mounted) return;
       setState(() {
         _advisories = results[0];
         _issues = results[1];
+        _myReports = results[2];
         _currentPage = 0;
         _loading = false;
         _loadError = null;
@@ -267,6 +270,14 @@ class _NewsPageState extends State<NewsPage> {
                     status: issue['status'] as String? ?? 'Reported',
                     location: issue['location'] as String? ?? 'Mati City',
                     date: _newsDate(issue['created_at']?.toString()),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => MyReportDetailsPage(
+                          report: _reportDetailsFromApi(issue),
+                          canReply: _canReplyToIssue(issue, _myReports),
+                        ),
+                      ),
+                    ),
                   ),
                 if (!_showAllIssues &&
                     visibleIssues.length > _initialIssueLimit)
@@ -627,6 +638,7 @@ class _ReportUpdateCard extends StatelessWidget {
     required this.date,
     this.status,
     this.location,
+    required this.onTap,
   });
 
   final IconData icon;
@@ -636,101 +648,123 @@ class _ReportUpdateCard extends StatelessWidget {
   final String date;
   final String? status;
   final String? location;
+  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.only(bottom: 10),
-    padding: const EdgeInsets.all(13),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(18),
-      border: Border.all(color: line.withValues(alpha: .8)),
-      boxShadow: [
-        BoxShadow(
-          color: navy.withValues(alpha: .035),
-          blurRadius: 12,
-          offset: const Offset(0, 4),
-        ),
-      ],
-    ),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 46,
-          height: 46,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: .11),
-            borderRadius: BorderRadius.circular(14),
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: 'Open report details for $title',
+    child: Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: navy.withValues(alpha: .035),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
-          child: Icon(icon, color: color, size: 22),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: infraHeading(
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? const Color(0xFFEAF6F4)
-                      : ink,
-                  fontSize: 13,
-                  weight: FontWeight.w700,
+        ],
+      ),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Container(
+            padding: const EdgeInsets.all(13),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: line.withValues(alpha: .8)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: .11),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(icon, color: color, size: 22),
                 ),
-              ),
-              const SizedBox(height: 5),
-              Row(
-                children: [
-                  StatusPill(label: status ?? body, color: color),
-                  if (location != null) ...[
-                    const SizedBox(width: 7),
-                    const Icon(
-                      Icons.location_on_outlined,
-                      color: inkSoft,
-                      size: 13,
-                    ),
-                    const SizedBox(width: 3),
-                    Expanded(
-                      child: Text(
-                        location!,
-                        maxLines: 1,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
+                        style: infraHeading(
                           color: Theme.of(context).brightness == Brightness.dark
-                              ? const Color(0xFFB2C9CC)
-                              : inkSoft,
-                          fontSize: 10,
+                              ? const Color(0xFFEAF6F4)
+                              : ink,
+                          fontSize: 13,
+                          weight: FontWeight.w700,
                         ),
                       ),
-                    ),
-                  ],
-                ],
-              ),
-              if (date.isNotEmpty) ...[
-                const SizedBox(height: 7),
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.schedule_rounded,
-                      size: 12,
-                      color: inkSoft,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      date,
-                      style: const TextStyle(color: inkSoft, fontSize: 9.5),
-                    ),
-                  ],
+                      const SizedBox(height: 5),
+                      Row(
+                        children: [
+                          StatusPill(label: status ?? body, color: color),
+                          if (location != null) ...[
+                            const SizedBox(width: 7),
+                            const Icon(
+                              Icons.location_on_outlined,
+                              color: inkSoft,
+                              size: 13,
+                            ),
+                            const SizedBox(width: 3),
+                            Expanded(
+                              child: Text(
+                                location!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color:
+                                      Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? const Color(0xFFB2C9CC)
+                                      : inkSoft,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      if (date.isNotEmpty) ...[
+                        const SizedBox(height: 7),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.schedule_rounded,
+                              size: 12,
+                              color: inkSoft,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              date,
+                              style: const TextStyle(
+                                color: inkSoft,
+                                fontSize: 9.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ],
-            ],
+            ),
           ),
         ),
-      ],
+      ),
     ),
   );
 }

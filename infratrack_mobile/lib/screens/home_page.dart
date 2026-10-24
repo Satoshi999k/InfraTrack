@@ -258,7 +258,14 @@ class _HomePageState extends State<HomePage> {
                         status: report['status'] as String? ?? 'Reported',
                         color: _reportColor(report),
                         icon: _reportIcon(report),
-                        onTap: null,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => MyReportDetailsPage(
+                              report: _reportDetailsFromApi(report),
+                              canReply: _canReplyToIssue(report, _myReports),
+                            ),
+                          ),
+                        ),
                       ),
                 ],
               ),

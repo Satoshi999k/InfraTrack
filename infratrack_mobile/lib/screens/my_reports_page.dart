@@ -1,5 +1,85 @@
 part of '../main.dart';
 
+typedef _ReportDetails = ({
+  String title,
+  String reportId,
+  String description,
+  String location,
+  String category,
+  String severity,
+  String assignedTeam,
+  String resolutionNote,
+  int progressPercentage,
+  List<Map<String, dynamic>> progressUpdates,
+  List<Map<String, dynamic>> statusHistory,
+  String coordinates,
+  String age,
+  String image,
+  String status,
+  Color color,
+  IconData icon,
+});
+
+_ReportDetails _reportDetailsFromApi(Map<String, dynamic> item) {
+  final status = item['status'] as String? ?? 'Reported';
+  final category = normalizeReportCategory(
+    item['category'] as String? ?? 'Roads',
+  );
+  final color = status == 'Resolved'
+      ? green
+      : status == 'In progress' || status == 'Scheduled for repair'
+      ? teal
+      : clay;
+  return (
+    title: item['title'] as String? ?? 'Infrastructure report',
+    reportId: item['public_id']?.toString() ?? item['id']?.toString() ?? '',
+    description: item['description']?.toString() ?? '',
+    location: item['location']?.toString() ?? 'Mati City',
+    category: category,
+    severity: item['severity']?.toString() ?? 'Medium',
+    assignedTeam: item['assigned_team']?.toString() ?? '',
+    resolutionNote: item['resolution_note']?.toString() ?? '',
+    progressPercentage: (int.tryParse('${item['progress_percentage']}') ?? 0)
+        .clamp(0, 100),
+    progressUpdates: (item['progress_updates'] as List<dynamic>? ?? [])
+        .whereType<Map>()
+        .map((update) => Map<String, dynamic>.from(update))
+        .toList(),
+    statusHistory: (item['status_history'] as List<dynamic>? ?? [])
+        .whereType<Map>()
+        .map((event) => Map<String, dynamic>.from(event))
+        .toList(),
+    coordinates: item['latitude'] == null || item['longitude'] == null
+        ? ''
+        : 'Lat ${item['latitude']}, Lon ${item['longitude']}',
+    age: item['created_at']?.toString() ?? '',
+    image: publicMediaUrl(item['media_url'] as String?) ?? '',
+    status: status,
+    color: color,
+    icon: switch (category) {
+      'Streetlights' => Icons.lightbulb_outline,
+      'Public Buildings' => Icons.apartment_rounded,
+      'Electric Poles' => Icons.electric_bolt_rounded,
+      'Drainage' => Icons.water_damage_outlined,
+      'Roads' => Icons.add_road_rounded,
+      _ => Icons.construction,
+    },
+  );
+}
+
+bool _canReplyToIssue(
+  Map<String, dynamic> issue,
+  List<Map<String, dynamic>> ownedReports,
+) {
+  final role = ApiService.currentUser?['role']?.toString().toLowerCase();
+  if (const {'admin', 'lgu', 'barangay_staff'}.contains(role)) return true;
+  if (role != 'resident') return false;
+  final issueId = (issue['public_id'] ?? issue['id']).toString();
+  return ownedReports.any(
+    (report) => (report['public_id'] ?? report['id']).toString() == issueId,
+  );
+}
+
 String _formatReportDate(String value) {
   final date = DateTime.tryParse(value);
   if (date == null) return value;
@@ -66,52 +146,7 @@ class _MyReportsPageState extends State<MyReportsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final reports = _serverReports.map((item) {
-      final status = item['status'] as String? ?? 'Reported';
-      final category = normalizeReportCategory(
-        item['category'] as String? ?? 'Roads',
-      );
-      final color = status == 'Resolved'
-          ? green
-          : status == 'In progress' || status == 'Scheduled for repair'
-          ? teal
-          : clay;
-      return (
-        title: item['title'] as String? ?? 'Infrastructure report',
-        reportId: item['public_id']?.toString() ?? item['id']?.toString() ?? '',
-        description: item['description']?.toString() ?? '',
-        location: item['location']?.toString() ?? 'Mati City',
-        category: category,
-        severity: item['severity']?.toString() ?? 'Medium',
-        assignedTeam: item['assigned_team']?.toString() ?? '',
-        resolutionNote: item['resolution_note']?.toString() ?? '',
-        progressPercentage:
-            (int.tryParse('${item['progress_percentage']}') ?? 0).clamp(0, 100),
-        progressUpdates: (item['progress_updates'] as List<dynamic>? ?? [])
-            .whereType<Map>()
-            .map((update) => Map<String, dynamic>.from(update))
-            .toList(),
-        statusHistory: (item['status_history'] as List<dynamic>? ?? [])
-            .whereType<Map>()
-            .map((event) => Map<String, dynamic>.from(event))
-            .toList(),
-        coordinates: item['latitude'] == null || item['longitude'] == null
-            ? ''
-            : 'Lat ${item['latitude']}, Lon ${item['longitude']}',
-        age: item['created_at']?.toString() ?? '',
-        image: publicMediaUrl(item['media_url'] as String?) ?? '',
-        status: status,
-        color: color,
-        icon: switch (category) {
-          'Streetlights' => Icons.lightbulb_outline,
-          'Public Buildings' => Icons.apartment_rounded,
-          'Electric Poles' => Icons.electric_bolt_rounded,
-          'Drainage' => Icons.water_damage_outlined,
-          'Roads' => Icons.add_road_rounded,
-          _ => Icons.construction,
-        },
-      );
-    }).toList();
+    final reports = _serverReports.map(_reportDetailsFromApi).toList();
     final resolvedCount = _serverReports
         .where((item) => item['status'] == 'Resolved')
         .length;
@@ -584,7 +619,9 @@ class _MyReportCard extends StatelessWidget {
     child: InkWell(
       borderRadius: BorderRadius.circular(18),
       onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => MyReportDetailsPage(report: report)),
+        MaterialPageRoute(
+          builder: (_) => MyReportDetailsPage(report: report, canReply: true),
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.all(13),
@@ -738,7 +775,11 @@ class _ReportThumbnailPlaceholder extends StatelessWidget {
 }
 
 class MyReportDetailsPage extends StatelessWidget {
-  const MyReportDetailsPage({super.key, required this.report});
+  const MyReportDetailsPage({
+    super.key,
+    required this.report,
+    this.canReply = false,
+  });
 
   final ({
     String title,
@@ -760,6 +801,7 @@ class MyReportDetailsPage extends StatelessWidget {
     IconData icon,
   })
   report;
+  final bool canReply;
 
   bool get resolved => report.status == 'Resolved';
 
@@ -856,6 +898,7 @@ class MyReportDetailsPage extends StatelessWidget {
                 _ReportDiscussionSection(
                   reportId: report.reportId,
                   status: report.status,
+                  canReply: canReply,
                 ),
               ],
               const SizedBox(height: 18),
@@ -937,10 +980,12 @@ class _ReportDiscussionSection extends StatefulWidget {
   const _ReportDiscussionSection({
     required this.reportId,
     required this.status,
+    required this.canReply,
   });
 
   final String reportId;
   final String status;
+  final bool canReply;
 
   @override
   State<_ReportDiscussionSection> createState() =>
@@ -1212,8 +1257,10 @@ class _ReportDiscussionSectionState extends State<_ReportDiscussionSection> {
                 color: sand,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Text(
-                'No follow-up replies yet. You can ask a question or share a helpful update below.',
+              child: Text(
+                widget.canReply
+                    ? 'No follow-up replies yet. You can ask a question or share a helpful update below.'
+                    : 'No follow-up replies yet.',
                 style: TextStyle(color: inkSoft, fontSize: 10, height: 1.5),
               ),
             ),
@@ -1262,7 +1309,7 @@ class _ReportDiscussionSectionState extends State<_ReportDiscussionSection> {
           const SizedBox(height: 12),
           const Divider(height: 1, color: line),
           const SizedBox(height: 12),
-          if (_repliesOpen) ...[
+          if (_repliesOpen && widget.canReply) ...[
             TextField(
               controller: _replyController,
               enabled: !_sending,
@@ -1341,7 +1388,9 @@ class _ReportDiscussionSectionState extends State<_ReportDiscussionSection> {
                 const SizedBox(width: 7),
                 Expanded(
                   child: Text(
-                    'Replies are closed for ${widget.status.toLowerCase()} reports. You can still read the follow-up.',
+                    _repliesOpen
+                        ? 'Only the reporter and authorized staff can reply. Everyone can read this follow-up.'
+                        : 'Replies are closed for ${widget.status.toLowerCase()} reports. You can still read the follow-up.',
                     style: const TextStyle(
                       color: inkSoft,
                       fontSize: 10,

@@ -12,6 +12,31 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('public report follow-up can be read without signing in', () async {
+    SharedPreferences.setMockInitialValues({});
+    final originalClientFactory = ApiService.httpClientFactory;
+    String? authorization;
+    ApiService.httpClientFactory = () => MockClient((request) async {
+      authorization = request.headers['authorization'];
+      return http.Response(
+        jsonEncode({
+          'comments': [_comment(1, 'A public progress update.')],
+        }),
+        200,
+      );
+    });
+
+    try {
+      await ApiService.signOutForExpiredSession();
+      final comments = await ApiService.reportDiscussion('MT-2026-241');
+
+      expect(comments.single['body'], 'A public progress update.');
+      expect(authorization, isNull);
+    } finally {
+      ApiService.httpClientFactory = originalClientFactory;
+    }
+  });
+
   testWidgets('report owner can read, expand, and reply to follow-up', (
     WidgetTester tester,
   ) async {
@@ -65,6 +90,7 @@ void main() {
               title: 'Broken road near the market',
               status: 'In progress',
             ),
+            canReply: true,
           ),
         ),
       );
@@ -161,6 +187,53 @@ void main() {
     } finally {
       ApiService.httpClientFactory = originalClientFactory;
       await ApiService.signOutForExpiredSession();
+    }
+  });
+
+  testWidgets('community viewers can read follow-up but cannot reply', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final originalClientFactory = ApiService.httpClientFactory;
+    ApiService.httpClientFactory = () => MockClient((request) async {
+      if (request.url.path.endsWith('/mobile/issues/MT-2026-240/discussion') &&
+          request.method == 'GET') {
+        return http.Response(
+          jsonEncode({
+            'comments': [_comment(1, 'The city crew inspected this issue.')],
+          }),
+          200,
+        );
+      }
+      return http.Response('Not found', 404);
+    });
+
+    try {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MyReportDetailsPage(
+            report: _report(
+              reportId: 'MT-2026-240',
+              title: 'Community road issue',
+              status: 'In progress',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('OFFICIAL FOLLOW-UP'));
+
+      expect(find.text('The city crew inspected this issue.'), findsOneWidget);
+      expect(
+        find.text(
+          'Only the reporter and authorized staff can reply. Everyone can read this follow-up.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Send reply'), findsNothing);
+      expect(find.byType(TextField), findsNothing);
+    } finally {
+      ApiService.httpClientFactory = originalClientFactory;
     }
   });
 }
