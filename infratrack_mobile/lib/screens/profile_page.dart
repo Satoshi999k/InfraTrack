@@ -433,7 +433,9 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
 
     if (shouldLogout == true && context.mounted) {
       try {
-        await ApiService.logout();
+        final pushToken = await PushNotifications.instance
+            .currentTokenForLogout();
+        await ApiService.logout(pushToken: pushToken);
       } catch (error) {
         if (context.mounted) {
           showInfraNotice(

@@ -9,6 +9,8 @@ import multer from "multer";
 import fs from "node:fs";
 import { tmpdir } from "node:os";
 import { spawn } from "node:child_process";
+import { cert, getApps, initializeApp } from "firebase-admin/app";
+import { getMessaging } from "firebase-admin/messaging";
 import { createPortableDatabaseBackup } from "./databaseBackup.js";
 import {
   describeMysqlDumpNotFound,
@@ -71,6 +73,9 @@ const forceHttps = String(process.env.FORCE_HTTPS || "false").toLowerCase() === 
 const recaptchaSecret = process.env.RECAPTCHA_SECRET_KEY || "";
 const loginAttempts = new Map();
 const chatbotRequests = new Map();
+let firebaseMessaging = null;
+let firebaseConfigurationWarningLogged = false;
+let firebaseConfigurationErrorLogged = false;
 const loginMaxAttempts = Number(process.env.LOGIN_MAX_ATTEMPTS || 10);
 if (!Number.isInteger(loginMaxAttempts) || loginMaxAttempts < 1) {
   throw new Error("LOGIN_MAX_ATTEMPTS must be a positive integer");
@@ -356,6 +361,108 @@ async function readSystemSettings() {
   return normalizeSystemSettings(storedSettings);
 }
 
+function getFirebaseMessagingClient() {
+  const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (!serviceAccountJson) {
+    if (!firebaseConfigurationWarningLogged) {
+      console.warn("FCM delivery is disabled: FIREBASE_SERVICE_ACCOUNT_JSON is not configured.");
+      firebaseConfigurationWarningLogged = true;
+    }
+    return null;
+  }
+  if (firebaseMessaging) return firebaseMessaging;
+
+  try {
+    const serviceAccount = JSON.parse(serviceAccountJson);
+    if (
+      !serviceAccount.project_id ||
+      !serviceAccount.client_email ||
+      !serviceAccount.private_key
+    ) {
+      throw new Error("Firebase service-account JSON is missing required fields.");
+    }
+    const app =
+      getApps().find((candidate) => candidate.name === "infratrack-push") ??
+      initializeApp(
+        { credential: cert(serviceAccount) },
+        "infratrack-push",
+      );
+    firebaseMessaging = getMessaging(app);
+    return firebaseMessaging;
+  } catch (error) {
+    if (!firebaseConfigurationErrorLogged) {
+      console.error("FCM delivery could not initialize:", error.message);
+      firebaseConfigurationErrorLogged = true;
+    }
+    return null;
+  }
+}
+
+async function sendNotificationPush(notification) {
+  const messaging = getFirebaseMessagingClient();
+  if (!messaging) return;
+  const [devices] = await pool.query(
+    `SELECT tokens.token
+     FROM push_device_tokens tokens
+     LEFT JOIN user_preferences preferences ON preferences.user_id = tokens.user_id
+     WHERE tokens.user_id = ?
+       AND COALESCE(preferences.allow_notifications, 1) = 1`,
+    [notification.user_id],
+  );
+  const tokens = devices.map(({ token }) => token);
+  const data = Object.fromEntries(
+    Object.entries({
+      notificationId: notification.id,
+      reportId: notification.report_id,
+      advisoryId: notification.advisory_id,
+      type: notification.type,
+    })
+      .filter(([, value]) => value !== null && value !== undefined)
+      .map(([key, value]) => [key, String(value)]),
+  );
+
+  for (let offset = 0; offset < tokens.length; offset += 500) {
+    const batch = tokens.slice(offset, offset + 500);
+    const result = await messaging.sendEachForMulticast({
+      tokens: batch,
+      notification: {
+        title: notification.title,
+        body: String(notification.message).slice(0, 1000),
+      },
+      data,
+      android: {
+        priority: "high",
+        notification: { channelId: "infratrack_city_updates" },
+      },
+    });
+    for (let index = 0; index < result.responses.length; index += 1) {
+      const response = result.responses[index];
+      const errorCode = response.error?.code;
+      if (
+        !response.success &&
+        (errorCode === "messaging/registration-token-not-registered" ||
+          errorCode === "messaging/invalid-registration-token")
+      ) {
+        await pool.query(
+          "DELETE FROM push_device_tokens WHERE token = ?",
+          [batch[index]],
+        );
+      }
+    }
+  }
+}
+
+async function deliverNotificationPush(notification) {
+  try {
+    await sendNotificationPush(notification);
+  } catch (error) {
+    console.error(
+      `FCM delivery failed for notification ${notification.id}:`,
+      error.message,
+    );
+  }
+}
+
 async function queueNotification({ userId, reportId = null, advisoryId = null, type, title, message, channel = "push" }) {
   if (!userId || !title || !message) return null;
   const [[preferences]] = await pool.query(
@@ -363,10 +470,19 @@ async function queueNotification({ userId, reportId = null, advisoryId = null, t
     [Number(userId)],
   );
   if (preferences && Number(preferences.allow_notifications) === 0) return null;
-  await pool.query(
+  const [result] = await pool.query(
     "INSERT INTO notifications (user_id, report_id, advisory_id, type, title, message, channel) VALUES (?, ?, ?, ?, ?, ?, ?)",
     [Number(userId), reportId ?? null, advisoryId ?? null, type || "system", title, message, channel],
   );
+  await deliverNotificationPush({
+    id: result.insertId,
+    user_id: Number(userId),
+    report_id: reportId ?? null,
+    advisory_id: advisoryId ?? null,
+    type: type || "system",
+    title,
+    message,
+  });
   return { ok: true };
 }
 
@@ -419,6 +535,13 @@ async function queueAdvisoryNotifications({
       targetBarangay,
     ],
   );
+  const [queuedNotifications] = await pool.query(
+    "SELECT id, user_id, advisory_id, type, title, message FROM notifications WHERE advisory_id = ? AND type = ? AND title = ?",
+    [advisoryId, notificationType, title],
+  );
+  for (const notification of queuedNotifications) {
+    await deliverNotificationPush(notification);
+  }
 }
 
 async function dispatchNotification({ channel = "email", recipient, subject, body }) {
@@ -703,6 +826,16 @@ async function initializeDatabase() {
     CONSTRAINT notifications_advisory_fk FOREIGN KEY (advisory_id) REFERENCES advisories(id) ON DELETE CASCADE
   ) ENGINE=InnoDB`);
   await pool.query("ALTER TABLE notifications ADD COLUMN IF NOT EXISTS channel VARCHAR(30) NOT NULL DEFAULT 'push'");
+  await pool.query(`CREATE TABLE IF NOT EXISTS push_device_tokens (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL,
+    token VARCHAR(512) CHARACTER SET ascii COLLATE ascii_bin NOT NULL UNIQUE,
+    platform VARCHAR(20) NOT NULL DEFAULT 'android',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT push_device_tokens_user_fk FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX push_device_tokens_user_idx (user_id)
+  ) ENGINE=InnoDB`);
   await pool.query(`CREATE TABLE IF NOT EXISTS user_preferences (
     user_id INT UNSIGNED PRIMARY KEY, allow_notifications BOOLEAN NOT NULL DEFAULT TRUE, show_location_on_reports BOOLEAN NOT NULL DEFAULT TRUE,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, CONSTRAINT preferences_user_fk FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -861,10 +994,12 @@ async function restoreExpiredSuspension(user) {
     "INSERT INTO moderation_actions (user_id, admin_id, action, reason) VALUES (?, NULL, 'restore', 'Suspension period ended')",
     [user.id],
   );
-  await pool.query(
-    "INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'account', 'Reporting access restored', 'Your suspension period has ended. You can submit reports again.')",
-    [user.id],
-  );
+  await queueNotification({
+    userId: user.id,
+    type: "account",
+    title: "Reporting access restored",
+    message: "Your suspension period has ended. You can submit reports again.",
+  });
   user.standing = "Active";
   user.suspended_until = null;
   return true;
@@ -1417,6 +1552,34 @@ app.get("/api/mobile/notifications", async (req, res) => {
   );
   res.json({ notifications });
 });
+app.post("/api/mobile/push-tokens", async (req, res) => {
+  const token = String(req.body?.token ?? "").trim();
+  const platform = String(req.body?.platform ?? "").toLowerCase();
+  if (!token || token.length > 512 || platform !== "android") {
+    return res.status(400).json({ error: "A valid Android push token is required." });
+  }
+  await pool.query(
+    `INSERT INTO push_device_tokens (user_id, token, platform)
+     VALUES (?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       user_id = VALUES(user_id),
+       platform = VALUES(platform),
+       updated_at = CURRENT_TIMESTAMP`,
+    [req.auth.id, token, platform],
+  );
+  res.status(204).end();
+});
+app.delete("/api/mobile/push-tokens", async (req, res) => {
+  const token = String(req.body?.token ?? "").trim();
+  if (!token || token.length > 512) {
+    return res.status(400).json({ error: "A valid push token is required." });
+  }
+  await pool.query(
+    "DELETE FROM push_device_tokens WHERE user_id = ? AND token = ?",
+    [req.auth.id, token],
+  );
+  res.status(204).end();
+});
 app.post("/api/mobile/chat", async (req, res) => {
   const messages = normalizeChatRequestMessages(req.body?.messages);
   if (!messages) {
@@ -1495,6 +1658,13 @@ app.post("/api/mobile/chat", async (req, res) => {
   }
 });
 app.post("/api/mobile/auth/logout", async (req, res) => {
+  const pushToken = String(req.body?.pushToken ?? "").trim();
+  if (pushToken && pushToken.length <= 512) {
+    await pool.query(
+      "DELETE FROM push_device_tokens WHERE user_id = ? AND token = ?",
+      [req.auth.id, pushToken],
+    );
+  }
   await pool.query("DELETE FROM admin_sessions WHERE token_hash = ?", [hashSessionToken(req.authToken)]);
   res.status(204).end();
 });
@@ -2389,6 +2559,7 @@ app.patch("/api/users/:id/moderation", async (req, res) => {
   let transactionStarted = false;
   let targetUser;
   let updatedUser;
+  let moderationPushNotification;
   try {
     await connection.beginTransaction();
     transactionStarted = true;
@@ -2429,10 +2600,19 @@ app.patch("/api/users/:id/moderation", async (req, res) => {
       );
     }
     const notification = moderationNotification(action, duration);
-    await connection.query(
+    const [notificationResult] = await connection.query(
       "INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'account', ?, ?)",
       [targetUser.id, notification.title, notification.message],
     );
+    moderationPushNotification = {
+      id: notificationResult.insertId,
+      user_id: targetUser.id,
+      report_id: null,
+      advisory_id: null,
+      type: "account",
+      title: notification.title,
+      message: notification.message,
+    };
     const [updated] = await connection.query(
       "SELECT id, name, email, barangay, standing, suspended_until, verification FROM users WHERE id = ?",
       [targetUser.id],
@@ -2452,6 +2632,7 @@ app.patch("/api/users/:id/moderation", async (req, res) => {
   } finally {
     connection.release();
   }
+  await deliverNotificationPush(moderationPushNotification);
   await writeAuditLog(req, { actorId: adminId, action: `user_${action}`, resourceType: "user", resourceId: req.params.id, details: { reason, duration, note } });
   res.json({ user: updatedUser });
 });

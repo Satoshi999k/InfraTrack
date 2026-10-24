@@ -289,10 +289,15 @@ class ApiService {
     return currentUser!;
   }
 
-  static Future<void> logout() async {
+  static Future<void> logout({String? pushToken}) async {
     try {
       if (isSignedIn) {
-        await _request('POST', '/mobile/auth/logout', authenticated: true);
+        await _request(
+          'POST',
+          '/mobile/auth/logout',
+          body: pushToken == null ? null : {'pushToken': pushToken},
+          authenticated: true,
+        );
       }
     } finally {
       await _clearSession();
@@ -514,6 +519,24 @@ class ApiService {
     return _readList(
       await _request('GET', '/mobile/notifications', authenticated: true),
       'notifications',
+    );
+  }
+
+  static Future<void> registerPushToken(String token) async {
+    await _request(
+      'POST',
+      '/mobile/push-tokens',
+      body: {'token': token, 'platform': 'android'},
+      authenticated: true,
+    );
+  }
+
+  static Future<void> unregisterPushToken(String token) async {
+    await _request(
+      'DELETE',
+      '/mobile/push-tokens',
+      body: {'token': token},
+      authenticated: true,
     );
   }
 

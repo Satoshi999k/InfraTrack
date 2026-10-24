@@ -18,6 +18,7 @@ import 'package:video_player/video_player.dart';
 import 'api_service.dart';
 import 'appearance_preferences.dart';
 import 'biometric_sign_in.dart';
+import 'push_notifications.dart';
 import 'report_categories.dart';
 
 part 'loading_skeleton.dart';
@@ -1877,6 +1878,12 @@ class _MainShellState extends State<MainShell> {
     ApiService.sessionExpired.addListener(_handleExpiredSession);
     ApiService.accountBanned.addListener(_handleAccountBanned);
     ApiService.connectionRestored.addListener(_handleConnectionRestored);
+    PushNotifications.instance.onNotificationTap = _handlePushNotification;
+    unawaited(
+      PushNotifications.instance.initialize(
+        authenticated: ApiService.isSignedIn,
+      ),
+    );
   }
 
   void _handleConnectionRestored() {
@@ -1930,6 +1937,7 @@ class _MainShellState extends State<MainShell> {
     ApiService.sessionExpired.removeListener(_handleExpiredSession);
     ApiService.accountBanned.removeListener(_handleAccountBanned);
     ApiService.connectionRestored.removeListener(_handleConnectionRestored);
+    PushNotifications.instance.onNotificationTap = null;
     super.dispose();
   }
 
@@ -1952,6 +1960,35 @@ class _MainShellState extends State<MainShell> {
     if (!mounted) return;
     setState(() => index = 3);
     unawaited(_refreshPage(3));
+  }
+
+  void _handlePushNotification(Map<String, dynamic> data) {
+    final notificationId = int.tryParse(
+      data['notificationId']?.toString() ?? '',
+    );
+    if (notificationId != null && ApiService.isSignedIn) {
+      unawaited(() async {
+        try {
+          await ApiService.markNotificationRead(notificationId);
+        } catch (error, stackTrace) {
+          debugPrint('Could not mark tapped push notification as read: $error');
+          debugPrintStack(stackTrace: stackTrace);
+        }
+      }());
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (data['advisoryId'] != null) {
+        openNewsTab();
+        return;
+      }
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => NotificationsPage(onCityUpdateSelected: openNewsTab),
+        ),
+      );
+    });
   }
 
   @override
