@@ -101,6 +101,12 @@ void main() {
       tester.widget<Text>(find.text('Poppins')).style?.fontFamily,
       startsWith('Poppins'),
     );
+    final systemPreview = find.descendant(
+      of: find.byType(ChoiceChip).at(1),
+      matching: find.text('System'),
+    );
+    expect(tester.widget<Text>(systemPreview).style?.inherit, isFalse);
+    expect(tester.widget<Text>(systemPreview).style?.fontFamily, isNull);
 
     tester.view.resetPhysicalSize();
     tester.view.resetDevicePixelRatio();
@@ -112,12 +118,12 @@ void main() {
       const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
     );
     final theme = buildInfraTheme(
-      const InfraAppearance(typeface: 'roboto'),
+      const InfraAppearance(typeface: 'arial'),
       Brightness.light,
     );
 
     expect(preview.fontFamily, startsWith('Roboto'));
-    expect(theme.textTheme.bodyMedium?.fontFamily, startsWith('Roboto'));
+    expect(theme.textTheme.bodyMedium?.fontFamily, 'Arial');
     expect(appearanceFontStyle('arial', const TextStyle()).fontFamily, 'Arial');
     expect(appearanceFontStyle('system', const TextStyle()).fontFamily, isNull);
   });

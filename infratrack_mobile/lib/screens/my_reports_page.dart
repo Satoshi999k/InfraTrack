@@ -435,10 +435,16 @@ class _MyReportsHeaderDelegate extends SliverPersistentHeaderDelegate {
                             : Colors.transparent,
                         side: BorderSide(
                           color: filter == item.$1
-                              ? Theme.of(context).colorScheme.primary
-                              : Theme.of(context).brightness == Brightness.dark
-                              ? const Color(0xFF345A63)
-                              : line,
+                              ? (infraAppearance.value.highContrast
+                                    ? Theme.of(context).colorScheme.onPrimary
+                                    : Theme.of(context).colorScheme.primary)
+                              : (infraAppearance.value.highContrast
+                                    ? Theme.of(context).colorScheme.outline
+                                    : Theme.of(context).brightness ==
+                                          Brightness.dark
+                                    ? const Color(0xFF345A63)
+                                    : line),
+                          width: infraAppearance.value.highContrast ? 2 : 1,
                         ),
                         shape: const StadiumBorder(),
                         padding: const EdgeInsets.symmetric(
@@ -453,9 +459,7 @@ class _MyReportsHeaderDelegate extends SliverPersistentHeaderDelegate {
                         labelStyle: TextStyle(
                           color: filter == item.$1
                               ? Theme.of(context).colorScheme.onPrimary
-                              : (Theme.of(context).brightness == Brightness.dark
-                                    ? const Color(0xFFB2C9CC)
-                                    : inkSoft),
+                              : infraMutedTextColor(context),
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                         ),

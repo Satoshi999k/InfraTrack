@@ -44,6 +44,9 @@ const amber = Color(0xFFD99A2B);
 const green = Color(0xFF3C8A5F);
 const red = Color(0xFFB33A3A);
 
+Color infraMutedTextColor(BuildContext context) =>
+    Theme.of(context).inputDecorationTheme.hintStyle?.color ?? inkSoft;
+
 TextStyle infraHeading({double? fontSize, Color? color, FontWeight? weight}) =>
     appearanceFontStyle(
       infraAppearance.value.typeface,
@@ -1997,6 +2000,33 @@ class _MainShellState extends State<MainShell> {
                         ),
                     indicatorShape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
+                    ),
+                    labelTextStyle: WidgetStateProperty.resolveWith(
+                      (states) => TextStyle(
+                        color: states.contains(WidgetState.selected)
+                            ? (infraAppearance.value.highContrast
+                                  ? Theme.of(context).colorScheme.onSurface
+                                  : Theme.of(context).colorScheme.primary)
+                            : (Theme.of(context).brightness == Brightness.dark
+                                  ? const Color(0xFFB7CDD0)
+                                  : inkSoft),
+                        fontSize: 10,
+                        fontWeight: states.contains(WidgetState.selected)
+                            ? FontWeight.w800
+                            : FontWeight.w600,
+                      ),
+                    ),
+                    iconTheme: WidgetStateProperty.resolveWith(
+                      (states) => IconThemeData(
+                        color: states.contains(WidgetState.selected)
+                            ? (infraAppearance.value.highContrast
+                                  ? Theme.of(context).colorScheme.onSurface
+                                  : Theme.of(context).colorScheme.primary)
+                            : (Theme.of(context).brightness == Brightness.dark
+                                  ? const Color(0xFFB7CDD0)
+                                  : inkSoft),
+                        size: 22,
+                      ),
                     ),
                   ),
                   child: NavigationBar(

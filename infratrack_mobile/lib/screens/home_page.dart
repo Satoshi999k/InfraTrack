@@ -663,7 +663,9 @@ class _ReportFilter extends StatelessWidget {
         Icon(
           icon,
           size: 14,
-          color: selected ? Theme.of(context).colorScheme.onPrimary : inkSoft,
+          color: selected
+              ? Theme.of(context).colorScheme.onPrimary
+              : infraMutedTextColor(context),
         ),
         const SizedBox(width: 5),
         Text(label),
@@ -675,14 +677,19 @@ class _ReportFilter extends StatelessWidget {
     backgroundColor: Colors.white.withValues(alpha: .56),
     selectedColor: Theme.of(context).colorScheme.primary,
     labelStyle: TextStyle(
-      color: selected ? Theme.of(context).colorScheme.onPrimary : inkSoft,
+      color: selected
+          ? Theme.of(context).colorScheme.onPrimary
+          : infraMutedTextColor(context),
       fontSize: 11.5,
       fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
     ),
     side: BorderSide(
       color: selected
           ? Theme.of(context).colorScheme.primary
-          : Colors.white.withValues(alpha: .9),
+          : (infraAppearance.value.highContrast
+                ? Theme.of(context).colorScheme.outline
+                : Colors.white.withValues(alpha: .9)),
+      width: infraAppearance.value.highContrast ? 2 : 1,
     ),
     shape: const StadiumBorder(),
     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),

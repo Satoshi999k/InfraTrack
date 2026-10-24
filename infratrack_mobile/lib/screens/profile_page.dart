@@ -1778,13 +1778,27 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
                               option.label,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: appearanceFontStyle(
-                                option.value,
-                                const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
+                              style: option.value == 'system'
+                                  ? TextStyle(
+                                      inherit: false,
+                                      color:
+                                          Theme.of(context)
+                                              .chipTheme
+                                              .labelStyle
+                                              ?.color ??
+                                          Theme.of(context)
+                                              .colorScheme
+                                              .onSurface,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                    )
+                                  : appearanceFontStyle(
+                                      option.value,
+                                      const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
                             ),
                             selected: appearance.typeface == option.value,
                             onSelected: _saving

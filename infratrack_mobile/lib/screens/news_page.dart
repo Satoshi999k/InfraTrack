@@ -1101,10 +1101,17 @@ class _NewsFilterChip extends StatelessWidget {
               borderRadius: BorderRadius.circular(22),
               border: Border.all(
                 color: selected
-                    ? Theme.of(context).colorScheme.primary
+                    ? (infraAppearance.value.highContrast
+                          ? Theme.of(context).colorScheme.onPrimary
+                          : Theme.of(context).colorScheme.primary)
                     : (Theme.of(context).brightness == Brightness.dark
-                          ? const Color(0xFF345A63)
-                          : line),
+                          ? (infraAppearance.value.highContrast
+                                ? Theme.of(context).colorScheme.outline
+                                : const Color(0xFF345A63))
+                          : (infraAppearance.value.highContrast
+                                ? Theme.of(context).colorScheme.outline
+                                : line)),
+                width: infraAppearance.value.highContrast ? 2 : 1,
               ),
             ),
             child: Row(
@@ -1115,9 +1122,7 @@ class _NewsFilterChip extends StatelessWidget {
                     icon,
                     color: selected
                         ? Theme.of(context).colorScheme.onPrimary
-                        : (Theme.of(context).brightness == Brightness.dark
-                              ? const Color(0xFFB2C9CC)
-                              : inkSoft),
+                        : infraMutedTextColor(context),
                     size: 15,
                   ),
                   const SizedBox(width: 5),
@@ -1127,9 +1132,7 @@ class _NewsFilterChip extends StatelessWidget {
                   style: TextStyle(
                     color: selected
                         ? Theme.of(context).colorScheme.onPrimary
-                        : (Theme.of(context).brightness == Brightness.dark
-                              ? const Color(0xFFB2C9CC)
-                              : inkSoft),
+                        : infraMutedTextColor(context),
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                   ),
