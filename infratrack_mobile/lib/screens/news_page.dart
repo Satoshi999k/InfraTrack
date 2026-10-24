@@ -440,8 +440,10 @@ class _NewsSectionHeading extends StatelessWidget {
           children: [
             Text(
               eyebrow,
-              style: const TextStyle(
-                color: teal,
+              style: TextStyle(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? const Color(0xFF75D5CF)
+                    : teal,
                 fontSize: 8.5,
                 letterSpacing: .9,
                 fontWeight: FontWeight.w800,
@@ -451,7 +453,9 @@ class _NewsSectionHeading extends StatelessWidget {
             Text(
               title,
               style: infraHeading(
-                color: navy,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? const Color(0xFFEAF6F4)
+                    : navy,
                 fontSize: 16,
                 weight: FontWeight.w800,
               ),
@@ -464,16 +468,24 @@ class _NewsSectionHeading extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF173F4D)
+              : Colors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: line),
+          border: Border.all(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? const Color(0xFF345A63)
+                : line,
+          ),
         ),
         child: count == null
             ? const SkeletonBlock(height: 11, width: 11, radius: 6)
             : Text(
                 '$count',
-                style: const TextStyle(
-                  color: navy,
+                style: TextStyle(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFFEAF6F4)
+                      : navy,
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
                 ),
@@ -580,7 +592,9 @@ class _NewsEmptyState extends StatelessWidget {
               Text(
                 title,
                 style: infraHeading(
-                  color: navy,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFFEAF6F4)
+                      : navy,
                   fontSize: 13,
                   weight: FontWeight.w700,
                 ),
@@ -588,8 +602,10 @@ class _NewsEmptyState extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 message,
-                style: const TextStyle(
-                  color: inkSoft,
+                style: TextStyle(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFFB2C9CC)
+                      : inkSoft,
                   fontSize: 10.5,
                   height: 1.4,
                 ),
@@ -659,7 +675,9 @@ class _ReportUpdateCard extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: infraHeading(
-                  color: ink,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFFEAF6F4)
+                      : ink,
                   fontSize: 13,
                   weight: FontWeight.w700,
                 ),
@@ -681,7 +699,12 @@ class _ReportUpdateCard extends StatelessWidget {
                         location!,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: inkSoft, fontSize: 10),
+                        style: TextStyle(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? const Color(0xFFB2C9CC)
+                              : inkSoft,
+                          fontSize: 10,
+                        ),
                       ),
                     ),
                   ],
@@ -809,7 +832,9 @@ class _PublicAdvisoryCard extends StatelessWidget {
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                   style: infraHeading(
-                    color: navy,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? const Color(0xFFEAF6F4)
+                        : navy,
                     fontSize: 15,
                     weight: FontWeight.w800,
                   ),
@@ -819,8 +844,10 @@ class _PublicAdvisoryCard extends StatelessWidget {
                   advisory['message'] as String? ?? '',
                   maxLines: 5,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: inkSoft,
+                  style: TextStyle(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? const Color(0xFFB2C9CC)
+                        : inkSoft,
                     fontSize: 11.5,
                     height: 1.5,
                   ),
@@ -841,8 +868,10 @@ class _PublicAdvisoryCard extends StatelessWidget {
                         audience,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: inkSoft,
+                        style: TextStyle(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? const Color(0xFFB2C9CC)
+                              : inkSoft,
                           fontSize: 9.5,
                           fontWeight: FontWeight.w600,
                         ),
@@ -1057,7 +1086,13 @@ class _NewsFilterChip extends StatelessWidget {
     label: label,
     child: ExcludeSemantics(
       child: Material(
-        color: selected ? navy : Colors.white,
+        color: selected
+            ? (Theme.of(context).brightness == Brightness.dark
+                  ? Theme.of(context).colorScheme.primary
+                  : navy)
+            : (Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFF173F4D)
+                  : Colors.white),
         borderRadius: BorderRadius.circular(22),
         child: InkWell(
           onTap: onTap,
@@ -1066,7 +1101,15 @@ class _NewsFilterChip extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: selected ? navy : line),
+              border: Border.all(
+                color: selected
+                    ? (Theme.of(context).brightness == Brightness.dark
+                          ? Theme.of(context).colorScheme.primary
+                          : navy)
+                    : (Theme.of(context).brightness == Brightness.dark
+                          ? const Color(0xFF345A63)
+                          : line),
+              ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -1074,7 +1117,11 @@ class _NewsFilterChip extends StatelessWidget {
                 if (icon != null) ...[
                   Icon(
                     icon,
-                    color: selected ? Colors.white : inkSoft,
+                    color: selected
+                        ? Colors.white
+                        : (Theme.of(context).brightness == Brightness.dark
+                              ? const Color(0xFFB2C9CC)
+                              : inkSoft),
                     size: 15,
                   ),
                   const SizedBox(width: 5),
@@ -1082,7 +1129,11 @@ class _NewsFilterChip extends StatelessWidget {
                 Text(
                   label,
                   style: TextStyle(
-                    color: selected ? Colors.white : inkSoft,
+                    color: selected
+                        ? Colors.white
+                        : (Theme.of(context).brightness == Brightness.dark
+                              ? const Color(0xFFB2C9CC)
+                              : inkSoft),
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                   ),

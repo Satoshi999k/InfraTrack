@@ -2246,7 +2246,9 @@ class AppHeader extends StatelessWidget {
               Text(
                 title,
                 style: infraHeading(
-                  color: navy,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFFEAF6F4)
+                      : navy,
                   fontSize: 24,
                   weight: FontWeight.w800,
                 ),
@@ -2380,7 +2382,11 @@ class ReportCard extends StatelessWidget {
     margin: const EdgeInsets.only(bottom: 10),
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(18),
-      side: const BorderSide(color: line),
+      side: BorderSide(
+        color: Theme.of(context).brightness == Brightness.dark
+            ? const Color(0xFF345A63)
+            : line,
+      ),
     ),
     child: ListTile(
       onTap: onTap,
@@ -2399,7 +2405,12 @@ class ReportCard extends StatelessWidget {
           Expanded(
             child: Text(
               title,
-              style: infraHeading(color: ink, weight: FontWeight.w700),
+              style: infraHeading(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? const Color(0xFFEAF6F4)
+                    : ink,
+                weight: FontWeight.w700,
+              ),
             ),
           ),
           StatusPill(label: status, color: color),
@@ -2409,7 +2420,12 @@ class ReportCard extends StatelessWidget {
         padding: const EdgeInsets.only(top: 6),
         child: Text(
           location,
-          style: const TextStyle(color: inkSoft, fontSize: 11),
+          style: TextStyle(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? const Color(0xFFB2C9CC)
+                : inkSoft,
+            fontSize: 11,
+          ),
         ),
       ),
     ),
@@ -2550,7 +2566,11 @@ class MenuRow extends StatelessWidget {
                 Text(
                   title,
                   style: TextStyle(
-                    color: destructive ? red : navy,
+                    color: destructive
+                        ? red
+                        : Theme.of(context).brightness == Brightness.dark
+                        ? const Color(0xFFEAF6F4)
+                        : navy,
                     fontWeight: FontWeight.w800,
                     fontSize: 14,
                   ),
@@ -2560,7 +2580,11 @@ class MenuRow extends StatelessWidget {
           : Text(
               title,
               style: TextStyle(
-                color: destructive ? red : navy,
+                color: destructive
+                    ? red
+                    : Theme.of(context).brightness == Brightness.dark
+                    ? const Color(0xFFEAF6F4)
+                    : navy,
                 fontWeight: FontWeight.w800,
                 fontSize: 14,
               ),
@@ -2569,7 +2593,13 @@ class MenuRow extends StatelessWidget {
           ? null
           : Text(
               subtitle!,
-              style: const TextStyle(fontSize: 11, color: inkSoft, height: 1.3),
+              style: TextStyle(
+                fontSize: 11,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? const Color(0xFFB2C9CC)
+                    : inkSoft,
+                height: 1.3,
+              ),
             ),
       trailing: centered
           ? null
@@ -2601,12 +2631,16 @@ class MenuRow extends StatelessWidget {
                     width: 30,
                     height: 30,
                     decoration: BoxDecoration(
-                      color: sand,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? const Color(0xFF244753)
+                          : sand,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.chevron_right,
-                      color: inkSoft,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? const Color(0xFFB2C9CC)
+                          : inkSoft,
                       size: 19,
                     ),
                   ),
@@ -2619,10 +2653,16 @@ class MenuRow extends StatelessWidget {
       return Card(
         elevation: 0,
         margin: const EdgeInsets.fromLTRB(0, 0, 0, 10),
-        color: Colors.white.withValues(alpha: .78),
+        color: Theme.of(context).brightness == Brightness.dark
+            ? const Color(0xFF123643)
+            : Colors.white.withValues(alpha: .78),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
-          side: const BorderSide(color: line),
+          side: BorderSide(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? const Color(0xFF345A63)
+                : line,
+          ),
         ),
         child: row,
       );

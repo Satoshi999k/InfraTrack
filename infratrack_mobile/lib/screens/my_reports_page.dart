@@ -293,7 +293,9 @@ class _MyReportsHeaderDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) => Material(
-    color: sand,
+    color: Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF0D2430)
+        : sand,
     elevation: overlapsContent ? 3 : 0,
     shadowColor: navy.withValues(alpha: .12),
     child: Padding(
@@ -304,12 +306,19 @@ class _MyReportsHeaderDelegate extends SliverPersistentHeaderDelegate {
           Row(
             children: [
               Material(
-                color: Colors.white.withValues(alpha: .72),
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? const Color(0xFF173F4D)
+                    : Colors.white.withValues(alpha: .72),
                 shape: const CircleBorder(),
                 child: IconButton(
                   onPressed: onBack,
                   tooltip: 'Back',
-                  icon: const Icon(Icons.arrow_back, color: navy),
+                  icon: Icon(
+                    Icons.arrow_back,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? const Color(0xFFEAF6F4)
+                        : navy,
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -317,10 +326,12 @@ class _MyReportsHeaderDelegate extends SliverPersistentHeaderDelegate {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'ACTIVITY CENTER',
                       style: TextStyle(
-                        color: teal,
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? const Color(0xFF75D5CF)
+                            : teal,
                         fontSize: 9,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 1.1,
@@ -329,7 +340,9 @@ class _MyReportsHeaderDelegate extends SliverPersistentHeaderDelegate {
                     Text(
                       'My reports',
                       style: infraHeading(
-                        color: navy,
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? const Color(0xFFEAF6F4)
+                            : navy,
                         fontSize: 24,
                         weight: FontWeight.w800,
                       ),
@@ -339,11 +352,17 @@ class _MyReportsHeaderDelegate extends SliverPersistentHeaderDelegate {
               ),
             ],
           ),
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(left: 4, top: 2, bottom: 18),
             child: Text(
               'Your contribution to a safer, better Mati City.',
-              style: TextStyle(color: inkSoft, fontSize: 12, height: 1.3),
+              style: TextStyle(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? const Color(0xFFB2C9CC)
+                    : inkSoft,
+                fontSize: 12,
+                height: 1.3,
+              ),
             ),
           ),
           Row(
@@ -399,16 +418,30 @@ class _MyReportsHeaderDelegate extends SliverPersistentHeaderDelegate {
                         avatar: Icon(
                           item.$2,
                           size: 16,
-                          color: filter == item.$1 ? Colors.white : inkSoft,
+                          color: filter == item.$1
+                              ? Colors.white
+                              : (Theme.of(context).brightness == Brightness.dark
+                                    ? const Color(0xFFB2C9CC)
+                                    : inkSoft),
                         ),
                         label: Text(item.$1),
                         selected: filter == item.$1,
                         showCheckmark: false,
                         onSelected: (_) => onFilterChanged(item.$1),
-                        selectedColor: navy.withValues(alpha: .94),
-                        backgroundColor: Colors.transparent,
+                        selectedColor:
+                            Theme.of(context).brightness == Brightness.dark
+                            ? Theme.of(context).colorScheme.primary
+                            : navy.withValues(alpha: .94),
+                        backgroundColor:
+                            Theme.of(context).brightness == Brightness.dark
+                            ? const Color(0xFF173F4D)
+                            : Colors.transparent,
                         side: BorderSide(
-                          color: filter == item.$1 ? navy : line,
+                          color: filter == item.$1
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context).brightness == Brightness.dark
+                              ? const Color(0xFF345A63)
+                              : line,
                         ),
                         shape: const StadiumBorder(),
                         padding: const EdgeInsets.symmetric(
@@ -421,7 +454,11 @@ class _MyReportsHeaderDelegate extends SliverPersistentHeaderDelegate {
                           vertical: -2,
                         ),
                         labelStyle: TextStyle(
-                          color: filter == item.$1 ? Colors.white : inkSoft,
+                          color: filter == item.$1
+                              ? Colors.white
+                              : (Theme.of(context).brightness == Brightness.dark
+                                    ? const Color(0xFFB2C9CC)
+                                    : inkSoft),
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                         ),
@@ -439,14 +476,21 @@ class _MyReportsHeaderDelegate extends SliverPersistentHeaderDelegate {
               Text(
                 'RECENT REPORTS',
                 style: infraHeading(
-                  color: navy,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFFEAF6F4)
+                      : navy,
                   fontSize: 13,
                   weight: FontWeight.w800,
                 ),
               ),
               Text(
                 '$visibleCount shown',
-                style: const TextStyle(color: inkSoft, fontSize: 10),
+                style: TextStyle(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFFB2C9CC)
+                      : inkSoft,
+                  fontSize: 10,
+                ),
               ),
             ],
           ),

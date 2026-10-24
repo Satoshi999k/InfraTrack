@@ -203,7 +203,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
         child: PageEntrance(
           child: RefreshIndicator(
             color: teal,
-            backgroundColor: Colors.white,
+            backgroundColor: Theme.of(context).colorScheme.surface,
             triggerMode: RefreshIndicatorTriggerMode.onEdge,
             onRefresh: _loadNotifications,
             child: CustomScrollView(
@@ -245,8 +245,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
                             if (groups.contains(group)) ...[
                               Text(
                                 group,
-                                style: const TextStyle(
-                                  color: inkSoft,
+                                style: TextStyle(
+                                  color:
+                                      Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? const Color(0xFF9FB8BC)
+                                      : inkSoft,
                                   fontSize: 10,
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: 1,
@@ -304,7 +308,9 @@ class _NotificationHeaderDelegate extends SliverPersistentHeaderDelegate {
     bool overlapsContent,
   ) {
     return Material(
-      color: sand,
+      color: Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF0D2430)
+          : sand,
       elevation: overlapsContent ? 2 : 0,
       shadowColor: navy.withValues(alpha: .12),
       child: Padding(
@@ -323,10 +329,13 @@ class _NotificationHeaderDelegate extends SliverPersistentHeaderDelegate {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'ACCOUNT',
                           style: TextStyle(
-                            color: teal,
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                ? const Color(0xFF75D5CF)
+                                : teal,
                             fontSize: 9,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 1.1,
@@ -335,7 +344,10 @@ class _NotificationHeaderDelegate extends SliverPersistentHeaderDelegate {
                         Text(
                           'Notifications',
                           style: infraHeading(
-                            color: navy,
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                ? const Color(0xFFEAF6F4)
+                                : navy,
                             fontSize: 24,
                             weight: FontWeight.w800,
                           ),
@@ -396,7 +408,12 @@ class _NotificationHeaderDelegate extends SliverPersistentHeaderDelegate {
                           avatar: Icon(
                             icon,
                             size: 15,
-                            color: selected ? Colors.white : teal,
+                            color: selected
+                                ? Colors.white
+                                : (Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? const Color(0xFF75D5CF)
+                                      : teal),
                           ),
                           label: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -411,12 +428,30 @@ class _NotificationHeaderDelegate extends SliverPersistentHeaderDelegate {
                           selected: selected,
                           showCheckmark: false,
                           onSelected: (_) => onFilterChanged(item),
-                          selectedColor: navy,
-                          backgroundColor: Colors.white.withValues(alpha: .72),
-                          side: BorderSide(color: selected ? navy : line),
+                          selectedColor:
+                              Theme.of(context).brightness == Brightness.dark
+                              ? Theme.of(context).colorScheme.primary
+                              : navy,
+                          backgroundColor:
+                              Theme.of(context).brightness == Brightness.dark
+                              ? const Color(0xFF173F4D)
+                              : Colors.white.withValues(alpha: .72),
+                          side: BorderSide(
+                            color: selected
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context).brightness ==
+                                      Brightness.dark
+                                ? const Color(0xFF345A63)
+                                : line,
+                          ),
                           shape: const StadiumBorder(),
                           labelStyle: TextStyle(
-                            color: selected ? Colors.white : inkSoft,
+                            color: selected
+                                ? Colors.white
+                                : (Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? const Color(0xFFB2C9CC)
+                                      : inkSoft),
                             fontSize: 10.5,
                             fontWeight: FontWeight.w700,
                           ),
@@ -468,12 +503,19 @@ class _NotificationBackButton extends StatelessWidget {
   final VoidCallback onPressed;
   @override
   Widget build(BuildContext context) => Material(
-    color: Colors.white.withValues(alpha: .78),
+    color: Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF173F4D)
+        : Colors.white.withValues(alpha: .78),
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     child: IconButton(
       onPressed: onPressed,
       tooltip: 'Back',
-      icon: const Icon(Icons.arrow_back, color: navy),
+      icon: Icon(
+        Icons.arrow_back,
+        color: Theme.of(context).brightness == Brightness.dark
+            ? const Color(0xFFEAF6F4)
+            : navy,
+      ),
     ),
   );
 }
@@ -486,13 +528,21 @@ class _CountBadge extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
     decoration: BoxDecoration(
-      color: selected ? Colors.white24 : sand,
+      color: selected
+          ? Colors.white24
+          : (Theme.of(context).brightness == Brightness.dark
+                ? const Color(0xFF244753)
+                : sand),
       borderRadius: BorderRadius.circular(10),
     ),
     child: Text(
       '$count',
       style: TextStyle(
-        color: selected ? Colors.white : inkSoft,
+        color: selected
+            ? Colors.white
+            : (Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFFB2C9CC)
+                  : inkSoft),
         fontSize: 9,
         fontWeight: FontWeight.w800,
       ),
@@ -507,7 +557,9 @@ class _NotificationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Card(
     margin: const EdgeInsets.only(bottom: 10),
-    color: Color.lerp(Colors.white.withValues(alpha: .92), item.color, .045),
+    color: Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF173F4D)
+        : Color.lerp(Colors.white.withValues(alpha: .92), item.color, .045),
     elevation: 0,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(18),
@@ -541,8 +593,11 @@ class _NotificationCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           item.title,
-                          style: const TextStyle(
-                            color: ink,
+                          style: TextStyle(
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                ? const Color(0xFFEAF6F4)
+                                : ink,
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
                             height: 1.25,
@@ -565,8 +620,10 @@ class _NotificationCard extends StatelessWidget {
                   const SizedBox(height: 5),
                   Text(
                     item.message,
-                    style: const TextStyle(
-                      color: inkSoft,
+                    style: TextStyle(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? const Color(0xFFB2C9CC)
+                          : inkSoft,
                       fontSize: 10.5,
                       height: 1.35,
                     ),

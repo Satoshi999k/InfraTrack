@@ -1124,8 +1124,10 @@ class _ProfileSectionTitle extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(4, 4, 4, 10),
       child: Text(
         title,
-        style: const TextStyle(
-          color: inkSoft,
+        style: TextStyle(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF9FB8BC)
+              : inkSoft,
           fontSize: 10,
           fontWeight: FontWeight.w800,
           letterSpacing: 1.1,
@@ -1455,10 +1457,16 @@ class _SettingsGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Material(
     clipBehavior: Clip.antiAlias,
-    color: Colors.white.withValues(alpha: .58),
+    color: Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF123643)
+        : Colors.white.withValues(alpha: .58),
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(22),
-      side: BorderSide(color: Colors.white.withValues(alpha: .86)),
+      side: BorderSide(
+        color: Theme.of(context).brightness == Brightness.dark
+            ? const Color(0xFF345A63)
+            : Colors.white.withValues(alpha: .86),
+      ),
     ),
     child: Column(
       children: [
@@ -1508,10 +1516,16 @@ class _TrustSettingsGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Material(
     clipBehavior: Clip.antiAlias,
-    color: Colors.white.withValues(alpha: .58),
+    color: Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF123643)
+        : Colors.white.withValues(alpha: .58),
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(22),
-      side: BorderSide(color: Colors.white.withValues(alpha: .86)),
+      side: BorderSide(
+        color: Theme.of(context).brightness == Brightness.dark
+            ? const Color(0xFF345A63)
+            : Colors.white.withValues(alpha: .86),
+      ),
     ),
     child: Column(
       children: [
