@@ -72,6 +72,56 @@ void main() {
     tester.view.resetDevicePixelRatio();
   });
 
+  testWidgets('typeface choices use equal-width tiles', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 1200);
+    tester.view.devicePixelRatio = 1;
+    SharedPreferences.setMockInitialValues({});
+    infraAppearance.value = const InfraAppearance();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildInfraTheme(infraAppearance.value, Brightness.light),
+        darkTheme: buildInfraTheme(infraAppearance.value, Brightness.dark),
+        home: const AppearanceSettingsPage(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final widths = tester.getSize(find.byType(ChoiceChip).first).width;
+    for (final chip in tester.widgetList<ChoiceChip>(find.byType(ChoiceChip))) {
+      expect(tester.getSize(find.byWidget(chip)).width, closeTo(widths, 0.1));
+    }
+    expect(find.byType(ChoiceChip), findsNWidgets(8));
+    expect(
+      tester.widget<Text>(find.text('Roboto')).style?.fontFamily,
+      startsWith('Roboto'),
+    );
+    expect(
+      tester.widget<Text>(find.text('Poppins')).style?.fontFamily,
+      startsWith('Poppins'),
+    );
+
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+
+  test('selected typeface styles previews and app text consistently', () {
+    final preview = appearanceFontStyle(
+      'roboto',
+      const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+    );
+    final theme = buildInfraTheme(
+      const InfraAppearance(typeface: 'roboto'),
+      Brightness.light,
+    );
+
+    expect(preview.fontFamily, startsWith('Roboto'));
+    expect(theme.textTheme.bodyMedium?.fontFamily, startsWith('Roboto'));
+    expect(appearanceFontStyle('arial', const TextStyle()).fontFamily, 'Arial');
+    expect(appearanceFontStyle('system', const TextStyle()).fontFamily, isNull);
+  });
+
   test(
     'appearance themes provide distinct dark palette and selected accent',
     () {
@@ -92,4 +142,86 @@ void main() {
       expect(dark.cardColor, isNot(light.cardColor));
     },
   );
+
+  test('accent colors apply to themed buttons with readable foregrounds', () {
+    for (final entry in appearanceAccentColors.entries) {
+      final theme = buildInfraTheme(
+        InfraAppearance(accent: entry.key),
+        Brightness.light,
+      );
+      final filledStyle = theme.filledButtonTheme.style!;
+      final textStyle = theme.textButtonTheme.style!;
+
+      expect(theme.colorScheme.primary, entry.value);
+      expect(filledStyle.backgroundColor?.resolve({}), entry.value);
+      expect(textStyle.foregroundColor?.resolve({}), entry.value);
+      expect(
+        filledStyle.foregroundColor?.resolve({}),
+        entry.value.computeLuminance() > 0.179
+            ? const Color(0xFF071D24)
+            : Colors.white,
+      );
+    }
+  });
+
+  test('high contrast strengthens card, input, and chip outlines', () {
+    final normal = buildInfraTheme(const InfraAppearance(), Brightness.light);
+    final highContrast = buildInfraTheme(
+      const InfraAppearance(highContrast: true),
+      Brightness.light,
+    );
+    final normalCardShape = normal.cardTheme.shape! as RoundedRectangleBorder;
+    final highContrastCardShape =
+        highContrast.cardTheme.shape! as RoundedRectangleBorder;
+
+    expect(
+      highContrastCardShape.side.width,
+      greaterThan(normalCardShape.side.width),
+    );
+    expect(
+      highContrast.inputDecorationTheme.enabledBorder!.borderSide.width,
+      greaterThan(normal.inputDecorationTheme.enabledBorder!.borderSide.width),
+    );
+    expect(
+      highContrast.chipTheme.side!.width,
+      greaterThan(normal.chipTheme.side!.width),
+    );
+  });
+
+  test('high contrast text and selected navigation meet readable contrast', () {
+    for (final brightness in Brightness.values) {
+      final theme = buildInfraTheme(
+        const InfraAppearance(highContrast: true),
+        brightness,
+      );
+      final background = brightness == Brightness.dark
+          ? theme.cardColor
+          : theme.scaffoldBackgroundColor;
+      final foreground = theme.textTheme.bodyMedium!.color!;
+      final hint = theme.inputDecorationTheme.hintStyle!.color!;
+      final selectedNavigation = theme.navigationBarTheme.labelTextStyle!
+          .resolve({WidgetState.selected})!
+          .color!;
+
+      expect(_contrastRatio(foreground, background), greaterThanOrEqualTo(7));
+      expect(
+        _contrastRatio(hint, theme.inputDecorationTheme.fillColor!),
+        greaterThanOrEqualTo(7),
+      );
+      expect(
+        _contrastRatio(selectedNavigation, background),
+        greaterThanOrEqualTo(7),
+      );
+    }
+  });
+}
+
+double _contrastRatio(Color first, Color second) {
+  final lighter = first.computeLuminance() > second.computeLuminance()
+      ? first.computeLuminance()
+      : second.computeLuminance();
+  final darker = first.computeLuminance() > second.computeLuminance()
+      ? second.computeLuminance()
+      : first.computeLuminance();
+  return (lighter + 0.05) / (darker + 0.05);
 }

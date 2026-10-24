@@ -1753,43 +1753,53 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
             _section(
               title: 'Typeface',
               subtitle: 'Choose a style that is comfortable to read.',
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final option in [
-                    (value: 'inter', label: 'Inter'),
-                    (value: 'system', label: 'System'),
-                    (value: 'arial', label: 'Arial'),
-                    (value: 'roboto', label: 'Roboto'),
-                    (value: 'lato', label: 'Lato'),
-                    (value: 'open-sans', label: 'Open Sans'),
-                    (value: 'poppins', label: 'Poppins'),
-                    (value: 'nunito', label: 'Nunito'),
-                  ])
-                    ChoiceChip(
-                      label: Text(
-                        option.label,
-                        style: TextStyle(
-                          fontFamily: option.value == 'system'
-                              ? null
-                              : option.value == 'open-sans'
-                              ? 'Open Sans'
-                              : option.value[0].toUpperCase() +
-                                    option.value.substring(1),
-                        ),
-                      ),
-                      selected: appearance.typeface == option.value,
-                      onSelected: _saving
-                          ? null
-                          : (_) => _update(
-                              appearance.copyWith(typeface: option.value),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  const spacing = 8.0;
+                  final choiceWidth = (constraints.maxWidth - spacing) / 2;
+                  return Wrap(
+                    spacing: spacing,
+                    runSpacing: spacing,
+                    children: [
+                      for (final option in [
+                        (value: 'inter', label: 'Inter'),
+                        (value: 'system', label: 'System'),
+                        (value: 'arial', label: 'Arial'),
+                        (value: 'roboto', label: 'Roboto'),
+                        (value: 'lato', label: 'Lato'),
+                        (value: 'open-sans', label: 'Open Sans'),
+                        (value: 'poppins', label: 'Poppins'),
+                        (value: 'nunito', label: 'Nunito'),
+                      ])
+                        SizedBox(
+                          width: choiceWidth,
+                          child: ChoiceChip(
+                            label: Text(
+                              option.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: appearanceFontStyle(
+                                option.value,
+                                const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                             ),
-                      avatar: appearance.typeface == option.value
-                          ? const Icon(Icons.check, size: 16)
-                          : null,
-                    ),
-                ],
+                            selected: appearance.typeface == option.value,
+                            onSelected: _saving
+                                ? null
+                                : (_) => _update(
+                                    appearance.copyWith(typeface: option.value),
+                                  ),
+                            avatar: appearance.typeface == option.value
+                                ? const Icon(Icons.check, size: 16)
+                                : null,
+                          ),
+                        ),
+                    ],
+                  );
+                },
               ),
             ),
             const SizedBox(height: 12),

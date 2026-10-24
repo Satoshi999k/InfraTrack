@@ -45,10 +45,13 @@ const green = Color(0xFF3C8A5F);
 const red = Color(0xFFB33A3A);
 
 TextStyle infraHeading({double? fontSize, Color? color, FontWeight? weight}) =>
-    GoogleFonts.archivo(
-      fontSize: fontSize,
-      color: color,
-      fontWeight: weight ?? FontWeight.w700,
+    appearanceFontStyle(
+      infraAppearance.value.typeface,
+      TextStyle(
+        fontSize: fontSize,
+        color: color,
+        fontWeight: weight ?? FontWeight.w700,
+      ),
     );
 
 TextStyle infraMono({double? fontSize, Color? color, FontWeight? weight}) =>
@@ -324,7 +327,7 @@ class _ConnectionUnavailablePageState extends State<_ConnectionUnavailablePage>
                     : const Icon(Icons.refresh_rounded),
                 label: Text(_checking ? 'Checking connection…' : 'Try again'),
                 style: TextButton.styleFrom(
-                  foregroundColor: teal,
+                  foregroundColor: Theme.of(context).colorScheme.primary,
                   textStyle: const TextStyle(fontWeight: FontWeight.w700),
                 ),
               ),
@@ -836,7 +839,10 @@ class _LoginPageState extends State<LoginPage> {
                         ],
                       ),
                       child: DefaultTextStyle.merge(
-                        style: GoogleFonts.inter(),
+                        style: appearanceFontStyle(
+                          infraAppearance.value.typeface,
+                          const TextStyle(),
+                        ),
                         child: Form(
                           key: _formKey,
                           child: Column(
@@ -1067,7 +1073,9 @@ class _LoginPageState extends State<LoginPage> {
                               TextButton.icon(
                                 onPressed: _continueAsTourist,
                                 style: TextButton.styleFrom(
-                                  foregroundColor: teal,
+                                  foregroundColor: Theme.of(context)
+                                      .colorScheme
+                                      .primary,
                                   padding: const EdgeInsets.symmetric(
                                     vertical: 8,
                                   ),
@@ -1989,33 +1997,6 @@ class _MainShellState extends State<MainShell> {
                         ),
                     indicatorShape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
-                    ),
-                    labelTextStyle: WidgetStateProperty.resolveWith(
-                      (states) => TextStyle(
-                        color: states.contains(WidgetState.selected)
-                            ? (Theme.of(context).brightness == Brightness.dark
-                                  ? Colors.white
-                                  : navy)
-                            : (Theme.of(context).brightness == Brightness.dark
-                                  ? const Color(0xFFB7CDD0)
-                                  : inkSoft),
-                        fontSize: 10,
-                        fontWeight: states.contains(WidgetState.selected)
-                            ? FontWeight.w800
-                            : FontWeight.w600,
-                      ),
-                    ),
-                    iconTheme: WidgetStateProperty.resolveWith(
-                      (states) => IconThemeData(
-                        color: states.contains(WidgetState.selected)
-                            ? (Theme.of(context).brightness == Brightness.dark
-                                  ? Colors.white
-                                  : navy)
-                            : (Theme.of(context).brightness == Brightness.dark
-                                  ? const Color(0xFFB7CDD0)
-                                  : inkSoft),
-                        size: 22,
-                      ),
                     ),
                   ),
                   child: NavigationBar(

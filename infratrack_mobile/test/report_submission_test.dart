@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:infatrack/api_service.dart';
+import 'package:infatrack/appearance_preferences.dart';
 import 'package:infatrack/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -70,6 +71,34 @@ void main() {
       expect(find.text(category), findsOneWidget);
     }
     expect(find.text('Water'), findsNothing);
+  });
+
+  testWidgets('submit report button stays clay orange with a rose accent', (
+    tester,
+  ) async {
+    ApiService.httpClientFactory = () => MockClient((request) async {
+      if (request.url.path.endsWith('/mobile/profile')) {
+        return _verifiedProfileResponse();
+      }
+      return http.Response('Not found', 404);
+    });
+    const appearance = InfraAppearance(accent: 'rose');
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildInfraTheme(appearance, Brightness.light),
+        home: const Scaffold(body: ReportPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final submitButton = tester.widget<FilledButton>(
+      find.ancestor(
+        of: find.text('Submit report'),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    expect(submitButton.style?.backgroundColor?.resolve({}), clay);
   });
 
   testWidgets('saves AI findings for admin review without assigning priority', (

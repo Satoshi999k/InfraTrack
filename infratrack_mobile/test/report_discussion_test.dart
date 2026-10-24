@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:infatrack/api_service.dart';
+import 'package:infatrack/appearance_preferences.dart';
 import 'package:infatrack/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -54,6 +55,10 @@ void main() {
       await ApiService.login('resident@example.test', 'test-password');
       await tester.pumpWidget(
         MaterialApp(
+          theme: buildInfraTheme(
+            const InfraAppearance(accent: 'rose'),
+            Brightness.light,
+          ),
           home: MyReportDetailsPage(
             report: _report(
               reportId: 'MT-2026-238',
@@ -71,6 +76,16 @@ void main() {
       expect(find.text('Middle reply'), findsOneWidget);
       expect(find.text('Latest reply'), findsOneWidget);
       expect(find.text('View all 3 replies'), findsOneWidget);
+      final sendReplyButton = tester.widget<FilledButton>(
+        find.ancestor(
+          of: find.text('Send reply'),
+          matching: find.byType(FilledButton),
+        ),
+      );
+      expect(
+        sendReplyButton.style?.backgroundColor?.resolve({}),
+        appearanceAccentColors['rose'],
+      );
 
       await tester.tap(find.text('View all 3 replies'));
       await tester.pumpAndSettle();

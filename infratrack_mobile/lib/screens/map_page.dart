@@ -689,12 +689,19 @@ class _MapFilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-    color: selected ? color : Colors.white.withValues(alpha: .96),
+    color: selected
+        ? Theme.of(context).colorScheme.primary
+        : Colors.white.withValues(alpha: .96),
     elevation: selected ? 3 : 1,
     shadowColor: navy.withValues(alpha: .12),
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(20),
-      side: BorderSide(color: selected ? color : color.withValues(alpha: .22)),
+      side: BorderSide(
+        color: selected
+            ? Theme.of(context).colorScheme.primary
+            : color.withValues(alpha: .22),
+        width: infraAppearance.value.highContrast ? 2 : 1,
+      ),
     ),
     child: InkWell(
       onTap: onTap,
@@ -704,12 +711,18 @@ class _MapFilterChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 15, color: selected ? Colors.white : color),
+            Icon(
+              icon,
+              size: 15,
+              color: selected ? Theme.of(context).colorScheme.onPrimary : color,
+            ),
             const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
-                color: selected ? Colors.white : navy,
+                color: selected
+                    ? Theme.of(context).colorScheme.onPrimary
+                    : navy,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
               ),
@@ -736,12 +749,14 @@ class _MapControlButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-    color: selected ? teal : Colors.transparent,
+    color: selected
+        ? Theme.of(context).colorScheme.primary
+        : Colors.transparent,
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     child: IconButton(
       tooltip: tooltip,
       onPressed: onPressed,
-      color: selected ? Colors.white : navy,
+      color: selected ? Theme.of(context).colorScheme.onPrimary : navy,
       icon: Icon(icon, size: 21),
       constraints: const BoxConstraints.tightFor(width: 46, height: 46),
     ),
@@ -808,7 +823,7 @@ class _MapLoadError extends StatelessWidget {
           TextButton(
             onPressed: onRetry,
             style: TextButton.styleFrom(
-              foregroundColor: teal,
+              foregroundColor: Theme.of(context).colorScheme.primary,
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               minimumSize: const Size(48, 40),
               textStyle: const TextStyle(

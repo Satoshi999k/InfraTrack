@@ -660,7 +660,11 @@ class _ReportFilter extends StatelessWidget {
     label: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: selected ? Colors.white : inkSoft),
+        Icon(
+          icon,
+          size: 14,
+          color: selected ? Theme.of(context).colorScheme.onPrimary : inkSoft,
+        ),
         const SizedBox(width: 5),
         Text(label),
       ],
@@ -669,14 +673,16 @@ class _ReportFilter extends StatelessWidget {
     onSelected: (_) => onTap(),
     showCheckmark: false,
     backgroundColor: Colors.white.withValues(alpha: .56),
-    selectedColor: navy.withValues(alpha: .94),
+    selectedColor: Theme.of(context).colorScheme.primary,
     labelStyle: TextStyle(
-      color: selected ? Colors.white : inkSoft,
+      color: selected ? Theme.of(context).colorScheme.onPrimary : inkSoft,
       fontSize: 11.5,
       fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
     ),
     side: BorderSide(
-      color: selected ? navy : Colors.white.withValues(alpha: .9),
+      color: selected
+          ? Theme.of(context).colorScheme.primary
+          : Colors.white.withValues(alpha: .9),
     ),
     shape: const StadiumBorder(),
     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),

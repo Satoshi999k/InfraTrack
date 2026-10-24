@@ -132,8 +132,13 @@ ThemeData buildInfraTheme(InfraAppearance appearance, Brightness brightness) {
       ? const Color(0xFF173F4D)
       : const Color(0xFFF7F4EE);
   final foreground = dark ? const Color(0xFFEAF6F4) : const Color(0xFF17231F);
-  final muted = dark ? const Color(0xFFB2C9CC) : const Color(0xFF5B6B67);
-  final border = dark ? const Color(0xFF345A63) : const Color(0xFFDDD8CB);
+  final muted = appearance.highContrast
+      ? (dark ? const Color(0xFFE3EEEE) : const Color(0xFF344743))
+      : (dark ? const Color(0xFFB2C9CC) : const Color(0xFF5B6B67));
+  final border = appearance.highContrast
+      ? (dark ? const Color(0xFF789399) : const Color(0xFF667772))
+      : (dark ? const Color(0xFF345A63) : const Color(0xFFDDD8CB));
+  final borderWidth = appearance.highContrast ? 2.0 : 1.0;
   final radius = switch (appearance.corners) {
     'square' => 8.0,
     'soft' => 24.0,
@@ -142,6 +147,9 @@ ThemeData buildInfraTheme(InfraAppearance appearance, Brightness brightness) {
   final contrastForeground = appearance.highContrast
       ? (dark ? Colors.white : const Color(0xFF071D24))
       : foreground;
+  final onAccent = accent.computeLuminance() > 0.179
+      ? const Color(0xFF071D24)
+      : Colors.white;
   final baseTheme = ThemeData(
     useMaterial3: true,
     brightness: brightness,
@@ -152,12 +160,14 @@ ThemeData buildInfraTheme(InfraAppearance appearance, Brightness brightness) {
           surface: surface,
         ).copyWith(
           primary: accent,
-          onPrimary: Colors.white,
+          onPrimary: onAccent,
           secondary: accent,
+          onSecondary: onAccent,
           secondaryContainer: dark ? accent.withValues(alpha: 0.18) : null,
           surface: surface,
           onSurface: contrastForeground,
-          outline: appearance.highContrast ? muted : border,
+          outline: border,
+          outlineVariant: border,
         ),
   );
   final textTheme = appearanceTextTheme(
@@ -187,7 +197,7 @@ ThemeData buildInfraTheme(InfraAppearance appearance, Brightness brightness) {
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(radius),
-        side: BorderSide(color: border),
+        side: BorderSide(color: border, width: borderWidth),
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
@@ -200,11 +210,14 @@ ThemeData buildInfraTheme(InfraAppearance appearance, Brightness brightness) {
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(radius),
-        borderSide: BorderSide(color: border),
+        borderSide: BorderSide(color: border, width: borderWidth),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(radius),
-        borderSide: BorderSide(color: accent, width: 1.5),
+        borderSide: BorderSide(
+          color: accent,
+          width: appearance.highContrast ? 3 : 2,
+        ),
       ),
       labelStyle: TextStyle(color: muted),
       hintStyle: TextStyle(color: muted),
@@ -212,7 +225,7 @@ ThemeData buildInfraTheme(InfraAppearance appearance, Brightness brightness) {
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         backgroundColor: accent,
-        foregroundColor: Colors.white,
+        foregroundColor: onAccent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(radius),
         ),
@@ -221,16 +234,38 @@ ThemeData buildInfraTheme(InfraAppearance appearance, Brightness brightness) {
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         foregroundColor: accent,
-        side: BorderSide(color: border),
+        side: BorderSide(color: border, width: borderWidth),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(radius),
         ),
       ),
     ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: accent,
+        textStyle: const TextStyle(fontWeight: FontWeight.w700),
+      ),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: accent,
+        foregroundColor: onAccent,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radius),
+          side: appearance.highContrast
+              ? BorderSide(color: border, width: borderWidth)
+              : BorderSide.none,
+        ),
+      ),
+    ),
     chipTheme: ChipThemeData(
       backgroundColor: dark ? const Color(0xFF1B3D49) : const Color(0xFFE8E2D7),
-      selectedColor: accent.withValues(alpha: dark ? 0.18 : 0.12),
-      side: BorderSide(color: border),
+      selectedColor: accent.withValues(
+        alpha: appearance.highContrast ? 0.24 : (dark ? 0.18 : 0.12),
+      ),
+      checkmarkColor: accent,
+      side: BorderSide(color: border, width: borderWidth),
       labelStyle: TextStyle(
         color: contrastForeground,
         fontWeight: FontWeight.w700,
@@ -258,7 +293,7 @@ ThemeData buildInfraTheme(InfraAppearance appearance, Brightness brightness) {
       labelTextStyle: WidgetStateProperty.resolveWith(
         (states) => TextStyle(
           color: states.contains(WidgetState.selected)
-              ? (dark ? Colors.white : const Color(0xFF0E3A4C))
+              ? (appearance.highContrast ? contrastForeground : accent)
               : (dark ? const Color(0xFFB6C7C7) : const Color(0xFF5B6B67)),
           fontSize: 11,
           fontWeight: states.contains(WidgetState.selected)
@@ -269,7 +304,7 @@ ThemeData buildInfraTheme(InfraAppearance appearance, Brightness brightness) {
       iconTheme: WidgetStateProperty.resolveWith(
         (states) => IconThemeData(
           color: states.contains(WidgetState.selected)
-              ? (dark ? Colors.white : const Color(0xFF0E3A4C))
+              ? (appearance.highContrast ? contrastForeground : accent)
               : (dark ? const Color(0xFFB6C7C7) : const Color(0xFF5B6B67)),
           size: 22,
         ),
@@ -285,6 +320,18 @@ ThemeData buildInfraTheme(InfraAppearance appearance, Brightness brightness) {
             : (dark ? const Color(0xFF2B4651) : null),
       ),
     ),
+    checkboxTheme: CheckboxThemeData(
+      side: BorderSide(color: border, width: borderWidth),
+      fillColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.selected) ? accent : null,
+      ),
+      checkColor: WidgetStateProperty.all(onAccent),
+    ),
+    radioTheme: RadioThemeData(
+      fillColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.selected) ? accent : muted,
+      ),
+    ),
   );
 }
 
@@ -298,4 +345,16 @@ TextTheme appearanceTextTheme(String typeface, TextTheme baseTextTheme) =>
       'poppins' => GoogleFonts.poppinsTextTheme(baseTextTheme),
       'nunito' => GoogleFonts.nunitoTextTheme(baseTextTheme),
       _ => GoogleFonts.interTextTheme(baseTextTheme),
+    };
+
+TextStyle appearanceFontStyle(String typeface, TextStyle style) =>
+    switch (typeface) {
+      'system' => style,
+      'arial' => style.copyWith(fontFamily: 'Arial'),
+      'roboto' => GoogleFonts.roboto(textStyle: style),
+      'lato' => GoogleFonts.lato(textStyle: style),
+      'open-sans' => GoogleFonts.openSans(textStyle: style),
+      'poppins' => GoogleFonts.poppins(textStyle: style),
+      'nunito' => GoogleFonts.nunito(textStyle: style),
+      _ => GoogleFonts.inter(textStyle: style),
     };

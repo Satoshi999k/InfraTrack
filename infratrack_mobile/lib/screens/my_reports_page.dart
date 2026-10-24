@@ -419,7 +419,7 @@ class _MyReportsHeaderDelegate extends SliverPersistentHeaderDelegate {
                           item.$2,
                           size: 16,
                           color: filter == item.$1
-                              ? Colors.white
+                              ? Theme.of(context).colorScheme.onPrimary
                               : (Theme.of(context).brightness == Brightness.dark
                                     ? const Color(0xFFB2C9CC)
                                     : inkSoft),
@@ -428,10 +428,7 @@ class _MyReportsHeaderDelegate extends SliverPersistentHeaderDelegate {
                         selected: filter == item.$1,
                         showCheckmark: false,
                         onSelected: (_) => onFilterChanged(item.$1),
-                        selectedColor:
-                            Theme.of(context).brightness == Brightness.dark
-                            ? Theme.of(context).colorScheme.primary
-                            : navy.withValues(alpha: .94),
+                        selectedColor: Theme.of(context).colorScheme.primary,
                         backgroundColor:
                             Theme.of(context).brightness == Brightness.dark
                             ? const Color(0xFF173F4D)
@@ -455,7 +452,7 @@ class _MyReportsHeaderDelegate extends SliverPersistentHeaderDelegate {
                         ),
                         labelStyle: TextStyle(
                           color: filter == item.$1
-                              ? Colors.white
+                              ? Theme.of(context).colorScheme.onPrimary
                               : (Theme.of(context).brightness == Brightness.dark
                                     ? const Color(0xFFB2C9CC)
                                     : inkSoft),
@@ -1079,7 +1076,11 @@ class _ReportDiscussionSectionState extends State<_ReportDiscussionSection> {
                   color: teal.withValues(alpha: .11),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.forum_outlined, color: teal, size: 19),
+                child: Icon(
+                  Icons.forum_outlined,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 19,
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -1110,13 +1111,14 @@ class _ReportDiscussionSectionState extends State<_ReportDiscussionSection> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                 decoration: BoxDecoration(
-                  color: teal.withValues(alpha: .09),
+                  color: Theme.of(context).colorScheme.primary
+                      .withValues(alpha: .09),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: const Text(
+                child: Text(
                   'Semi-public',
                   style: TextStyle(
-                    color: teal,
+                    color: Theme.of(context).colorScheme.primary,
                     fontSize: 9,
                     fontWeight: FontWeight.w800,
                   ),
@@ -1125,18 +1127,25 @@ class _ReportDiscussionSectionState extends State<_ReportDiscussionSection> {
               const SizedBox(width: 2),
               IconButton(
                 tooltip: 'Refresh follow-up',
+                style: IconButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.primary,
+                ),
                 visualDensity: VisualDensity.compact,
                 onPressed: _loading ? null : _loadDiscussion,
                 icon: _loading
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 17,
                         height: 17,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: teal,
+                          color: Theme.of(context).colorScheme.primary,
                         ),
                       )
-                    : const Icon(Icons.refresh_rounded, color: teal, size: 19),
+                    : Icon(
+                        Icons.refresh_rounded,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 19,
+                      ),
               ),
             ],
           ),
@@ -1179,11 +1188,14 @@ class _ReportDiscussionSectionState extends State<_ReportDiscussionSection> {
           ],
           if (_loading && _comments.isEmpty && _loadError == null) ...[
             const SizedBox(height: 20),
-            const Center(
+            Center(
               child: SizedBox(
                 width: 22,
                 height: 22,
-                child: CircularProgressIndicator(strokeWidth: 2, color: teal),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
               ),
             ),
             const SizedBox(height: 20),
@@ -1233,7 +1245,7 @@ class _ReportDiscussionSectionState extends State<_ReportDiscussionSection> {
                         : 'View all ${_comments.length} replies',
                   ),
                   style: TextButton.styleFrom(
-                    foregroundColor: teal,
+                    foregroundColor: Theme.of(context).colorScheme.primary,
                     textStyle: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
@@ -1274,7 +1286,10 @@ class _ReportDiscussionSectionState extends State<_ReportDiscussionSection> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(13),
-                  borderSide: const BorderSide(color: teal, width: 1.5),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).colorScheme.primary,
+                    width: infraAppearance.value.highContrast ? 3 : 1.5,
+                  ),
                 ),
               ),
             ),
@@ -1302,8 +1317,8 @@ class _ReportDiscussionSectionState extends State<_ReportDiscussionSection> {
                     : const Icon(Icons.send_rounded, size: 15),
                 label: Text(_sending ? 'Sending…' : 'Send reply'),
                 style: FilledButton.styleFrom(
-                  backgroundColor: teal,
-                  foregroundColor: Colors.white,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 14,
                     vertical: 11,

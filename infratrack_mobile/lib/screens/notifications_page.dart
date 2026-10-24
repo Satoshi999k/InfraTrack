@@ -367,7 +367,7 @@ class _NotificationHeaderDelegate extends SliverPersistentHeaderDelegate {
                       icon: const Icon(Icons.done_all_rounded, size: 16),
                       label: const Text('Mark all as read'),
                       style: TextButton.styleFrom(
-                        foregroundColor: teal,
+                        foregroundColor: Theme.of(context).colorScheme.primary,
                         padding: const EdgeInsets.symmetric(horizontal: 6),
                         minimumSize: const Size(0, 32),
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -428,10 +428,7 @@ class _NotificationHeaderDelegate extends SliverPersistentHeaderDelegate {
                           selected: selected,
                           showCheckmark: false,
                           onSelected: (_) => onFilterChanged(item),
-                          selectedColor:
-                              Theme.of(context).brightness == Brightness.dark
-                              ? Theme.of(context).colorScheme.primary
-                              : navy,
+                          selectedColor: Theme.of(context).colorScheme.primary,
                           backgroundColor:
                               Theme.of(context).brightness == Brightness.dark
                               ? const Color(0xFF173F4D)
@@ -447,7 +444,7 @@ class _NotificationHeaderDelegate extends SliverPersistentHeaderDelegate {
                           shape: const StadiumBorder(),
                           labelStyle: TextStyle(
                             color: selected
-                                ? Colors.white
+                                ? Theme.of(context).colorScheme.onPrimary
                                 : (Theme.of(context).brightness ==
                                           Brightness.dark
                                       ? const Color(0xFFB2C9CC)

@@ -1087,9 +1087,7 @@ class _NewsFilterChip extends StatelessWidget {
     child: ExcludeSemantics(
       child: Material(
         color: selected
-            ? (Theme.of(context).brightness == Brightness.dark
-                  ? Theme.of(context).colorScheme.primary
-                  : navy)
+            ? Theme.of(context).colorScheme.primary
             : (Theme.of(context).brightness == Brightness.dark
                   ? const Color(0xFF173F4D)
                   : Colors.white),
@@ -1103,9 +1101,7 @@ class _NewsFilterChip extends StatelessWidget {
               borderRadius: BorderRadius.circular(22),
               border: Border.all(
                 color: selected
-                    ? (Theme.of(context).brightness == Brightness.dark
-                          ? Theme.of(context).colorScheme.primary
-                          : navy)
+                    ? Theme.of(context).colorScheme.primary
                     : (Theme.of(context).brightness == Brightness.dark
                           ? const Color(0xFF345A63)
                           : line),
@@ -1118,7 +1114,7 @@ class _NewsFilterChip extends StatelessWidget {
                   Icon(
                     icon,
                     color: selected
-                        ? Colors.white
+                        ? Theme.of(context).colorScheme.onPrimary
                         : (Theme.of(context).brightness == Brightness.dark
                               ? const Color(0xFFB2C9CC)
                               : inkSoft),
@@ -1130,7 +1126,7 @@ class _NewsFilterChip extends StatelessWidget {
                   label,
                   style: TextStyle(
                     color: selected
-                        ? Colors.white
+                        ? Theme.of(context).colorScheme.onPrimary
                         : (Theme.of(context).brightness == Brightness.dark
                               ? const Color(0xFFB2C9CC)
                               : inkSoft),
