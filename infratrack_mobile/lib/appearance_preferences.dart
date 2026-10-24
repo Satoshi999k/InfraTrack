@@ -126,11 +126,14 @@ Future<void> saveInfraAppearance(InfraAppearance appearance) async {
 ThemeData buildInfraTheme(InfraAppearance appearance, Brightness brightness) {
   final dark = brightness == Brightness.dark;
   final accent = appearanceAccentColors[appearance.accent]!;
-  final background = dark ? const Color(0xFF101B20) : const Color(0xFFF3EFE6);
-  final surface = dark ? const Color(0xFF19282E) : Colors.white;
-  final foreground = dark ? const Color(0xFFE7EFED) : const Color(0xFF17231F);
-  final muted = dark ? const Color(0xFFB1C1BE) : const Color(0xFF5B6B67);
-  final border = dark ? const Color(0xFF35474B) : const Color(0xFFDDD8CB);
+  final background = dark ? const Color(0xFF091E29) : const Color(0xFFF3EFE6);
+  final surface = dark ? const Color(0xFF123643) : Colors.white;
+  final elevatedSurface = dark
+      ? const Color(0xFF173F4D)
+      : const Color(0xFFF7F4EE);
+  final foreground = dark ? const Color(0xFFEAF6F4) : const Color(0xFF17231F);
+  final muted = dark ? const Color(0xFFB2C9CC) : const Color(0xFF5B6B67);
+  final border = dark ? const Color(0xFF345A63) : const Color(0xFFDDD8CB);
   final radius = switch (appearance.corners) {
     'square' => 8.0,
     'soft' => 24.0,
@@ -151,6 +154,8 @@ ThemeData buildInfraTheme(InfraAppearance appearance, Brightness brightness) {
           primary: accent,
           onPrimary: Colors.white,
           secondary: accent,
+          secondaryContainer: dark ? accent.withValues(alpha: 0.18) : null,
+          surface: surface,
           onSurface: contrastForeground,
           outline: appearance.highContrast ? muted : border,
         ),
@@ -187,7 +192,7 @@ ThemeData buildInfraTheme(InfraAppearance appearance, Brightness brightness) {
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: surface,
+      fillColor: elevatedSurface,
       contentPadding: const EdgeInsets.all(16),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(radius),
@@ -222,9 +227,62 @@ ThemeData buildInfraTheme(InfraAppearance appearance, Brightness brightness) {
         ),
       ),
     ),
+    chipTheme: ChipThemeData(
+      backgroundColor: dark ? const Color(0xFF1B3D49) : const Color(0xFFE8E2D7),
+      selectedColor: accent.withValues(alpha: dark ? 0.18 : 0.12),
+      side: BorderSide(color: border),
+      labelStyle: TextStyle(
+        color: contrastForeground,
+        fontWeight: FontWeight.w700,
+      ),
+      secondaryLabelStyle: TextStyle(
+        color: accent,
+        fontWeight: FontWeight.w800,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(radius),
+      ),
+    ),
+    navigationBarTheme: NavigationBarThemeData(
+      height: 72,
+      backgroundColor: dark
+          ? const Color(0xFF0D2430)
+          : Colors.white.withValues(alpha: 0.72),
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      indicatorColor: accent.withValues(alpha: dark ? 0.18 : 0.12),
+      indicatorShape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      labelTextStyle: WidgetStateProperty.resolveWith(
+        (states) => TextStyle(
+          color: states.contains(WidgetState.selected)
+              ? (dark ? Colors.white : const Color(0xFF0E3A4C))
+              : (dark ? const Color(0xFFB6C7C7) : const Color(0xFF5B6B67)),
+          fontSize: 11,
+          fontWeight: states.contains(WidgetState.selected)
+              ? FontWeight.w800
+              : FontWeight.w600,
+        ),
+      ),
+      iconTheme: WidgetStateProperty.resolveWith(
+        (states) => IconThemeData(
+          color: states.contains(WidgetState.selected)
+              ? (dark ? Colors.white : const Color(0xFF0E3A4C))
+              : (dark ? const Color(0xFFB6C7C7) : const Color(0xFF5B6B67)),
+          size: 22,
+        ),
+      ),
+    ),
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStateProperty.resolveWith(
         (states) => states.contains(WidgetState.selected) ? accent : null,
+      ),
+      trackColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.selected)
+            ? accent.withValues(alpha: 0.5)
+            : (dark ? const Color(0xFF2B4651) : null),
       ),
     ),
   );

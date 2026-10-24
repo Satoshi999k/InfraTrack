@@ -1946,12 +1946,22 @@ class _MainShellState extends State<MainShell> {
       bottomNavigationBar: Container(
         margin: const EdgeInsets.fromLTRB(14, 0, 14, 12),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: .72),
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF102C38)
+              : Colors.white.withValues(alpha: .72),
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Colors.white.withValues(alpha: .85)),
+          border: Border.all(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? const Color(0xFF396170)
+                : Colors.white.withValues(alpha: .85),
+          ),
           boxShadow: [
             BoxShadow(
-              color: navy.withValues(alpha: .14),
+              color:
+                  (Theme.of(context).brightness == Brightness.dark
+                          ? const Color(0xFF081D29)
+                          : navy)
+                      .withValues(alpha: .14),
               blurRadius: 26,
               spreadRadius: 1,
               offset: const Offset(0, 8),
@@ -1971,15 +1981,24 @@ class _MainShellState extends State<MainShell> {
                     backgroundColor: Colors.transparent,
                     surfaceTintColor: Colors.transparent,
                     elevation: 0,
-                    indicatorColor: teal.withValues(alpha: .20),
+                    indicatorColor: Theme.of(context).colorScheme.primary
+                        .withValues(
+                          alpha: Theme.of(context).brightness == Brightness.dark
+                              ? 0.18
+                              : 0.20,
+                        ),
                     indicatorShape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
                     labelTextStyle: WidgetStateProperty.resolveWith(
                       (states) => TextStyle(
                         color: states.contains(WidgetState.selected)
-                            ? navy
-                            : inkSoft,
+                            ? (Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.white
+                                  : navy)
+                            : (Theme.of(context).brightness == Brightness.dark
+                                  ? const Color(0xFFB7CDD0)
+                                  : inkSoft),
                         fontSize: 10,
                         fontWeight: states.contains(WidgetState.selected)
                             ? FontWeight.w800
@@ -1989,8 +2008,12 @@ class _MainShellState extends State<MainShell> {
                     iconTheme: WidgetStateProperty.resolveWith(
                       (states) => IconThemeData(
                         color: states.contains(WidgetState.selected)
-                            ? navy
-                            : inkSoft,
+                            ? (Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.white
+                                  : navy)
+                            : (Theme.of(context).brightness == Brightness.dark
+                                  ? const Color(0xFFB7CDD0)
+                                  : inkSoft),
                         size: 22,
                       ),
                     ),
