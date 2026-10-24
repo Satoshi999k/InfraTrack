@@ -178,6 +178,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     final originalClientFactory = ApiService.httpClientFactory;
     var markedRead = false;
+    var advisoryRequests = 0;
     ApiService.httpClientFactory = () => MockClient((request) async {
       if (request.url.path.endsWith('/mobile/auth/login')) {
         return http.Response(
@@ -229,6 +230,7 @@ void main() {
         return http.Response(jsonEncode({'ok': true}), 200);
       }
       if (request.url.path.endsWith('/mobile/advisories')) {
+        advisoryRequests++;
         return http.Response(
           jsonEncode({
             'advisories': [
@@ -277,6 +279,7 @@ void main() {
       await ApiService.login('resident@example.test', 'test-password');
       await tester.pumpWidget(const MaterialApp(home: MainShell()));
       await tester.pumpAndSettle();
+      final initialAdvisoryRequests = advisoryRequests;
 
       await tester.tap(find.byTooltip('Notifications'));
       await tester.pumpAndSettle();
@@ -294,6 +297,7 @@ void main() {
         tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
         3,
       );
+      expect(advisoryRequests, greaterThan(initialAdvisoryRequests));
       expect(find.text('Road maintenance tonight'), findsOneWidget);
       expect(find.text('City advisories'), findsOneWidget);
     } finally {

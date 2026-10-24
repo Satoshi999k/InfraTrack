@@ -182,6 +182,44 @@ void main() {
     },
   );
 
+  testWidgets('failed advisory media offers retry instead of loading forever', (
+    WidgetTester tester,
+  ) async {
+    final originalClientFactory = ApiService.httpClientFactory;
+    ApiService.httpClientFactory = () => MockClient((request) async {
+      if (request.url.path.endsWith('/mobile/issues')) {
+        return http.Response(jsonEncode({'issues': []}), 200);
+      }
+      if (request.url.path.endsWith('/mobile/advisories')) {
+        return http.Response(
+          jsonEncode({
+            'advisories': [
+              {
+                ..._advisory(7, 'Advisory with unavailable media', 'alert'),
+                'media_url': 'https://example.test/missing-image.jpg',
+                'media_kind': 'image',
+              },
+            ],
+          }),
+          200,
+        );
+      }
+      return http.Response('{}', 404);
+    });
+
+    try {
+      await tester.pumpWidget(const MaterialApp(home: NewsPage()));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Media could not be loaded'), findsOneWidget);
+      expect(find.text('Retry'), findsOneWidget);
+      expect(find.text('Advisory with unavailable media'), findsOneWidget);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      ApiService.httpClientFactory = originalClientFactory;
+    }
+  });
+
   testWidgets('News shows only approved reports and reveals older updates', (
     WidgetTester tester,
   ) async {

@@ -68,6 +68,7 @@ class _NewsPageState extends State<NewsPage> {
   List<Map<String, dynamic>> _myReports = [];
   bool _loading = true;
   String? _loadError;
+  int _loadRequestId = 0;
 
   Future<void> refresh() => _loadNews();
 
@@ -93,13 +94,14 @@ class _NewsPageState extends State<NewsPage> {
   }
 
   Future<void> _loadNews() async {
+    final requestId = ++_loadRequestId;
     try {
       final results = await Future.wait([
         ApiService.advisories(),
         ApiService.issues(verifiedOnly: true),
         ApiService.reports(),
       ]);
-      if (!mounted) return;
+      if (!mounted || requestId != _loadRequestId) return;
       setState(() {
         _advisories = results[0];
         _issues = results[1];
@@ -112,7 +114,7 @@ class _NewsPageState extends State<NewsPage> {
         if (_pageController.hasClients) _pageController.jumpToPage(0);
       });
     } catch (_) {
-      if (mounted) {
+      if (mounted && requestId == _loadRequestId) {
         setState(() {
           _loading = false;
           _loadError = 'Could not load city updates from the server.';
@@ -335,7 +337,10 @@ class _NewsPageState extends State<NewsPage> {
                   )
                 else
                   ..._visibleAdvisories.map(
-                    (advisory) => _PublicAdvisoryCard(advisory: advisory),
+                    (advisory) => _PublicAdvisoryCard(
+                      key: ValueKey('advisory-${advisory['id']}'),
+                      advisory: advisory,
+                    ),
                   ),
               ],
             ],
@@ -766,7 +771,7 @@ class _ReportUpdateCard extends StatelessWidget {
 }
 
 class _PublicAdvisoryCard extends StatelessWidget {
-  const _PublicAdvisoryCard({required this.advisory});
+  const _PublicAdvisoryCard({super.key, required this.advisory});
 
   final Map<String, dynamic> advisory;
 
@@ -928,27 +933,138 @@ class _AdvisoryMedia extends StatefulWidget {
 }
 
 class _AdvisoryMediaState extends State<_AdvisoryMedia> {
+  static const _mediaLoadTimeout = Duration(seconds: 25);
+
   VideoPlayerController? _controller;
+  Timer? _loadTimeout;
+  bool _mediaFailed = false;
+  int _mediaAttempt = 0;
 
   @override
   void initState() {
     super.initState();
     if (widget.kind == 'video') {
-      _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url))
-        ..initialize().then((_) {
-          if (mounted) setState(() {});
+      _initializeVideo();
+    } else {
+      _startLoadTimeout();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _AdvisoryMedia oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.url == widget.url && oldWidget.kind == widget.kind) return;
+    _loadTimeout?.cancel();
+    final previousController = _controller;
+    _controller = null;
+    if (previousController != null) {
+      previousController.removeListener(_handleVideoValue);
+      unawaited(previousController.dispose());
+    }
+    _mediaFailed = false;
+    _mediaAttempt = 0;
+    if (widget.kind == 'video') {
+      _initializeVideo();
+    } else {
+      _startLoadTimeout();
+    }
+  }
+
+  void _startLoadTimeout() {
+    _loadTimeout?.cancel();
+    _loadTimeout = Timer(_mediaLoadTimeout, () {
+      if (mounted) setState(() => _mediaFailed = true);
+    });
+  }
+
+  void _initializeVideo() {
+    _mediaFailed = false;
+    _startLoadTimeout();
+    final controller = VideoPlayerController.networkUrl(Uri.parse(widget.url));
+    _controller = controller;
+    controller.addListener(_handleVideoValue);
+    controller
+        .initialize()
+        .then((_) {
+          if (!mounted || controller != _controller) return;
+          _loadTimeout?.cancel();
+          setState(() {});
+        })
+        .catchError((Object _) {
+          if (!mounted || controller != _controller) return;
+          _loadTimeout?.cancel();
+          setState(() => _mediaFailed = true);
         });
+  }
+
+  void _handleVideoValue() {
+    final controller = _controller;
+    if (controller == null ||
+        !controller.value.hasError ||
+        _mediaFailed ||
+        !mounted) {
+      return;
+    }
+    _loadTimeout?.cancel();
+    setState(() => _mediaFailed = true);
+  }
+
+  void _retryMedia() {
+    setState(() {
+      _mediaAttempt++;
+      _mediaFailed = false;
+    });
+    if (widget.kind == 'video') {
+      final oldController = _controller;
+      _controller = null;
+      if (oldController != null) {
+        oldController.removeListener(_handleVideoValue);
+        unawaited(oldController.dispose());
+      }
+      _initializeVideo();
+    } else {
+      _startLoadTimeout();
     }
   }
 
   @override
   void dispose() {
-    _controller?.dispose();
+    _loadTimeout?.cancel();
+    final controller = _controller;
+    if (controller != null) {
+      controller.removeListener(_handleVideoValue);
+      unawaited(controller.dispose());
+    }
     super.dispose();
   }
 
+  Widget _mediaError(BuildContext context) => SizedBox(
+    height: 170,
+    width: double.infinity,
+    child: ColoredBox(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.broken_image_outlined,
+            color: infraMutedTextColor(context),
+            size: 28,
+          ),
+          const SizedBox(height: 5),
+          Text(
+            'Media could not be loaded',
+            style: TextStyle(color: infraMutedTextColor(context), fontSize: 11),
+          ),
+          TextButton(onPressed: _retryMedia, child: const Text('Retry')),
+        ],
+      ),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
+    if (_mediaFailed) return _mediaError(context);
     if (widget.kind == 'gif') {
       return SizedBox(
         height: 170,
@@ -961,8 +1077,12 @@ class _AdvisoryMediaState extends State<_AdvisoryMedia> {
             fit: BoxFit.cover,
             alignment: Alignment.center,
             gaplessPlayback: true,
+            key: ValueKey('${widget.url}-$_mediaAttempt'),
             frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-              if (wasSynchronouslyLoaded || frame != null) return child;
+              if (wasSynchronouslyLoaded || frame != null) {
+                _loadTimeout?.cancel();
+                return child;
+              }
               return const SkeletonShimmer(
                 child: SkeletonBlock(
                   height: 170,
@@ -971,12 +1091,7 @@ class _AdvisoryMediaState extends State<_AdvisoryMedia> {
                 ),
               );
             },
-            errorBuilder: (_, _, _) => const ColoredBox(
-              color: deepNavy,
-              child: Center(
-                child: Icon(Icons.broken_image_outlined, color: Colors.white),
-              ),
-            ),
+            errorBuilder: (_, _, _) => _mediaError(context),
           ),
         ),
       );
@@ -987,8 +1102,12 @@ class _AdvisoryMediaState extends State<_AdvisoryMedia> {
         height: 170,
         width: double.infinity,
         fit: BoxFit.cover,
+        key: ValueKey('${widget.url}-$_mediaAttempt'),
         frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-          if (wasSynchronouslyLoaded || frame != null) return child;
+          if (wasSynchronouslyLoaded || frame != null) {
+            _loadTimeout?.cancel();
+            return child;
+          }
           return const SkeletonShimmer(
             child: SkeletonBlock(
               height: 170,
@@ -997,18 +1116,12 @@ class _AdvisoryMediaState extends State<_AdvisoryMedia> {
             ),
           );
         },
-        errorBuilder: (_, _, _) => const SizedBox(
-          height: 170,
-          child: ColoredBox(
-            color: deepNavy,
-            child: Center(
-              child: Icon(Icons.broken_image_outlined, color: Colors.white),
-            ),
-          ),
-        ),
+        errorBuilder: (_, _, _) => _mediaError(context),
       );
     }
-    if (_controller == null || !_controller!.value.isInitialized) {
+    if (_controller == null ||
+        !_controller!.value.isInitialized ||
+        _controller!.value.hasError) {
       return const SkeletonShimmer(
         child: SkeletonBlock(height: 150, width: double.infinity, radius: 0),
       );

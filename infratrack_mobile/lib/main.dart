@@ -2045,6 +2045,7 @@ class _MainShellState extends State<MainShell> {
                         return;
                       }
                       setState(() => index = value);
+                      if (value == 3) unawaited(_refreshPage(value));
                     },
                     destinations: const [
                       NavigationDestination(
