@@ -190,18 +190,16 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
     const refreshDashboard = async () => {
       try {
         const scope = `?userId=${encodeURIComponent(user.id)}`;
-        const [issueResponse, userResponse, teamResponse] = await Promise.all([
-          apiFetch(`/issues${scope}`),
+        const [userResponse, teamResponse] = await Promise.all([
           apiFetch(`/users${scope}`),
           apiFetch("/teams"),
         ]);
-        if (!issueResponse.ok || !userResponse.ok || !teamResponse.ok) {
+        if (!userResponse.ok || !teamResponse.ok) {
           throw new Error(
-            `API request failed (${issueResponse.status}/${userResponse.status}/${teamResponse.status})`,
+            `API request failed (${userResponse.status}/${teamResponse.status})`,
           );
         }
-        const [issueData, userData, teamData] = await Promise.all([
-          issueResponse.json(),
+        const [userData, teamData] = await Promise.all([
           userResponse.json(),
           teamResponse.json(),
         ]);
@@ -210,7 +208,6 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
           throw new Error(`API request failed (${overviewResponse.status})`);
         const overviewData = await overviewResponse.json();
         if (active) {
-          setIssues(issueData.issues ?? []);
           setUsers(userData.users ?? []);
           setTeams(teamData.teams ?? []);
           setOverviewData(overviewData);
@@ -229,13 +226,39 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
       }
     };
 
+    const refreshIssues = async () => {
+      try {
+        const response = await apiFetch(
+          `/issues?userId=${encodeURIComponent(user.id)}`,
+        );
+        if (!response.ok) {
+          throw new Error(`Issue refresh failed (${response.status})`);
+        }
+        const data = await response.json();
+        if (active) setIssues(data.issues ?? []);
+      } catch (error) {
+        if (active) {
+          setApiError(
+            error instanceof Error
+              ? error.message
+              : "Could not refresh the issue queue",
+          );
+        }
+      }
+    };
+
     const stopPolling = startVisiblePolling(refreshDashboard, {
       documentRef: document,
       intervalMs: 30_000,
     });
+    const stopIssuePolling = startVisiblePolling(refreshIssues, {
+      documentRef: document,
+      intervalMs: 5_000,
+    });
     return () => {
       active = false;
       stopPolling();
+      stopIssuePolling();
     };
   }, [isBarangayStaff, user.id]);
 
@@ -646,7 +669,12 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
                     </span>
                     <span className="profile-dropdown-user">
                       <strong>{userName}</strong>
-                      <small>{user.email || (isBarangayStaff ? user.barangay : "Mati City administrator")}</small>
+                      <small>
+                        {user.email ||
+                          (isBarangayStaff
+                            ? user.barangay
+                            : "Mati City administrator")}
+                      </small>
                     </span>
                   </div>
                   <button
@@ -664,7 +692,9 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
                     onClick={() => profilePhotoInputRef.current?.click()}
                   >
                     <Camera size={16} aria-hidden="true" />
-                    <span>{photoUploading ? "Uploading photo…" : "Change photo"}</span>
+                    <span>
+                      {photoUploading ? "Uploading photo…" : "Change photo"}
+                    </span>
                   </button>
                   <input
                     ref={profilePhotoInputRef}
@@ -997,7 +1027,9 @@ function Overview({ issues, overviewData, onOpenIssue, onNavigate, user }) {
   const activeIssues = issues.filter(
     (issue) =>
       !["resolved", "rejected", "archived"].includes(
-        String(issue.status || "").trim().toLowerCase(),
+        String(issue.status || "")
+          .trim()
+          .toLowerCase(),
       ),
   );
   const criticalCount = activeIssues.filter(
@@ -1018,7 +1050,9 @@ function Overview({ issues, overviewData, onOpenIssue, onNavigate, user }) {
           <h2>
             {greeting}, {firstName}.
           </h2>
-          <div className={`overview-attention ${summary.activeCount === 0 ? "all-clear" : ""}`}>
+          <div
+            className={`overview-attention ${summary.activeCount === 0 ? "all-clear" : ""}`}
+          >
             <span className="overview-attention-dot" />
             <span>
               {summary.activeCount === 0
@@ -1027,7 +1061,10 @@ function Overview({ issues, overviewData, onOpenIssue, onNavigate, user }) {
             </span>
           </div>
         </div>
-        <aside className="overview-operations-snapshot" aria-label="Operations snapshot">
+        <aside
+          className="overview-operations-snapshot"
+          aria-label="Operations snapshot"
+        >
           <div className="overview-snapshot-heading">
             <span className="overview-snapshot-location">
               <MapPin size={14} aria-hidden="true" />
