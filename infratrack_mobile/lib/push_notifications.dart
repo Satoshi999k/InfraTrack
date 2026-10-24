@@ -9,16 +9,6 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'api_service.dart';
 
-const _firebaseApiKey = String.fromEnvironment('FIREBASE_API_KEY');
-const _firebaseAppId = String.fromEnvironment('FIREBASE_APP_ID');
-const _firebaseMessagingSenderId = String.fromEnvironment(
-  'FIREBASE_MESSAGING_SENDER_ID',
-);
-const _firebaseProjectId = String.fromEnvironment('FIREBASE_PROJECT_ID');
-const _firebaseStorageBucket = String.fromEnvironment(
-  'FIREBASE_STORAGE_BUCKET',
-);
-
 class PushNotifications {
   PushNotifications._();
 
@@ -35,27 +25,10 @@ class PushNotifications {
   void Function(Map<String, dynamic> data)? onNotificationTap;
   Map<String, dynamic>? _pendingNotificationTap;
   bool _initialized = false;
-  bool _configurationWarningLogged = false;
   String? _currentToken;
-
-  bool get _isConfigured =>
-      _firebaseApiKey.isNotEmpty &&
-      _firebaseAppId.isNotEmpty &&
-      _firebaseMessagingSenderId.isNotEmpty &&
-      _firebaseProjectId.isNotEmpty;
 
   Future<void> initialize({required bool authenticated}) async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
-    if (!_isConfigured) {
-      if (!_configurationWarningLogged) {
-        debugPrint(
-          'InfraTrack push notifications are disabled until Firebase Android '
-          'configuration is supplied with FIREBASE_* dart-defines.',
-        );
-        _configurationWarningLogged = true;
-      }
-      return;
-    }
 
     try {
       await (_initializing ??= _initialize());
@@ -78,17 +51,7 @@ class PushNotifications {
   }
 
   Future<void> _initialize() async {
-    await Firebase.initializeApp(
-      options: FirebaseOptions(
-        apiKey: _firebaseApiKey,
-        appId: _firebaseAppId,
-        messagingSenderId: _firebaseMessagingSenderId,
-        projectId: _firebaseProjectId,
-        storageBucket: _firebaseStorageBucket.isEmpty
-            ? null
-            : _firebaseStorageBucket,
-      ),
-    );
+    await Firebase.initializeApp();
 
     await _localNotifications.initialize(
       settings: const InitializationSettings(
@@ -180,7 +143,7 @@ class PushNotifications {
   }
 
   Future<String?> currentTokenForLogout() async {
-    if (!_isConfigured || !_initialized) return null;
+    if (!_initialized) return null;
     try {
       // Keep logout tied to the same FCM token registered with the backend.
       // ignore: deprecated_member_use

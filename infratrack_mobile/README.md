@@ -36,39 +36,27 @@ Push notifications use Firebase Cloud Messaging (FCM). The app continues to
 work without Firebase configuration, but push delivery stays disabled until
 both the Android app and API server are configured.
 
-1. Create a Firebase project and register an Android app using the exact
-   application ID from `android/app/build.gradle.kts` (`com.example.infatrack`).
-2. In Firebase project settings, copy the Android app's API key and App ID, plus
-   the project ID and messaging sender ID. Put those values in a local
-   `firebase-config.json` file in this Flutter project:
-
-   ```json
-   {
-     "FIREBASE_API_KEY": "your Firebase web API key",
-     "FIREBASE_APP_ID": "your Android Firebase App ID",
-     "FIREBASE_MESSAGING_SENDER_ID": "your Firebase sender ID",
-     "FIREBASE_PROJECT_ID": "your Firebase project ID",
-     "FIREBASE_STORAGE_BUCKET": "your Firebase storage bucket"
-   }
-   ```
-
-   This file is git-ignored. It contains client configuration, not server
-   credentials.
+1. Register an Android app in your Firebase project using the exact application
+   ID from `android/app/build.gradle.kts` (`com.example.infatrack`).
+2. Download that app's `google-services.json` and place it at
+   `android/app/google-services.json`. The Google Services Gradle plugin reads
+   this file to configure native Firebase Messaging, including background and
+   terminated-app delivery.
 3. Create a Firebase service-account key for the server. Store its full JSON
    contents as the `FIREBASE_SERVICE_ACCOUNT_JSON` secret in the API server's
    hosting environment. Never put this key in the Flutter app, repository, or
    chat.
 4. Deploy/restart the API server so it creates the `push_device_tokens` table
    and can send FCM messages.
-5. Run the Android app with the local Firebase options:
+5. Run the Android app normally:
 
    ```powershell
-   D:\flutter\bin\flutter.bat run --dart-define-from-file=firebase-config.json
+   D:\flutter\bin\flutter.bat run
    ```
 
-   Use the same define file when building an Android release. Android 13 and
-   newer will ask the user for notification permission. Push token registration
-   requires a signed-in user; tapping city-update notifications opens News.
+   Android 13 and newer will ask the user for notification permission. Push
+   token registration requires a signed-in user; tapping city-update
+   notifications opens News.
 
 Push credentials are separate: the app's Firebase values are client settings;
 the service-account JSON is a private server credential. iOS/APNs delivery is
