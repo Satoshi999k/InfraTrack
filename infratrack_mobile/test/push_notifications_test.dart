@@ -12,14 +12,18 @@ void main() {
     expect(details.setAsGroupSummary, isFalse);
     expect(details.groupAlertBehavior, GroupAlertBehavior.children);
     expect(details.onlyAlertOnce, isTrue);
+    expect(details.channelId, infraTrackNotificationChannelId);
     expect(details.importance, Importance.high);
     expect(details.priority, Priority.high);
+    expect(details.playSound, isTrue);
+    expect(details.enableVibration, isTrue);
   });
 
   test('group summary is silent and displays an inbox-style digest', () {
     final details = groupedNotificationDetails(groupSummary: true).android!;
 
     expect(details.groupKey, isNotEmpty);
+    expect(details.channelId, infraTrackNotificationChannelId);
     expect(details.setAsGroupSummary, isTrue);
     expect(details.groupAlertBehavior, GroupAlertBehavior.children);
     expect(details.playSound, isFalse);

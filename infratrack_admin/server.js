@@ -438,7 +438,7 @@ async function sendNotificationPush(notification) {
       android: {
         priority: "high",
         notification: {
-          channelId: "infratrack_city_updates",
+          channelId: "infratrack_city_updates_v2",
           sound: "default",
           ...(notification.image_url
             ? { imageUrl: notification.image_url }

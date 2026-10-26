@@ -11,6 +11,7 @@ import 'package:http/http.dart' as http;
 
 import 'api_service.dart';
 
+const infraTrackNotificationChannelId = 'infratrack_city_updates_v2';
 const _notificationGroupKey = 'com.example.infatrack.updates';
 const _notificationSummaryId = 0;
 
@@ -22,7 +23,7 @@ NotificationDetails groupedNotificationDetails({
   Uint8List? imageBytes,
 }) => NotificationDetails(
   android: AndroidNotificationDetails(
-    'infratrack_city_updates',
+    infraTrackNotificationChannelId,
     'InfraTrack updates',
     channelDescription: 'Announcements and other InfraTrack notifications.',
     importance: Importance.high,
@@ -118,7 +119,7 @@ class PushNotifications {
   PushNotifications._();
 
   static final instance = PushNotifications._();
-  static const _channelId = 'infratrack_city_updates';
+  static const _channelId = infraTrackNotificationChannelId;
   static const _channelName = 'InfraTrack updates';
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
@@ -140,6 +141,8 @@ class PushNotifications {
       _channelName,
       description: 'Announcements and other InfraTrack notifications.',
       importance: Importance.high,
+      playSound: true,
+      enableVibration: true,
     );
     await notifications
         .resolvePlatformSpecificImplementation<
