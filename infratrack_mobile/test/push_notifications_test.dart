@@ -8,6 +8,7 @@ void main() {
   test('individual notifications share one Android notification group', () {
     final details = groupedNotificationDetails(groupSummary: false).android!;
 
+    expect(infraTrackNotificationChannelId, 'infratrack_city_updates_v3');
     expect(details.groupKey, isNotEmpty);
     expect(details.setAsGroupSummary, isFalse);
     expect(details.groupAlertBehavior, GroupAlertBehavior.children);

@@ -11,7 +11,7 @@ import 'package:http/http.dart' as http;
 
 import 'api_service.dart';
 
-const infraTrackNotificationChannelId = 'infratrack_city_updates_v2';
+const infraTrackNotificationChannelId = 'infratrack_city_updates_v3';
 const _notificationGroupKey = 'com.example.infatrack.updates';
 const _notificationSummaryId = 0;
 
