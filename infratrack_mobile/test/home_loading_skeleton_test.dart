@@ -57,7 +57,8 @@ void main() {
       issuesResponse.complete(http.Response(jsonEncode({'issues': []}), 200));
       await tester.pumpAndSettle();
 
-      expect(find.text('Spot an infrastructure issue?'), findsOneWidget);
+      expect(find.text('Spot an infrastructure issue?'), findsNothing);
+      expect(find.text('Trako'), findsOneWidget);
       expect(find.text('Reports near you'), findsOneWidget);
       expect(find.text('Your community, in focus'), findsOneWidget);
     } finally {

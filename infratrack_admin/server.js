@@ -1473,6 +1473,7 @@ app.get("/api/mobile/advisories/:id/social", async (req, res) => {
     user_has_reacted: Boolean(reactionSummary.user_has_reacted),
     comments: comments.reverse().map((comment) => ({
       id: comment.id,
+      parent_comment_id: comment.parent_comment_id,
       body: comment.body,
       author_name: comment.author_name || "Former user",
       created_at: comment.created_at,

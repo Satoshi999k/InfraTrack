@@ -156,8 +156,6 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                   ),
-                  _ReportIssueCallout(onTap: () => _openReport(context)),
-                  const SizedBox(height: 16),
                   if (_featuredStories.isNotEmpty)
                     _FeaturedBanner(
                       stories: _featuredStories,
@@ -361,15 +359,10 @@ class _HomePageState extends State<HomePage> {
     final shell = context.findAncestorStateOfType<_MainShellState>();
     shell?.setState(() => shell.index = 1);
   }
-
-  void _openReport(BuildContext context) {
-    final shell = context.findAncestorStateOfType<_MainShellState>();
-    shell?.setState(() => shell.index = 2);
-  }
 }
 
-class _ReportIssueCallout extends StatelessWidget {
-  const _ReportIssueCallout({required this.onTap});
+class ReportIssueCallout extends StatelessWidget {
+  const ReportIssueCallout({super.key, required this.onTap});
 
   final VoidCallback onTap;
 
@@ -509,83 +502,110 @@ class _TrakoWelcomeCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Material(
-        color: theme.colorScheme.primary.withValues(alpha: .08),
-        borderRadius: BorderRadius.circular(20),
+        color: Colors.transparent,
         child: InkWell(
           key: const ValueKey('home-trako-welcome'),
           onTap: onTap,
           borderRadius: BorderRadius.circular(20),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 14, 10),
-            child: Row(
-              children: [
-                Image.asset(
-                  'assets/chatbot_character/chatbot_face/thumbs_up.png',
-                  width: 76,
-                  height: 82,
-                  fit: BoxFit.contain,
-                  semanticLabel: 'Trako, your InfraTrack assistant',
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 13,
-                      vertical: 11,
-                    ),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surface,
-                      borderRadius: BorderRadius.circular(15),
-                      border: Border.all(
-                        color: theme.colorScheme.outline.withValues(alpha: .7),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Trako',
-                          style: TextStyle(
-                            color: theme.colorScheme.primary,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          'Hi $firstName! Need help reporting an issue or checking a city update? I’m here to help.',
-                          style: TextStyle(
-                            color: theme.colorScheme.onSurface,
-                            fontSize: 11,
-                            height: 1.4,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'Chat with Trako',
-                              style: TextStyle(
-                                color: theme.colorScheme.primary,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                              ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Image.asset(
+                'assets/chatbot_character/chatbot_face/thumbs_up.png',
+                key: const ValueKey('home-trako-mascot'),
+                width: 132,
+                height: 154,
+                fit: BoxFit.contain,
+                alignment: Alignment.bottomCenter,
+                semanticLabel: 'Trako, your InfraTrack assistant',
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 4, bottom: 17),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Positioned(
+                        left: 0,
+                        top: 29,
+                        child: Transform.rotate(
+                          angle: math.pi / 4,
+                          child: Container(
+                            width: 18,
+                            height: 18,
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.surface,
+                              borderRadius: BorderRadius.circular(3),
                             ),
-                            const SizedBox(width: 3),
-                            Icon(
-                              Icons.arrow_forward_rounded,
-                              size: 13,
-                              color: theme.colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        margin: const EdgeInsets.only(left: 8),
+                        padding: const EdgeInsets.fromLTRB(15, 13, 13, 12),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surface,
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(18),
+                            topRight: Radius.circular(18),
+                            bottomRight: Radius.circular(18),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: navy.withValues(alpha: .08),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
                             ),
                           ],
                         ),
-                      ],
-                    ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Trako',
+                              style: TextStyle(
+                                color: theme.colorScheme.primary,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              'Hi $firstName! Need help reporting an issue or checking a city update? I’m here to help.',
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurface,
+                                fontSize: 12,
+                                height: 1.45,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Chat with Trako',
+                                  style: TextStyle(
+                                    color: theme.colorScheme.primary,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                const SizedBox(width: 3),
+                                Icon(
+                                  Icons.arrow_forward_rounded,
+                                  size: 14,
+                                  color: theme.colorScheme.primary,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

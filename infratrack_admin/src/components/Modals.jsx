@@ -98,6 +98,24 @@ function AdvisoryEngagementModal({ data, onClose }) {
         if (!response.ok) {
           throw new Error(result.error || "Could not load advisory activity.");
         }
+        if (
+          !result ||
+          typeof result !== "object" ||
+          !Array.isArray(result.comments) ||
+          !Array.isArray(result.reactions)
+        ) {
+          throw new Error("The server returned invalid advisory activity.");
+        }
+        if (
+          result.comments.some(
+            (comment) => !comment || typeof comment !== "object",
+          ) ||
+          result.reactions.some(
+            (reaction) => !reaction || typeof reaction !== "object",
+          )
+        ) {
+          throw new Error("The server returned invalid advisory activity.");
+        }
         if (active) setEngagement(result);
       } catch (loadError) {
         if (active) {
@@ -119,8 +137,12 @@ function AdvisoryEngagementModal({ data, onClose }) {
   }, [data.advisoryId]);
 
   const advisory = engagement?.advisory;
-  const comments = engagement?.comments ?? [];
-  const reactions = engagement?.reactions ?? [];
+  const comments = Array.isArray(engagement?.comments)
+    ? engagement.comments
+    : [];
+  const reactions = Array.isArray(engagement?.reactions)
+    ? engagement.reactions
+    : [];
   const commentsById = new Map(
     comments.map((comment) => [Number(comment.id), comment]),
   );

@@ -304,6 +304,12 @@ void main() {
       expect(find.text('City Administrator'), findsOneWidget);
       expect(find.text('4'), findsOneWidget);
       expect(find.byType(TextField), findsOneWidget);
+      final nestedReply = find.byWidgetPredicate(
+        (widget) =>
+            widget is Container &&
+            widget.margin == const EdgeInsets.only(left: 24, bottom: 12),
+      );
+      expect(nestedReply, findsOneWidget);
 
       final replyButton = find.widgetWithText(TextButton, 'Reply').first;
       await tester.ensureVisible(replyButton);
@@ -312,6 +318,21 @@ void main() {
       await tester.pumpAndSettle();
       final commentField = tester.widget<TextField>(find.byType(TextField));
       expect(commentField.controller!.text, '@Mati Resident ');
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Read more'));
+      await tester.pumpAndSettle();
+
+      expect(socialRequestCount, 2);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Container &&
+              widget.margin == const EdgeInsets.only(left: 24, bottom: 12),
+        ),
+        findsOneWidget,
+      );
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
       ApiService.httpClientFactory = originalClientFactory;

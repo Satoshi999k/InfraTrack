@@ -115,6 +115,18 @@ void main() {
           find.byKey(const ValueKey('home-trako-welcome')),
           findsOneWidget,
         );
+        final mascot = tester.widget<Image>(
+          find.byKey(const ValueKey('home-trako-mascot')),
+        );
+        expect(mascot.width, 132);
+        expect(
+          mascot.image,
+          isA<AssetImage>().having(
+            (image) => image.assetName,
+            'assetName',
+            'assets/chatbot_character/chatbot_face/thumbs_up.png',
+          ),
+        );
         await tester.tap(find.byKey(const ValueKey('home-trako-welcome')));
         await tester.pumpAndSettle();
         expect(find.byType(ChatbotPage), findsOneWidget);
