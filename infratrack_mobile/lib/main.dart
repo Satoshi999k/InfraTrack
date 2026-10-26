@@ -496,26 +496,21 @@ class _AppLoadingPageState extends State<AppLoadingPage>
                                     painter: _StartupOrbitPainter(),
                                   ),
                                 ),
-                                Transform.scale(
-                                  scale: markScale,
-                                  child: Container(
-                                    width: 92,
-                                    height: 92,
-                                    decoration: BoxDecoration(
-                                      color: clay,
-                                      borderRadius: BorderRadius.circular(27),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: clay.withValues(alpha: .28),
-                                          blurRadius: 24,
-                                          spreadRadius: 1,
-                                        ),
-                                      ],
-                                    ),
-                                    child: const Icon(
-                                      Icons.add_location_alt,
-                                      color: Colors.white,
-                                      size: 43,
+                                Transform.translate(
+                                  offset: Offset(
+                                    0,
+                                    _reduceMotion == true
+                                        ? 0
+                                        : math.sin(progress * math.pi * 2) * 5,
+                                  ),
+                                  child: Transform.scale(
+                                    scale: markScale,
+                                    child: Image.asset(
+                                      'assets/chatbot_character/chatbot_face/mascot.png',
+                                      width: 132,
+                                      height: 150,
+                                      fit: BoxFit.contain,
+                                      semanticLabel: 'Trako loading',
                                     ),
                                   ),
                                 ),
@@ -523,22 +518,38 @@ class _AppLoadingPageState extends State<AppLoadingPage>
                             ),
                           ),
                           const SizedBox(height: 24),
-                          const Text.rich(
-                            TextSpan(
-                              children: [
-                                TextSpan(text: 'Infra'),
-                                TextSpan(
-                                  text: 'Track',
-                                  style: TextStyle(color: brandOrange),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.asset(
+                                  'assets/chatbot_character/chatbot_face/logo (2).png',
+                                  width: 34,
+                                  height: 34,
+                                  fit: BoxFit.cover,
+                                  semanticLabel: 'InfraTrack logo',
                                 ),
-                              ],
-                            ),
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 30,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -.4,
-                            ),
+                              ),
+                              const SizedBox(width: 10),
+                              const Text.rich(
+                                TextSpan(
+                                  children: [
+                                    TextSpan(text: 'Infra'),
+                                    TextSpan(
+                                      text: 'Track',
+                                      style: TextStyle(color: brandOrange),
+                                    ),
+                                  ],
+                                ),
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 30,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -.4,
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 6),
                           const Text(

@@ -18,11 +18,32 @@ void main() {
     expect(find.text('Restoring your session…'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(find.byType(AppLoadingPage), findsOneWidget);
+    final mascotFinder = find.byWidgetPredicate(
+      (widget) =>
+          widget is Image &&
+          widget.image is AssetImage &&
+          (widget.image as AssetImage).assetName ==
+              'assets/chatbot_character/chatbot_face/mascot.png',
+    );
+    expect(mascotFinder, findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is AssetImage &&
+            (widget.image as AssetImage).assetName ==
+                'assets/chatbot_character/chatbot_face/logo (2).png',
+      ),
+      findsOneWidget,
+    );
+    final mascotStartY = tester.getTopLeft(mascotFinder).dy;
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(tester.getTopLeft(mascotFinder).dy, isNot(mascotStartY));
 
-    await tester.pump(const Duration(milliseconds: 2800));
+    await tester.pump(const Duration(milliseconds: 2200));
     expect(find.byType(AppLoadingPage), findsOneWidget);
 
-    await tester.pump(const Duration(milliseconds: 150));
+    await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
 
     expect(find.byType(AppLoadingPage), findsNothing);
