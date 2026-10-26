@@ -1077,49 +1077,53 @@ function Overview({ issues, overviewData, onOpenIssue, onNavigate, user }) {
 
   return (
     <div className="dashboard-overview">
-      <OverviewCalendar issues={issues} onOpenIssue={onOpenIssue} />
-      <div className="kpi-grid">
-        <Kpi
-          icon={FileText}
-          label="All reports"
-          value={summary.totalCount}
-          helper="In your work area"
-          tone="teal"
-        />
-        <Kpi
-          icon={Activity}
-          label="Open reports"
-          value={summary.activeCount}
-          helper="Still need follow-up"
-          tone="clay"
-        />
-        <Kpi
-          icon={Wrench}
-          label="Being worked on"
-          value={summary.inProgressIssues.length}
-          helper="Work is underway"
-          tone="green"
-        />
-        <Kpi
-          icon={CheckCircle2}
-          label="Completed"
-          value={summary.completedCount}
-          helper="Marked as resolved"
-          tone="amber"
-        />
-      </div>
+      <div className="dashboard-overview-main">
+        <div className="kpi-grid">
+          <Kpi
+            icon={FileText}
+            label="All reports"
+            value={summary.totalCount}
+            helper="In your work area"
+            tone="teal"
+          />
+          <Kpi
+            icon={Activity}
+            label="Open reports"
+            value={summary.activeCount}
+            helper="Still need follow-up"
+            tone="clay"
+          />
+          <Kpi
+            icon={Wrench}
+            label="Being worked on"
+            value={summary.inProgressIssues.length}
+            helper="Work is underway"
+            tone="green"
+          />
+          <Kpi
+            icon={CheckCircle2}
+            label="Completed"
+            value={summary.completedCount}
+            helper="Marked as resolved"
+            tone="amber"
+          />
+        </div>
 
-      <div className="two-column">
-        <MapCard issues={issues} onOpenIssue={onOpenIssue} user={user} />
-        <LatestReportsCard
-          issues={issues}
-          onOpenIssue={onOpenIssue}
-          onNavigate={onNavigate}
-        />
-      </div>
+        <div className="two-column overview-map-calendar-row">
+          <MapCard issues={issues} onOpenIssue={onOpenIssue} user={user} />
+          <OverviewCalendar issues={issues} onOpenIssue={onOpenIssue} />
+        </div>
 
-      <div className="two-column lower">
-        <CategoryCard categories={overviewData?.categories ?? []} />
+        <div className="two-column overview-latest-category-row">
+          <LatestReportsCard
+            issues={issues}
+            onOpenIssue={onOpenIssue}
+            onNavigate={onNavigate}
+          />
+          <CategoryCard categories={overviewData?.categories ?? []} />
+        </div>
+      </div>
+      <div className="dashboard-overview-team">
         <TeamCard teams={overviewData?.teams ?? []} />
       </div>
     </div>
