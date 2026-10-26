@@ -174,6 +174,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
       group: group,
       title: title,
       message: item['message'] as String? ?? '',
+      imageUrl: publicMediaUrl(item['image_url']?.toString()),
       time: createdAt?.toLocal().toString().split('.').first ?? '',
       label: type == 'City updates'
           ? switch (rawType) {
@@ -519,6 +520,7 @@ class _NotificationItem {
     required this.group,
     required this.title,
     required this.message,
+    required this.imageUrl,
     required this.time,
     required this.label,
     required this.color,
@@ -529,6 +531,7 @@ class _NotificationItem {
   });
   final int id;
   final String group, title, message, time, label, type;
+  final String? imageUrl;
   final Color color;
   final IconData icon;
   final bool unread;
@@ -665,6 +668,19 @@ class _NotificationCard extends StatelessWidget {
                       height: 1.35,
                     ),
                   ),
+                  if (item.imageUrl != null) ...[
+                    const SizedBox(height: 10),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(
+                        item.imageUrl!,
+                        width: double.infinity,
+                        height: 140,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   Row(
                     children: [

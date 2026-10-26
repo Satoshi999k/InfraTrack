@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:http/http.dart' as http;
 
 import 'api_service.dart';
 
@@ -17,6 +19,7 @@ NotificationDetails groupedNotificationDetails({
   int notificationCount = 1,
   String? latestTitle,
   String? latestBody,
+  Uint8List? imageBytes,
 }) => NotificationDetails(
   android: AndroidNotificationDetails(
     'infratrack_city_updates',
@@ -38,9 +41,58 @@ NotificationDetails groupedNotificationDetails({
             summaryText:
                 '$notificationCount ${notificationCount == 1 ? 'update' : 'updates'} · Tap to view all notifications.',
           )
-        : null,
+        : imageBytes == null
+        ? null
+        : BigPictureStyleInformation(
+            ByteArrayAndroidBitmap(imageBytes),
+            contentTitle: latestTitle,
+            summaryText: latestBody,
+            showBigPictureWhenCollapsed: true,
+          ),
   ),
 );
+
+Future<Uint8List?> _downloadNotificationImage(String? imageUrl) async {
+  if (imageUrl == null || imageUrl.isEmpty) return null;
+  final uri = Uri.tryParse(imageUrl);
+  if (uri == null ||
+      !const {'http', 'https'}.contains(uri.scheme) ||
+      uri.host.isEmpty) {
+    return null;
+  }
+
+  final client = http.Client();
+  try {
+    final response = await client
+        .send(http.Request('GET', uri)..headers['Accept'] = 'image/*')
+        .timeout(const Duration(seconds: 6));
+    final contentType = response.headers['content-type']?.toLowerCase() ?? '';
+    final contentLength = int.tryParse(
+      response.headers['content-length'] ?? '',
+    );
+    if (response.statusCode != 200 ||
+        !contentType.startsWith('image/') ||
+        (contentLength != null && contentLength > 4 * 1024 * 1024)) {
+      return null;
+    }
+
+    final imageBytes = BytesBuilder(copy: false);
+    await for (final chunk in response.stream.timeout(
+      const Duration(seconds: 6),
+    )) {
+      if (imageBytes.length + chunk.length > 4 * 1024 * 1024) return null;
+      imageBytes.add(chunk);
+    }
+    final bytes = imageBytes.takeBytes();
+    return bytes.isEmpty ? null : bytes;
+  } catch (error, stackTrace) {
+    debugPrint('Could not download notification image: $error');
+    debugPrintStack(stackTrace: stackTrace);
+    return null;
+  } finally {
+    client.close();
+  }
+}
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -112,12 +164,22 @@ class PushNotifications {
     final childId = parsedId != null && parsedId > 0
         ? parsedId
         : (message.messageId?.hashCode.abs() ?? 1).clamp(1, 0x7ffffffe).toInt();
+    final imageBytes = message.data['advisoryId'] == null
+        ? null
+        : await _downloadNotificationImage(
+            message.data['imageUrl']?.toString(),
+          );
 
     await notifications.show(
       id: childId,
       title: title,
       body: body,
-      notificationDetails: groupedNotificationDetails(groupSummary: false),
+      notificationDetails: groupedNotificationDetails(
+        groupSummary: false,
+        latestTitle: title,
+        latestBody: body,
+        imageBytes: imageBytes,
+      ),
       payload: payload,
     );
     final activeNotifications = await notifications.getActiveNotifications();

@@ -418,6 +418,7 @@ async function sendNotificationPush(notification) {
       type: notification.type,
       title: notification.title,
       message: String(notification.message).slice(0, 1000),
+      imageUrl: notification.image_url,
     })
       .filter(([, value]) => value !== null && value !== undefined)
       .map(([key, value]) => [key, String(value)]),
@@ -489,6 +490,7 @@ async function queueAdvisoryNotifications({
   title,
   message,
   audience,
+  imageUrl = null,
 }) {
   const allBarangays = audience === "All barangays";
   const targetBarangay = allBarangays
@@ -537,7 +539,7 @@ async function queueAdvisoryNotifications({
     [advisoryId, notificationType, title],
   );
   for (const notification of queuedNotifications) {
-    await deliverNotificationPush(notification);
+    await deliverNotificationPush({ ...notification, image_url: imageUrl });
   }
 }
 
@@ -1711,10 +1713,22 @@ app.post("/api/mobile/reports", async (req, res) => {
 });
 app.get("/api/mobile/notifications", async (req, res) => {
   const [notifications] = await pool.query(
-    "SELECT id, report_id, advisory_id, type, title, message, read_at, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 100",
+    `SELECT n.id, n.report_id, n.advisory_id, n.type, n.title, n.message,
+      n.read_at, n.created_at,
+      (SELECT am.file_path FROM advisory_media am
+       WHERE am.advisory_id = n.advisory_id
+         AND am.media_type IN ('photo', 'gif', 'image')
+       ORDER BY am.id DESC LIMIT 1) AS image_url
+     FROM notifications n
+     WHERE n.user_id = ? ORDER BY n.created_at DESC LIMIT 100`,
     [req.auth.id],
   );
-  res.json({ notifications });
+  res.json({
+    notifications: notifications.map((notification) => ({
+      ...notification,
+      image_url: publicMediaUrl(req, notification.image_url),
+    })),
+  });
 });
 app.post("/api/mobile/push-tokens", async (req, res) => {
   const token = String(req.body?.token ?? "").trim();
@@ -2623,6 +2637,10 @@ app.post("/api/advisories", async (req, res) => {
     title: title.trim(),
     message: message.trim(),
     audience: targetAudience,
+    imageUrl:
+      ["photo", "gif", "image"].includes(String(mediaKind || "photo").toLowerCase())
+        ? publicMediaUrl(req, mediaUrl)
+        : null,
   });
   const [advisories] = await pool.query("SELECT * FROM advisories WHERE id = ?", [result.insertId]);
   await writeAuditLog(req, { actorId: adminId, action: "advisory_created", resourceType: "advisory", resourceId: result.insertId, details: { title: title.trim(), audience: targetAudience } });
