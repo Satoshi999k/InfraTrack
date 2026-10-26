@@ -64,6 +64,12 @@ import {
   normalizeReportCategory,
   REPORT_CATEGORIES,
 } from "./reportCategories.js";
+import {
+  createPasswordResetCode,
+  hashPasswordResetCode,
+  matchesPasswordResetCode,
+  normalizeResetEmail,
+} from "./passwordResetSecurity.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -72,6 +78,7 @@ const port = Number(process.env.PORT || 3001);
 const forceHttps = String(process.env.FORCE_HTTPS || "false").toLowerCase() === "true";
 const recaptchaSecret = process.env.RECAPTCHA_SECRET_KEY || "";
 const loginAttempts = new Map();
+const passwordResetRequestAttempts = new Map();
 const chatbotRequests = new Map();
 let firebaseMessaging = null;
 let firebaseConfigurationWarningLogged = false;
@@ -90,6 +97,12 @@ const dbConfig = {
   ssl: dbSsl ? { minVersion: "TLSv1.2" } : undefined,
 };
 const pool = mysql.createPool({ ...dbConfig, database: dbName, waitForConnections: true, connectionLimit: 10 });
+const passwordResetSecret = process.env.PASSWORD_RESET_SECRET || process.env.BREVO_API_KEY || "";
+const passwordResetEmailConfigured = Boolean(
+  process.env.BREVO_API_KEY
+    ? process.env.BREVO_SENDER_EMAIL
+    : process.env.EMAIL_NOTIFICATION_WEBHOOK,
+);
 const uploadDirectory = path.join(__dirname, "uploads");
 const backupDirectory = path.join(__dirname, "backups");
 fs.mkdirSync(uploadDirectory, { recursive: true });
@@ -926,6 +939,18 @@ async function initializeDatabase() {
     INDEX sessions_expiry_idx (expires_at),
     CONSTRAINT sessions_user_fk FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   ) ENGINE=InnoDB`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS password_reset_codes (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL,
+    code_hash CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    expires_at DATETIME NOT NULL,
+    attempt_count TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    used_at DATETIME NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX password_reset_user_created_idx (user_id, created_at),
+    INDEX password_reset_expiry_idx (expires_at),
+    CONSTRAINT password_reset_user_fk FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB`);
   await pool.query("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS actor_barangay VARCHAR(120) AFTER actor_email");
   await pool.query("UPDATE audit_logs a JOIN users u ON u.id = a.actor_id SET a.actor_barangay = u.barangay WHERE a.actor_barangay IS NULL");
   await pool.query(`CREATE TABLE IF NOT EXISTS system_settings (
@@ -1067,6 +1092,8 @@ app.use(async (req, res, next) => {
     req.path === "/api/health" ||
     req.path === "/api/auth/login" ||
     req.path === "/api/mobile/auth/login" ||
+    req.path === "/api/mobile/auth/password-reset/request" ||
+    req.path === "/api/mobile/auth/password-reset/complete" ||
     req.path === "/api/auth/register"
   ) return next();
   const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
@@ -2092,6 +2119,189 @@ async function handleLogin(req, res, { requireRecaptcha, auditAction }) {
 }
 app.post("/api/auth/login", (req, res) => handleLogin(req, res, { requireRecaptcha: true, auditAction: "login" }));
 app.post("/api/mobile/auth/login", (req, res) => handleLogin(req, res, { requireRecaptcha: false, auditAction: "mobile_login" }));
+const passwordResetResponse = {
+  message: "If an eligible account matches that email, a reset code will be sent shortly.",
+};
+
+function consumePasswordResetRequestSlot(ip) {
+  const now = Date.now();
+  if (passwordResetRequestAttempts.size > 10_000) {
+    for (const [requestIp, attempt] of passwordResetRequestAttempts) {
+      if (now >= attempt.resetAt) passwordResetRequestAttempts.delete(requestIp);
+    }
+  }
+  const attempt = passwordResetRequestAttempts.get(ip);
+  if (!attempt || now >= attempt.resetAt) {
+    passwordResetRequestAttempts.set(ip, { count: 1, resetAt: now + 15 * 60 * 1000 });
+    return true;
+  }
+  if (attempt.count >= 5) return false;
+  attempt.count += 1;
+  return true;
+}
+
+app.post("/api/mobile/auth/password-reset/request", async (req, res) => {
+  const email = normalizeResetEmail(req.body?.email);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 255) {
+    return res.status(400).json({ error: "Enter a valid email address." });
+  }
+  if (!consumePasswordResetRequestSlot(clientIp(req))) {
+    return res.status(429).json({ error: "Too many password reset requests. Please try again later." });
+  }
+  if (!passwordResetSecret || !passwordResetEmailConfigured) {
+    console.error("Password reset is unavailable because its code secret or email provider is not configured.");
+    return res.status(503).json({ error: "Password recovery is temporarily unavailable. Please contact support." });
+  }
+
+  const connection = await pool.getConnection();
+  let resetRequest = null;
+  try {
+    await connection.beginTransaction();
+    const [[user]] = await connection.query(
+      "SELECT id, name, email FROM users WHERE email = ? AND role = 'resident' LIMIT 1 FOR UPDATE",
+      [email],
+    );
+    if (!user) {
+      await connection.commit();
+      return res.json(passwordResetResponse);
+    }
+
+    await connection.query(
+      "DELETE FROM password_reset_codes WHERE expires_at < DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 1 DAY)",
+    );
+    const [[recentRequests]] = await connection.query(
+      `SELECT COUNT(*) AS request_count,
+         COALESCE(MAX(created_at) > DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 1 MINUTE), 0) AS cooldown_active
+       FROM password_reset_codes
+       WHERE user_id = ? AND created_at > DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 1 HOUR)`,
+      [user.id],
+    );
+    if (Number(recentRequests.request_count) >= 3 || Number(recentRequests.cooldown_active) === 1) {
+      await connection.commit();
+      return res.json(passwordResetResponse);
+    }
+
+    const code = createPasswordResetCode();
+    const codeHash = hashPasswordResetCode(email, code, passwordResetSecret);
+    await connection.query(
+      `UPDATE password_reset_codes SET used_at = CURRENT_TIMESTAMP
+       WHERE user_id = ? AND used_at IS NULL`,
+      [user.id],
+    );
+    const [result] = await connection.query(
+      `INSERT INTO password_reset_codes (user_id, code_hash, expires_at)
+       VALUES (?, ?, DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 10 MINUTE))`,
+      [user.id, codeHash],
+    );
+    await connection.commit();
+    resetRequest = { id: result.insertId, user, code };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+
+  res.json(passwordResetResponse);
+  if (!resetRequest) return;
+
+  void sendEmailNotification({
+    recipient: resetRequest.user.email,
+    subject: "Your InfraTrack password reset code",
+    body: `Hello ${resetRequest.user.name || "there"},\n\nYour InfraTrack password reset code is ${resetRequest.code}.\n\nThis code expires in 10 minutes and can only be used once. If you did not request a password reset, you can ignore this email. Never share this code with anyone.`,
+    template: {
+      eyebrow: "PASSWORD RESET",
+      note: "This code expires in 10 minutes and can only be used once. InfraTrack staff will never ask you to share it.",
+    },
+  }).then((result) => {
+    if (!result.sent) {
+      throw new Error(`Password reset email was not sent (${result.reason || "unknown delivery error"}).`);
+    }
+  }).catch(async (error) => {
+    console.error(`Password reset email delivery failed for account ${resetRequest.user.id}:`, error.message);
+    try {
+      await pool.query(
+        "UPDATE password_reset_codes SET used_at = CURRENT_TIMESTAMP WHERE id = ? AND used_at IS NULL",
+        [resetRequest.id],
+      );
+    } catch (invalidationError) {
+      console.error(`Could not invalidate undelivered reset code ${resetRequest.id}:`, invalidationError.message);
+    }
+  });
+});
+
+app.post("/api/mobile/auth/password-reset/complete", async (req, res) => {
+  const email = normalizeResetEmail(req.body?.email);
+  const code = String(req.body?.code ?? "").trim();
+  const newPassword = String(req.body?.newPassword ?? "");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 255 || !/^\d{6}$/.test(code)) {
+    return res.status(400).json({ error: "The reset code is invalid or has expired." });
+  }
+  if (newPassword.length < 8 || newPassword.length > 128) {
+    return res.status(400).json({ error: "Password must be between 8 and 128 characters." });
+  }
+  if (!passwordResetSecret) {
+    console.error("Password reset is unavailable because its code secret is not configured.");
+    return res.status(503).json({ error: "Password recovery is temporarily unavailable. Please contact support." });
+  }
+
+  const passwordHash = hashPassword(newPassword);
+  const connection = await pool.getConnection();
+  let resetUser = null;
+  let resetError = null;
+  try {
+    await connection.beginTransaction();
+    const [[record]] = await connection.query(
+      `SELECT pr.id, pr.code_hash, pr.attempt_count, pr.used_at,
+         (pr.expires_at > CURRENT_TIMESTAMP) AS is_unexpired,
+         u.id AS user_id, u.name, u.email
+       FROM password_reset_codes pr
+       JOIN users u ON u.id = pr.user_id
+       WHERE u.email = ? AND u.role = 'resident'
+       ORDER BY pr.id DESC LIMIT 1 FOR UPDATE`,
+      [email],
+    );
+    if (!record || record.used_at || Number(record.attempt_count) >= 5 || Number(record.is_unexpired) !== 1) {
+      resetError = "The reset code is invalid or has expired.";
+      await connection.commit();
+    } else if (!matchesPasswordResetCode(email, code, record.code_hash, passwordResetSecret)) {
+      await connection.query(
+        "UPDATE password_reset_codes SET attempt_count = attempt_count + 1 WHERE id = ?",
+        [record.id],
+      );
+      resetError = "The reset code is invalid or has expired.";
+      await connection.commit();
+    } else {
+      await connection.query("UPDATE users SET password_hash = ? WHERE id = ?", [passwordHash, record.user_id]);
+      await connection.query(
+        "UPDATE password_reset_codes SET used_at = CURRENT_TIMESTAMP WHERE id = ?",
+        [record.id],
+      );
+      await connection.query("DELETE FROM admin_sessions WHERE user_id = ?", [record.user_id]);
+      await connection.commit();
+      resetUser = { id: record.user_id, name: record.name, email: record.email, role: "resident" };
+    }
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+
+  if (resetError) return res.status(400).json({ error: resetError });
+  await writeAuditLog(req, {
+    actorId: resetUser.id,
+    action: "password_reset",
+    resourceType: "account",
+    resourceId: resetUser.id,
+    actor: resetUser,
+  });
+  res.json({ ok: true });
+  void notifyPasswordChanged(resetUser).catch((error) => {
+    console.error(`Password-change email failed for account ${resetUser.id}:`, error.message);
+  });
+});
+
 app.post("/api/auth/logout", async (req, res) => {
   const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
   if (token) await pool.query("DELETE FROM admin_sessions WHERE token_hash = ?", [hashSessionToken(token)]);

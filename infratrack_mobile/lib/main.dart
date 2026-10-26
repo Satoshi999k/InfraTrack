@@ -610,6 +610,358 @@ class SplashPage extends StatelessWidget {
   }
 }
 
+class PasswordResetPage extends StatefulWidget {
+  const PasswordResetPage({super.key, this.initialEmail = ''});
+
+  final String initialEmail;
+
+  @override
+  State<PasswordResetPage> createState() => _PasswordResetPageState();
+}
+
+class _PasswordResetPageState extends State<PasswordResetPage> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _emailController;
+  final _codeController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  Timer? _resendTimer;
+  bool _codeRequested = false;
+  bool _resetComplete = false;
+  bool _isBusy = false;
+  int _resendSeconds = 0;
+  String? _errorMessage;
+  String? _infoMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController = TextEditingController(text: widget.initialEmail);
+  }
+
+  @override
+  void dispose() {
+    _resendTimer?.cancel();
+    _emailController.dispose();
+    _codeController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  String? _validateEmail(String? value) {
+    final email = value?.trim() ?? '';
+    if (email.isEmpty) return 'Enter your email address.';
+    if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
+      return 'Enter a valid email address.';
+    }
+    return null;
+  }
+
+  Future<void> _requestCode() async {
+    if (_isBusy || !_formKey.currentState!.validate()) return;
+    setState(() {
+      _isBusy = true;
+      _errorMessage = null;
+      _infoMessage = null;
+    });
+    try {
+      await ApiService.requestPasswordReset(_emailController.text);
+      if (!mounted) return;
+      setState(() {
+        _codeRequested = true;
+        _isBusy = false;
+        _infoMessage = 'If an account matches this email, a 6-digit code will arrive shortly. Check your spam folder too.';
+      });
+      _resendSeconds = 60;
+      _resendTimer?.cancel();
+      _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (!mounted) {
+          timer.cancel();
+          return;
+        }
+        setState(() {
+          _resendSeconds--;
+          if (_resendSeconds <= 0) timer.cancel();
+        });
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isBusy = false;
+        _errorMessage = error is ApiException
+            ? error.message
+            : error.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
+  Future<void> _completeReset() async {
+    if (_isBusy || !_formKey.currentState!.validate()) return;
+    setState(() {
+      _isBusy = true;
+      _errorMessage = null;
+    });
+    try {
+      await ApiService.completePasswordReset(
+        email: _emailController.text,
+        code: _codeController.text,
+        newPassword: _passwordController.text,
+      );
+      if (!mounted) return;
+      _resendTimer?.cancel();
+      setState(() {
+        _isBusy = false;
+        _resetComplete = true;
+        _infoMessage = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isBusy = false;
+        _errorMessage = error is ApiException
+            ? error.message
+            : error.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
+  void _changeEmail() {
+    _resendTimer?.cancel();
+    setState(() {
+      _codeRequested = false;
+      _resendSeconds = 0;
+      _codeController.clear();
+      _passwordController.clear();
+      _confirmPasswordController.clear();
+      _errorMessage = null;
+      _infoMessage = null;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: sand,
+    appBar: AppBar(
+      backgroundColor: sand,
+      foregroundColor: navy,
+      elevation: 0,
+      title: const Text(
+        'Password recovery',
+        style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+      ),
+    ),
+    body: SafeArea(
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 390),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(22),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(22),
+                boxShadow: [
+                  BoxShadow(
+                    color: deepNavy.withValues(alpha: .08),
+                    blurRadius: 24,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF3C9),
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      child: Icon(
+                        _resetComplete
+                            ? Icons.check_circle_outline
+                            : Icons.lock_reset_outlined,
+                        color: navy,
+                        size: 25,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      _resetComplete
+                          ? 'Password updated'
+                          : _codeRequested
+                          ? 'Enter your reset code'
+                          : 'Forgot your password?',
+                      style: infraHeading(
+                        color: navy,
+                        fontSize: 22,
+                        weight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 7),
+                    Text(
+                      _resetComplete
+                          ? 'Your password has been changed. You can now sign in with the new password.'
+                          : _codeRequested
+                          ? 'Enter the 6-digit code sent to ${_emailController.text.trim()}, then choose a new password.'
+                          : 'We’ll email you a short-lived code so you can securely choose a new password.',
+                      style: const TextStyle(
+                        color: inkSoft,
+                        fontSize: 12,
+                        height: 1.5,
+                      ),
+                    ),
+                    if (!_resetComplete && !_codeRequested) ...[
+                      const SizedBox(height: 24),
+                      _LoginField(
+                        label: 'Email address',
+                        hint: 'Enter your account email',
+                        icon: Icons.mail_outline,
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        validator: _validateEmail,
+                      ),
+                    ],
+                    if (!_resetComplete && _codeRequested) ...[
+                      const SizedBox(height: 22),
+                      _LoginField(
+                        label: '6-digit code',
+                        hint: 'Enter the code from your email',
+                        icon: Icons.password_outlined,
+                        controller: _codeController,
+                        keyboardType: TextInputType.number,
+                        validator: (value) =>
+                            value == null ||
+                                !RegExp(r'^\d{6}$').hasMatch(value.trim())
+                            ? 'Enter the 6-digit code from your email.'
+                            : null,
+                      ),
+                      _LoginField(
+                        label: 'New password',
+                        hint: 'At least 8 characters',
+                        icon: Icons.lock_outline,
+                        controller: _passwordController,
+                        obscureText: true,
+                        validator: (value) => value == null || value.length < 8
+                            ? 'Use at least 8 characters.'
+                            : value.length > 128
+                            ? 'Use no more than 128 characters.'
+                            : null,
+                      ),
+                      _LoginField(
+                        label: 'Confirm new password',
+                        hint: 'Re-enter your new password',
+                        icon: Icons.lock_outline,
+                        controller: _confirmPasswordController,
+                        obscureText: true,
+                        validator: (value) => value != _passwordController.text
+                            ? 'The passwords do not match.'
+                            : null,
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: _isBusy ? null : _changeEmail,
+                          child: const Text('Change email'),
+                        ),
+                      ),
+                    ],
+                    if (_infoMessage != null) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        _infoMessage!,
+                        style: const TextStyle(
+                          color: teal,
+                          fontSize: 12,
+                          height: 1.45,
+                        ),
+                      ),
+                    ],
+                    if (_errorMessage != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        _errorMessage!,
+                        style: const TextStyle(
+                          color: Color(0xFFAE3E36),
+                          fontSize: 12,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 46,
+                      child: FilledButton(
+                        onPressed: _isBusy
+                            ? null
+                            : _resetComplete
+                            ? () => Navigator.of(context).pop(true)
+                            : _codeRequested
+                            ? _completeReset
+                            : _requestCode,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: clay,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          textStyle: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        child: _isBusy
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Text(
+                                _resetComplete
+                                    ? 'Back to log in'
+                                    : _codeRequested
+                                    ? 'Reset password'
+                                    : 'Send reset code',
+                              ),
+                      ),
+                    ),
+                    if (_codeRequested && !_resetComplete) ...[
+                      const SizedBox(height: 7),
+                      Center(
+                        child: TextButton(
+                          onPressed: _isBusy || _resendSeconds > 0
+                              ? null
+                              : _requestCode,
+                          child: Text(
+                            _resendSeconds > 0
+                                ? 'Resend code in $_resendSeconds sec'
+                                : 'Resend code',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key, this.sessionNotice, this.biometricService});
 
@@ -777,9 +1129,6 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
         ),
-        const Positioned.fill(
-          child: CustomPaint(painter: _LoginBackgroundPainter()),
-        ),
         const Positioned.fill(child: ColoredBox(color: Color(0x66F7FAF7))),
         SafeArea(
           child: LayoutBuilder(
@@ -926,11 +1275,32 @@ class _LoginPageState extends State<LoginPage> {
                               Align(
                                 alignment: Alignment.centerRight,
                                 child: TextButton(
-                                  onPressed: () => showInfraNotice(
-                                    context,
-                                    'Password reset is not connected yet.',
-                                    kind: InfraNoticeKind.info,
-                                  ),
+                                  onPressed: _isLoggingIn
+                                      ? null
+                                      : () async {
+                                          final passwordChanged =
+                                              await Navigator.of(context)
+                                                  .push<bool>(
+                                                    MaterialPageRoute(
+                                                      builder: (_) =>
+                                                          PasswordResetPage(
+                                                            initialEmail:
+                                                                _emailController
+                                                                    .text
+                                                                    .trim(),
+                                                          ),
+                                                    ),
+                                                  );
+                                          if (!context.mounted ||
+                                              passwordChanged != true) {
+                                            return;
+                                          }
+                                          showInfraNotice(
+                                            context,
+                                            'Your password was updated. Sign in with your new password.',
+                                            kind: InfraNoticeKind.success,
+                                          );
+                                        },
                                   style: TextButton.styleFrom(
                                     padding: const EdgeInsets.symmetric(
                                       vertical: 2,
@@ -1129,110 +1499,6 @@ class _LoginPageState extends State<LoginPage> {
       ],
     ),
   );
-}
-
-class _LoginBackgroundPainter extends CustomPainter {
-  const _LoginBackgroundPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final tealShape = Paint()..color = teal.withValues(alpha: .09);
-    canvas.drawCircle(
-      Offset(size.width * .96, size.height * .12),
-      size.width * .42,
-      tealShape,
-    );
-    final clayShape = Paint()..color = clay.withValues(alpha: .07);
-    canvas.drawCircle(
-      Offset(size.width * .02, size.height * .88),
-      size.width * .34,
-      clayShape,
-    );
-
-    final curvePaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2
-      ..color = teal.withValues(alpha: .12);
-    canvas.drawArc(
-      Rect.fromCircle(
-        center: Offset(size.width * .98, size.height * .18),
-        radius: size.width * .33,
-      ),
-      math.pi * .45,
-      math.pi * .82,
-      false,
-      curvePaint,
-    );
-    canvas.drawArc(
-      Rect.fromCircle(
-        center: Offset(size.width * .02, size.height * .84),
-        radius: size.width * .27,
-      ),
-      -math.pi * .42,
-      math.pi * .75,
-      false,
-      curvePaint,
-    );
-
-    final glowPaint = Paint()
-      ..shader =
-          RadialGradient(
-            colors: [
-              teal.withValues(alpha: .10),
-              teal.withValues(alpha: .025),
-              Colors.transparent,
-            ],
-          ).createShader(
-            Rect.fromCircle(
-              center: Offset(size.width * .82, size.height * .18),
-              radius: size.width * .72,
-            ),
-          );
-    canvas.drawCircle(
-      Offset(size.width * .82, size.height * .18),
-      size.width * .72,
-      glowPaint,
-    );
-
-    final warmGlow = Paint()
-      ..shader =
-          RadialGradient(
-            colors: [
-              clay.withValues(alpha: .07),
-              clay.withValues(alpha: .015),
-              Colors.transparent,
-            ],
-          ).createShader(
-            Rect.fromCircle(
-              center: Offset(size.width * .08, size.height * .86),
-              radius: size.width * .58,
-            ),
-          );
-    canvas.drawCircle(
-      Offset(size.width * .08, size.height * .86),
-      size.width * .58,
-      warmGlow,
-    );
-
-    final mapPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = .8
-      ..color = const Color(0xFF1B8A83).withValues(alpha: .07);
-    for (var index = 0; index < 2; index++) {
-      final points = <Offset>[
-        Offset(-20, size.height * (.67 + index * .08)),
-        Offset(size.width * .22, size.height * (.62 + index * .08)),
-        Offset(size.width * .50, size.height * (.71 + index * .08)),
-        Offset(size.width + 20, size.height * (.65 + index * .08)),
-      ];
-      for (var point = 0; point < points.length - 1; point++) {
-        canvas.drawLine(points[point], points[point + 1], mapPaint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_LoginBackgroundPainter oldDelegate) => false;
 }
 
 class _LoginErrorCard extends StatelessWidget {

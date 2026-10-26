@@ -294,6 +294,30 @@ class ApiService {
     return currentUser!;
   }
 
+  static Future<void> requestPasswordReset(String email) async {
+    await _request(
+      'POST',
+      '/mobile/auth/password-reset/request',
+      body: {'email': email.trim()},
+    );
+  }
+
+  static Future<void> completePasswordReset({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    await _request(
+      'POST',
+      '/mobile/auth/password-reset/complete',
+      body: {
+        'email': email.trim(),
+        'code': code.trim(),
+        'newPassword': newPassword,
+      },
+    );
+  }
+
   static Future<void> logout({String? pushToken}) async {
     try {
       if (isSignedIn) {
