@@ -840,11 +840,15 @@ async function initializeDatabase() {
   await pool.query("ALTER TABLE advisories ADD COLUMN IF NOT EXISTS barangay VARCHAR(120) NULL");
   await pool.query(`CREATE TABLE IF NOT EXISTS advisory_comments (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, advisory_id INT UNSIGNED NOT NULL,
-    author_id INT UNSIGNED NULL, body TEXT NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    author_id INT UNSIGNED NULL, parent_comment_id INT UNSIGNED NULL,
+    body TEXT NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT advisory_comments_advisory_fk FOREIGN KEY (advisory_id) REFERENCES advisories(id) ON DELETE CASCADE,
     CONSTRAINT advisory_comments_author_fk FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE SET NULL,
-    INDEX advisory_comments_thread_idx (advisory_id, created_at, id)
+    INDEX advisory_comments_thread_idx (advisory_id, parent_comment_id, created_at, id)
   ) ENGINE=InnoDB`);
+  await pool.query(
+    "ALTER TABLE advisory_comments ADD COLUMN IF NOT EXISTS parent_comment_id INT UNSIGNED NULL",
+  );
   await pool.query(`CREATE TABLE IF NOT EXISTS advisory_reactions (
     advisory_id INT UNSIGNED NOT NULL, user_id INT UNSIGNED NOT NULL,
     reacted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1452,7 +1456,7 @@ app.get("/api/mobile/advisories/:id/social", async (req, res) => {
       : [advisory.id],
   );
   const [comments] = await pool.query(
-    `SELECT c.id, c.body, c.created_at, u.name AS author_name
+    `SELECT c.id, c.parent_comment_id, c.body, c.created_at, u.name AS author_name
      FROM advisory_comments c
      LEFT JOIN users u ON u.id = c.author_id
      WHERE c.advisory_id = ?
@@ -1488,13 +1492,30 @@ app.post("/api/mobile/advisories/:id/comments", async (req, res) => {
       error: "Comments must be 1,000 characters or fewer.",
     });
   }
+  let parentCommentId = null;
+  if (req.body?.reply_to_comment_id != null) {
+    const replyToCommentId = Number(req.body.reply_to_comment_id);
+    if (!Number.isSafeInteger(replyToCommentId) || replyToCommentId <= 0) {
+      return res.status(400).json({ error: "Choose a valid comment to reply to." });
+    }
+    const [[replyTarget]] = await pool.query(
+      `SELECT id, parent_comment_id
+       FROM advisory_comments
+       WHERE id = ? AND advisory_id = ?`,
+      [replyToCommentId, advisory.id],
+    );
+    if (!replyTarget) {
+      return res.status(404).json({ error: "Comment not found." });
+    }
+    parentCommentId = replyTarget.parent_comment_id ?? replyTarget.id;
+  }
   const [result] = await pool.query(
-    `INSERT INTO advisory_comments (advisory_id, author_id, body)
-     VALUES (?, ?, ?)`,
-    [advisory.id, req.auth.id, body.trim()],
+    `INSERT INTO advisory_comments (advisory_id, author_id, parent_comment_id, body)
+     VALUES (?, ?, ?, ?)`,
+    [advisory.id, req.auth.id, parentCommentId, body.trim()],
   );
   const [[comment]] = await pool.query(
-    `SELECT c.id, c.body, c.created_at, u.name AS author_name
+    `SELECT c.id, c.parent_comment_id, c.body, c.created_at, u.name AS author_name
      FROM advisory_comments c
      LEFT JOIN users u ON u.id = c.author_id
      WHERE c.id = ?`,
@@ -2577,7 +2598,7 @@ app.get("/api/advisories/:id/engagement", async (req, res) => {
   if (!advisory) return res.status(404).json({ error: "Advisory not found" });
 
   const [comments] = await pool.query(
-    `SELECT c.id, c.body, c.created_at,
+    `SELECT c.id, c.parent_comment_id, c.body, c.created_at,
       COALESCE(u.name, 'Former user') AS author_name,
       u.role AS author_role
      FROM advisory_comments c
@@ -2606,7 +2627,7 @@ app.get("/api/advisories/:id/engagement", async (req, res) => {
 });
 app.post("/api/advisories/:id/comments", async (req, res) => {
   const body = req.body?.body;
-  const replyToCommentId = Number(req.body?.reply_to_comment_id);
+  let replyToCommentId = Number(req.body?.reply_to_comment_id);
   if (typeof body !== "string" || !body.trim()) {
     return res.status(400).json({ error: "Write a reply before sending." });
   }
@@ -2633,7 +2654,7 @@ app.post("/api/advisories/:id/comments", async (req, res) => {
       return res.status(400).json({ error: "Choose a valid comment to reply to." });
     }
     const [[replyTarget]] = await pool.query(
-      `SELECT author_id
+      `SELECT author_id, parent_comment_id
        FROM advisory_comments
        WHERE id = ? AND advisory_id = ?`,
       [replyToCommentId, advisory.id],
@@ -2642,6 +2663,9 @@ app.post("/api/advisories/:id/comments", async (req, res) => {
       return res.status(404).json({ error: "Comment not found." });
     }
     replyRecipientId = replyTarget.author_id;
+    if (replyTarget.parent_comment_id != null) {
+      replyToCommentId = Number(replyTarget.parent_comment_id);
+    }
   }
 
   const connection = await pool.getConnection();
@@ -2652,9 +2676,9 @@ app.post("/api/advisories/:id/comments", async (req, res) => {
     await connection.beginTransaction();
     transactionStarted = true;
     const [result] = await connection.query(
-      `INSERT INTO advisory_comments (advisory_id, author_id, body)
-       VALUES (?, ?, ?)`,
-      [advisory.id, req.auth.id, body.trim()],
+      `INSERT INTO advisory_comments (advisory_id, author_id, parent_comment_id, body)
+       VALUES (?, ?, ?, ?)`,
+      [advisory.id, req.auth.id, req.body?.reply_to_comment_id == null ? null : replyToCommentId, body.trim()],
     );
     commentId = result.insertId;
     await connection.commit();
@@ -2685,7 +2709,7 @@ app.post("/api/advisories/:id/comments", async (req, res) => {
   }
 
   const [[comment]] = await pool.query(
-    `SELECT c.id, c.body, c.created_at,
+    `SELECT c.id, c.parent_comment_id, c.body, c.created_at,
       COALESCE(u.name, 'Former user') AS author_name,
       u.role AS author_role
      FROM advisory_comments c

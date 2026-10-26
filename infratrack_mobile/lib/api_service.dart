@@ -539,12 +539,13 @@ class ApiService {
   static Future<Map<String, dynamic>> postAdvisoryComment({
     required String advisoryId,
     required String message,
+    int? replyToCommentId,
   }) async {
     final body = await _request(
       'POST',
       '/mobile/advisories/${Uri.encodeComponent(advisoryId)}/comments',
       authenticated: true,
-      body: {'body': message},
+      body: {'body': message, 'reply_to_comment_id': replyToCommentId},
     );
     if (body['comment'] is! Map) {
       throw Exception('The server returned an invalid advisory comment.');

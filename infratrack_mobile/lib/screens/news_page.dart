@@ -1104,6 +1104,7 @@ class _AdvisoryDetailsPageState extends State<AdvisoryDetailsPage> {
   final _commentsSectionKey = GlobalKey();
   late Map<String, dynamic> _advisory;
   List<Map<String, dynamic>> _comments = [];
+  Map<String, dynamic>? _replyingTo;
   bool _loading = true;
   bool _sending = false;
   bool _reacting = false;
@@ -1206,11 +1207,15 @@ class _AdvisoryDetailsPageState extends State<AdvisoryDetailsPage> {
       final comment = await ApiService.postAdvisoryComment(
         advisoryId: _advisoryId,
         message: message,
+        replyToCommentId: _replyingTo == null
+            ? null
+            : int.tryParse('${_replyingTo!['id']}'),
       );
       if (!mounted) return;
       setState(() {
         _comments = [..._comments, comment];
         _commentController.clear();
+        _replyingTo = null;
       });
     } catch (error) {
       if (!mounted) return;
@@ -1229,7 +1234,59 @@ class _AdvisoryDetailsPageState extends State<AdvisoryDetailsPage> {
       text: mention,
       selection: TextSelection.collapsed(offset: mention.length),
     );
+    setState(() {
+      _replyingTo = comment;
+      _error = null;
+    });
     _commentFocusNode.requestFocus();
+  }
+
+  List<Widget> _buildCommentThreads() {
+    final commentsById = {
+      for (final comment in _comments)
+        if (int.tryParse('${comment['id']}') case final int id) id: comment,
+    };
+    final repliesByParent = <int, List<Map<String, dynamic>>>{};
+    final topLevelComments = <Map<String, dynamic>>[];
+    for (final comment in _comments) {
+      final parentId = int.tryParse('${comment['parent_comment_id']}');
+      if (parentId != null && commentsById.containsKey(parentId)) {
+        final rootId = int.tryParse(
+          '${commentsById[parentId]!['parent_comment_id']}',
+        );
+        final threadId = rootId ?? parentId;
+        (repliesByParent[threadId] ??= []).add(comment);
+      } else {
+        topLevelComments.add(comment);
+      }
+    }
+
+    return [
+      for (final comment in topLevelComments)
+        Builder(
+          builder: (context) {
+            final commentId = int.tryParse('${comment['id']}');
+            final replies = commentId == null
+                ? const <Map<String, dynamic>>[]
+                : repliesByParent[commentId] ?? const <Map<String, dynamic>>[];
+            return Column(
+              children: [
+                _AdvisoryCommentCard(
+                  comment: comment,
+                  onReply: () => _replyToComment(comment),
+                ),
+                for (final reply in replies)
+                  _AdvisoryCommentCard(
+                    comment: reply,
+                    replyToName: comment['author_name']?.toString(),
+                    isReply: true,
+                    onReply: () => _replyToComment(reply),
+                  ),
+              ],
+            );
+          },
+        ),
+    ];
   }
 
   @override
@@ -1502,11 +1559,7 @@ class _AdvisoryDetailsPageState extends State<AdvisoryDetailsPage> {
                               ),
                             )
                           else
-                            for (final comment in _comments)
-                              _AdvisoryCommentCard(
-                                comment: comment,
-                                onReply: () => _replyToComment(comment),
-                              ),
+                            ..._buildCommentThreads(),
                           if (_error != null && _comments.isNotEmpty)
                             _AdvisoryInlineError(
                               message: _error!,
@@ -1520,71 +1573,105 @@ class _AdvisoryDetailsPageState extends State<AdvisoryDetailsPage> {
               ),
             ),
             Container(
-              padding: EdgeInsets.fromLTRB(14, 10, 14, 10),
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
               decoration: BoxDecoration(
                 color: theme.colorScheme.surface,
                 border: Border(top: BorderSide(color: theme.dividerColor)),
               ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _commentController,
-                      focusNode: _commentFocusNode,
-                      enabled: !_sending,
-                      minLines: 1,
-                      maxLines: 4,
-                      maxLength: reportCommentMaxLength,
-                      decoration: InputDecoration(
-                        hintText: ApiService.isSignedIn
-                            ? 'Write a comment...'
-                            : 'Sign in to comment',
-                        counterText: '',
-                        filled: true,
-                        fillColor: theme.scaffoldBackgroundColor,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 11,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(20),
-                          borderSide: BorderSide(
-                            color: theme.colorScheme.outline,
+                  if (_replyingTo != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4, left: 10),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Replying to ${_replyingTo!['author_name'] ?? 'Resident'}',
+                              style: TextStyle(color: muted, fontSize: 11),
+                            ),
                           ),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(20),
-                          borderSide: BorderSide(
-                            color: theme.colorScheme.outline,
+                          IconButton(
+                            tooltip: 'Cancel reply',
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () {
+                              setState(() => _replyingTo = null);
+                              _commentController.clear();
+                            },
+                            icon: const Icon(Icons.close_rounded, size: 17),
                           ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(20),
-                          borderSide: BorderSide(
-                            color: theme.colorScheme.primary,
-                            width: 1.5,
+                        ],
+                      ),
+                    ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _commentController,
+                          focusNode: _commentFocusNode,
+                          enabled: !_sending,
+                          minLines: 1,
+                          maxLines: 4,
+                          maxLength: reportCommentMaxLength,
+                          decoration: InputDecoration(
+                            hintText: ApiService.isSignedIn
+                                ? 'Write a comment...'
+                                : 'Sign in to comment',
+                            counterText: '',
+                            filled: true,
+                            fillColor: theme.scaffoldBackgroundColor,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 11,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(20),
+                              borderSide: BorderSide(
+                                color: theme.colorScheme.outline,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(20),
+                              borderSide: BorderSide(
+                                color: theme.colorScheme.outline,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(20),
+                              borderSide: BorderSide(
+                                color: theme.colorScheme.primary,
+                                width: 1.5,
+                              ),
+                            ),
                           ),
+                          onSubmitted: (_) => _sendComment(),
                         ),
                       ),
-                      onSubmitted: (_) => _sendComment(),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton.filled(
-                    tooltip: ApiService.isSignedIn ? 'Send comment' : 'Sign in',
-                    onPressed: _sending ? null : _sendComment,
-                    icon: _sending
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Icon(
-                            ApiService.isSignedIn
-                                ? Icons.send_rounded
-                                : Icons.login_rounded,
-                          ),
+                      const SizedBox(width: 8),
+                      IconButton.filled(
+                        tooltip: ApiService.isSignedIn
+                            ? (_replyingTo == null
+                                  ? 'Send comment'
+                                  : 'Send reply')
+                            : 'Sign in',
+                        onPressed: _sending ? null : _sendComment,
+                        icon: _sending
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Icon(
+                                ApiService.isSignedIn
+                                    ? Icons.send_rounded
+                                    : Icons.login_rounded,
+                              ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -1688,11 +1775,54 @@ class _AdvisoryMetaPill extends StatelessWidget {
   }
 }
 
+class _AdvisoryCommentBody extends StatelessWidget {
+  const _AdvisoryCommentBody({
+    required this.body,
+    required this.color,
+    required this.mentionColor,
+    this.replyToName,
+  });
+
+  final String body;
+  final Color color;
+  final Color mentionColor;
+  final String? replyToName;
+
+  @override
+  Widget build(BuildContext context) {
+    final mention = replyToName == null ? '' : '@$replyToName';
+    final hasMention = mention.isNotEmpty && body.startsWith(mention);
+    return Text.rich(
+      TextSpan(
+        style: TextStyle(color: color, fontSize: 12, height: 1.45),
+        children: [
+          if (hasMention)
+            TextSpan(
+              text: mention,
+              style: TextStyle(
+                color: mentionColor,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          TextSpan(text: hasMention ? body.substring(mention.length) : body),
+        ],
+      ),
+    );
+  }
+}
+
 class _AdvisoryCommentCard extends StatelessWidget {
-  const _AdvisoryCommentCard({required this.comment, required this.onReply});
+  const _AdvisoryCommentCard({
+    required this.comment,
+    required this.onReply,
+    this.replyToName,
+    this.isReply = false,
+  });
 
   final Map<String, dynamic> comment;
   final VoidCallback onReply;
+  final String? replyToName;
+  final bool isReply;
 
   @override
   Widget build(BuildContext context) {
@@ -1703,7 +1833,7 @@ class _AdvisoryCommentCard extends StatelessWidget {
         ? 'R'
         : author.trim().characters.first.toUpperCase();
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: EdgeInsets.only(left: isReply ? 24 : 0, bottom: 12),
       decoration: BoxDecoration(
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(16),
@@ -1711,29 +1841,51 @@ class _AdvisoryCommentCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (isReply)
+            Container(
+              width: 16,
+              height: 42,
+              margin: const EdgeInsets.only(right: 7),
+              decoration: BoxDecoration(
+                border: Border(
+                  left: BorderSide(color: theme.colorScheme.outline, width: 2),
+                ),
+              ),
+            ),
           CircleAvatar(
-            radius: 17,
+            radius: isReply ? 14 : 17,
             backgroundColor: theme.colorScheme.primary.withValues(alpha: .12),
             child: Text(
               initial,
               style: TextStyle(
                 color: theme.colorScheme.primary,
-                fontSize: 12,
+                fontSize: isReply ? 10 : 12,
                 fontWeight: FontWeight.w800,
               ),
             ),
           ),
-          const SizedBox(width: 9),
+          SizedBox(width: isReply ? 7 : 9),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding: const EdgeInsets.fromLTRB(12, 9, 12, 10),
+                  padding: EdgeInsets.fromLTRB(
+                    isReply ? 10 : 12,
+                    9,
+                    isReply ? 10 : 12,
+                    5,
+                  ),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.surface,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: theme.colorScheme.outline),
+                    color: isReply
+                        ? theme.colorScheme.surfaceContainerHighest.withValues(
+                            alpha: .55,
+                          )
+                        : theme.colorScheme.surface,
+                    borderRadius: BorderRadius.circular(isReply ? 15 : 16),
+                    border: isReply
+                        ? null
+                        : Border.all(color: theme.colorScheme.outline),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1759,13 +1911,11 @@ class _AdvisoryCommentCard extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 5),
-                      Text(
-                        comment['body']?.toString() ?? '',
-                        style: TextStyle(
-                          color: theme.colorScheme.onSurface,
-                          fontSize: 12,
-                          height: 1.45,
-                        ),
+                      _AdvisoryCommentBody(
+                        body: comment['body']?.toString() ?? '',
+                        replyToName: replyToName,
+                        color: theme.colorScheme.onSurface,
+                        mentionColor: theme.colorScheme.primary,
                       ),
                       Align(
                         alignment: Alignment.centerRight,

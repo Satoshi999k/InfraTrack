@@ -259,6 +259,13 @@ void main() {
                 'body': 'Thank you for sharing this update.',
                 'created_at': '2026-10-21T02:30:00.000Z',
               },
+              {
+                'id': 2,
+                'parent_comment_id': 1,
+                'author_name': 'City Administrator',
+                'body': '@Mati Resident We are following up.',
+                'created_at': '2026-10-21T03:30:00.000Z',
+              },
             ],
           }),
           200,
@@ -287,10 +294,18 @@ void main() {
       );
       expect(find.text('Mati Resident'), findsOneWidget);
       expect(find.text('Thank you for sharing this update.'), findsOneWidget);
+      expect(
+        find.textContaining(
+          '@Mati Resident We are following up.',
+          findRichText: true,
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('City Administrator'), findsOneWidget);
       expect(find.text('4'), findsOneWidget);
       expect(find.byType(TextField), findsOneWidget);
 
-      final replyButton = find.widgetWithText(TextButton, 'Reply');
+      final replyButton = find.widgetWithText(TextButton, 'Reply').first;
       await tester.ensureVisible(replyButton);
       await tester.pumpAndSettle();
       await tester.tap(replyButton);
