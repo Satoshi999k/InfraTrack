@@ -41,6 +41,7 @@ import {
 } from "../../reportDiscussion.js";
 import { REPORT_CATEGORIES } from "../../reportCategories.js";
 import { startVisiblePolling } from "../visiblePolling.js";
+import { formatAdvisoryMention } from "../../advisoryReply.js";
 
 export function Modal({
   data,
@@ -72,6 +73,11 @@ function AdvisoryEngagementModal({ data, onClose }) {
   const [engagement, setEngagement] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [replyDraft, setReplyDraft] = useState("");
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [replyError, setReplyError] = useState("");
+  const [sendingReply, setSendingReply] = useState(false);
+  const replyInputRef = useRef(null);
 
   useEffect(() => {
     const closeOnEscape = (event) => {
@@ -151,7 +157,27 @@ function AdvisoryEngagementModal({ data, onClose }) {
           </div>
         ) : (
           <div className="advisory-engagement-body">
-            <p className="advisory-engagement-message">{advisory?.message}</p>
+            <article className="advisory-post-preview">
+              <div className="advisory-post-author">
+                <span aria-hidden="true">
+                  <Building2 size={18} />
+                </span>
+                <div>
+                  <strong>{advisory?.author_name || "Mati City"}</strong>
+                  <small>
+                    Official city advisory
+                    {advisory?.published_at || advisory?.created_at
+                      ? ` · ${new Date(
+                          advisory.published_at || advisory.created_at,
+                        ).toLocaleString()}`
+                      : ""}
+                  </small>
+                </div>
+              </div>
+              <p className="advisory-engagement-message">
+                {advisory?.message}
+              </p>
+            </article>
             <div className="advisory-engagement-stats">
               <div>
                 <Heart size={16} aria-hidden="true" />
@@ -178,18 +204,53 @@ function AdvisoryEngagementModal({ data, onClose }) {
                 <div className="advisory-engagement-comments">
                   {comments.map((comment) => (
                     <article
-                      className="advisory-engagement-comment"
+                      className={`advisory-engagement-comment ${comment.author_role && comment.author_role !== "resident" ? "from-staff" : ""}`}
                       key={comment.id}
                     >
-                      <div>
-                        <strong>{comment.author_name}</strong>
-                        <time dateTime={comment.created_at}>
-                          {comment.created_at
-                            ? new Date(comment.created_at).toLocaleString()
-                            : ""}
-                        </time>
+                      <span className="advisory-comment-avatar" aria-hidden="true">
+                        {comment.author_name?.trim().charAt(0).toUpperCase() ||
+                          "R"}
+                      </span>
+                      <div className="advisory-comment-content">
+                        <div className="advisory-comment-bubble">
+                          <div className="advisory-comment-meta">
+                            <strong>{comment.author_name}</strong>
+                            {comment.author_role &&
+                              comment.author_role !== "resident" && (
+                                <span className="advisory-comment-staff">
+                                  City staff
+                                </span>
+                              )}
+                          </div>
+                          <p>{comment.body}</p>
+                        </div>
+                        <div className="advisory-comment-actions">
+                          <time dateTime={comment.created_at}>
+                            {comment.created_at
+                              ? new Date(comment.created_at).toLocaleString()
+                              : ""}
+                          </time>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setReplyingTo(comment);
+                              setReplyDraft(
+                                formatAdvisoryMention(comment.author_name),
+                              );
+                              setReplyError("");
+                              window.requestAnimationFrame(() => {
+                                replyInputRef.current?.focus();
+                                replyInputRef.current?.scrollIntoView({
+                                  block: "nearest",
+                                  behavior: "smooth",
+                                });
+                              });
+                            }}
+                          >
+                            Reply
+                          </button>
+                        </div>
                       </div>
-                      <p>{comment.body}</p>
                     </article>
                   ))}
                 </div>
@@ -229,6 +290,121 @@ function AdvisoryEngagementModal({ data, onClose }) {
               )}
             </section>
           </div>
+        )}
+        {!loading && !error && (
+          <form
+            className="advisory-reply-composer"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              const body = replyDraft.trim();
+              if (!body || sendingReply) return;
+              setSendingReply(true);
+              setReplyError("");
+              try {
+                const response = await apiFetch(
+                  `/advisories/${encodeURIComponent(data.advisoryId)}/comments`,
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      body,
+                      ...(replyingTo
+                        ? { reply_to_comment_id: replyingTo.id }
+                        : {}),
+                    }),
+                  },
+                );
+                const result = await response.json();
+                if (!response.ok) {
+                  throw new Error(result.error || "Could not post your reply.");
+                }
+                setEngagement((current) => ({
+                  ...current,
+                  advisory: {
+                    ...current.advisory,
+                    comment_count:
+                      Number(current.advisory.comment_count || 0) + 1,
+                  },
+                  comments: [...current.comments, result.comment],
+                }));
+                setReplyDraft("");
+                setReplyingTo(null);
+                if (result.warning) setReplyError(result.warning);
+              } catch (sendError) {
+                setReplyError(
+                  sendError instanceof Error
+                    ? sendError.message
+                    : "Could not post your reply.",
+                );
+              } finally {
+                setSendingReply(false);
+              }
+            }}
+          >
+            {replyingTo && (
+              <div className="advisory-reply-context" role="status">
+                <span>
+                  Replying to <strong>{replyingTo.author_name}</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReplyingTo(null);
+                    setReplyDraft("");
+                    setReplyError("");
+                  }}
+                  aria-label="Cancel reply"
+                >
+                  <X size={15} aria-hidden="true" />
+                </button>
+              </div>
+            )}
+            <div className="advisory-reply-input-row">
+              <span className="advisory-reply-avatar" aria-hidden="true">
+                <Building2 size={16} />
+              </span>
+              <textarea
+                ref={replyInputRef}
+                aria-label={
+                  replyingTo
+                    ? `Reply to ${replyingTo.author_name}`
+                    : "Write an advisory comment"
+                }
+                placeholder="Write a comment…"
+                maxLength={1000}
+                rows={2}
+                value={replyDraft}
+                onChange={(event) => {
+                  setReplyDraft(event.target.value);
+                  if (replyError) setReplyError("");
+                }}
+              />
+              <button
+                type="submit"
+                className="advisory-reply-send"
+                disabled={!replyDraft.trim() || sendingReply}
+              >
+                {sendingReply ? (
+                  <span className="button-spinner" aria-label="Sending" />
+                ) : (
+                  <Send size={16} aria-hidden="true" />
+                )}
+                <span>
+                  {sendingReply
+                    ? "Sending"
+                    : replyingTo
+                      ? "Reply"
+                      : "Post"}
+                </span>
+              </button>
+            </div>
+            <div className="advisory-reply-footer">
+              <span role={replyError ? "alert" : undefined}>
+                {replyError || "Replies are visible to residents on this advisory."}
+              </span>
+              <span>{replyDraft.length}/1000</span>
+            </div>
+          </form>
         )}
       </section>
     </div>

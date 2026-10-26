@@ -2564,10 +2564,11 @@ app.get("/api/advisories/:id/engagement", async (req, res) => {
   const scope = getAdvisoryReadScope(req.auth, "a");
   const [advisories] = await pool.query(
     `SELECT a.id, a.title, a.message, a.type, a.audience, a.barangay,
-      a.published_at, a.created_at,
+      a.published_at, a.created_at, COALESCE(u.name, 'Mati City') AS author_name,
       (SELECT COUNT(*) FROM advisory_reactions ar WHERE ar.advisory_id = a.id) AS reaction_count,
       (SELECT COUNT(*) FROM advisory_comments ac WHERE ac.advisory_id = a.id) AS comment_count
      FROM advisories a
+     LEFT JOIN users u ON u.id = a.created_by
      WHERE a.id = ? AND a.status = 'published'${scope.sql}
      LIMIT 1`,
     [Number(req.params.id), ...scope.params],
@@ -2577,7 +2578,8 @@ app.get("/api/advisories/:id/engagement", async (req, res) => {
 
   const [comments] = await pool.query(
     `SELECT c.id, c.body, c.created_at,
-      COALESCE(u.name, 'Former user') AS author_name
+      COALESCE(u.name, 'Former user') AS author_name,
+      u.role AS author_role
      FROM advisory_comments c
      LEFT JOIN users u ON u.id = c.author_id
      WHERE c.advisory_id = ?
@@ -2601,6 +2603,97 @@ app.get("/api/advisories/:id/engagement", async (req, res) => {
     comments: comments.reverse(),
     reactions,
   });
+});
+app.post("/api/advisories/:id/comments", async (req, res) => {
+  const body = req.body?.body;
+  const replyToCommentId = Number(req.body?.reply_to_comment_id);
+  if (typeof body !== "string" || !body.trim()) {
+    return res.status(400).json({ error: "Write a reply before sending." });
+  }
+  if (body.trim().length > 1000) {
+    return res.status(400).json({
+      error: "Replies must be 1,000 characters or fewer.",
+    });
+  }
+
+  const scope = getAdvisoryReadScope(req.auth, "a");
+  const [advisories] = await pool.query(
+    `SELECT a.id, a.title
+     FROM advisories a
+     WHERE a.id = ? AND a.status = 'published'${scope.sql}
+     LIMIT 1`,
+    [Number(req.params.id), ...scope.params],
+  );
+  const advisory = advisories[0];
+  if (!advisory) return res.status(404).json({ error: "Advisory not found" });
+
+  let replyRecipientId = null;
+  if (req.body?.reply_to_comment_id != null) {
+    if (!Number.isSafeInteger(replyToCommentId) || replyToCommentId <= 0) {
+      return res.status(400).json({ error: "Choose a valid comment to reply to." });
+    }
+    const [[replyTarget]] = await pool.query(
+      `SELECT author_id
+       FROM advisory_comments
+       WHERE id = ? AND advisory_id = ?`,
+      [replyToCommentId, advisory.id],
+    );
+    if (!replyTarget) {
+      return res.status(404).json({ error: "Comment not found." });
+    }
+    replyRecipientId = replyTarget.author_id;
+  }
+
+  const connection = await pool.getConnection();
+  let transactionStarted = false;
+  let commentId;
+  let notificationWarning;
+  try {
+    await connection.beginTransaction();
+    transactionStarted = true;
+    const [result] = await connection.query(
+      `INSERT INTO advisory_comments (advisory_id, author_id, body)
+       VALUES (?, ?, ?)`,
+      [advisory.id, req.auth.id, body.trim()],
+    );
+    commentId = result.insertId;
+    await connection.commit();
+    transactionStarted = false;
+    if (
+      replyRecipientId &&
+      Number(replyRecipientId) !== Number(req.auth.id)
+    ) {
+      try {
+        await queueNotification({
+          userId: replyRecipientId,
+          advisoryId: advisory.id,
+          type: "announcement",
+          title: "A city advisory received a reply",
+          message: `${req.auth.name || "InfraTrack staff"} mentioned you in a reply to "${advisory.title}".`,
+        });
+      } catch (error) {
+        console.error("Unable to notify the resident about an advisory reply:", error.message);
+        notificationWarning =
+          "Reply posted, but the resident notification could not be sent.";
+      }
+    }
+  } catch (error) {
+    if (transactionStarted) await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+
+  const [[comment]] = await pool.query(
+    `SELECT c.id, c.body, c.created_at,
+      COALESCE(u.name, 'Former user') AS author_name,
+      u.role AS author_role
+     FROM advisory_comments c
+     LEFT JOIN users u ON u.id = c.author_id
+     WHERE c.id = ?`,
+    [commentId],
+  );
+  res.status(201).json({ comment, ...(notificationWarning ? { warning: notificationWarning } : {}) });
 });
 app.post("/api/uploads", (req, res, next) => {
   upload.fields([
