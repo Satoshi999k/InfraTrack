@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { renderBrandedEmail, sendEmailNotification } from "./emailNotifications.js";
+import {
+  renderBrandedEmail,
+  sendEmailNotification,
+} from "./emailNotifications.js";
 
 test("sends a transactional email through Brevo without exposing credentials in the payload", async () => {
   let request;
@@ -53,7 +56,10 @@ test("sends a transactional email through Brevo without exposing credentials in 
   });
   assert.match(payload.htmlContent, /<!doctype html>/i);
   assert.match(payload.htmlContent, /Your password was changed\./);
-  assert.match(payload.htmlContent, /https:\/\/example\.com\/infratrack-logo\.png/);
+  assert.match(
+    payload.htmlContent,
+    /https:\/\/example\.com\/infratrack-logo\.png/,
+  );
   assert.match(payload.htmlContent, /#0e3a4c/);
   assert.match(payload.htmlContent, /#1b8a83/);
   assert.match(payload.htmlContent, /#c1592b/);
@@ -61,29 +67,84 @@ test("sends a transactional email through Brevo without exposing credentials in 
   assert.match(payload.htmlContent, /Mati City &middot; Davao Oriental/);
   assert.match(payload.htmlContent, /INFRASTRUCTURE<br>REPORTING/);
   assert.match(payload.htmlContent, /font-family:'Archivo Expanded'/);
-  assert.match(payload.htmlContent, /<span style="color:#0e3a4c;">Infra<\/span>/);
-  assert.match(payload.htmlContent, /<span style="color:#c1592b;">Track<\/span>/);
+  assert.match(
+    payload.htmlContent,
+    /<span style="color:#0e3a4c;">Infra<\/span>/,
+  );
+  assert.match(
+    payload.htmlContent,
+    /<span style="color:#c1592b;">Track<\/span>/,
+  );
   assert.match(payload.htmlContent, /SECURITY ALERT/);
-  assert.match(payload.htmlContent, /This email does not include your password\./);
+  assert.match(
+    payload.htmlContent,
+    /This email does not include your password\./,
+  );
   assert.match(payload.htmlContent, /Sign in to InfraTrack/);
   assert.doesNotMatch(payload.htmlContent, /LOCAL GOVERNMENT UNIT/);
 });
 
 test("reports when email delivery is not configured", async () => {
   const result = await sendEmailNotification(
-    { recipient: "staff@example.com", subject: "Password changed", body: "Your password was changed." },
-    { env: {}, fetchImpl: async () => assert.fail("fetch should not be called") },
+    {
+      recipient: "staff@example.com",
+      subject: "Password changed",
+      body: "Your password was changed.",
+    },
+    {
+      env: {},
+      fetchImpl: async () => assert.fail("fetch should not be called"),
+    },
   );
 
-  assert.deepEqual(result, { sent: false, configured: false, reason: "not_configured" });
+  assert.deepEqual(result, {
+    sent: false,
+    configured: false,
+    reason: "not_configured",
+  });
+});
+
+test("embeds the supplied InfraTrack logo in Brevo emails when no public logo URL is set", async () => {
+  let payload;
+  await sendEmailNotification(
+    {
+      recipient: "resident@example.com",
+      subject: "Welcome",
+      body: "Your account is ready.",
+    },
+    {
+      env: {
+        BREVO_API_KEY: "test-api-key",
+        BREVO_SENDER_EMAIL: "no-reply@example.com",
+      },
+      fetchImpl: async (_url, options) => {
+        payload = JSON.parse(options.body);
+        return { ok: true, status: 201 };
+      },
+    },
+  );
+
+  assert.equal(payload.attachment[0].name, "infratrack-logo.png");
+  assert.equal(payload.attachment[0].contentId, "infratrack-logo");
+  assert.match(payload.htmlContent, /src="cid:infratrack-logo"/);
+  assert.ok(
+    Buffer.from(payload.attachment[0].content, "base64").byteLength > 0,
+  );
 });
 
 test("does not report a failed Brevo response as a sent email", async () => {
   await assert.rejects(
     sendEmailNotification(
-      { recipient: "staff@example.com", subject: "Password changed", body: "Your password was changed." },
       {
-        env: { BREVO_API_KEY: "test-api-key", BREVO_SENDER_EMAIL: "no-reply@example.com" },
+        recipient: "staff@example.com",
+        subject: "Password changed",
+        body: "Your password was changed.",
+      },
+      {
+        env: {
+          BREVO_API_KEY: "test-api-key",
+          BREVO_SENDER_EMAIL: "no-reply@example.com",
+        },
         fetchImpl: async () => ({ ok: false, status: 401 }),
       },
     ),
@@ -110,7 +171,7 @@ test("uses email-client-safe InfraTrack mark when the public logo URL is unavail
     logoUrl: "javascript:alert(1)",
   });
 
-  assert.ok(html.includes("width=\"42\" height=\"42\""));
+  assert.ok(html.includes('width="42" height="42"'));
   assert.match(html, /border-collapse:collapse/);
   assert.match(html, /bgcolor="#ffffff"/);
   assert.match(html, /bgcolor="#c1592b"/);

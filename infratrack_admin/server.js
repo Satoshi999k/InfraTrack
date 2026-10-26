@@ -33,6 +33,11 @@ import {
 } from "./advisoryAccess.js";
 import { canManageSystemSettings } from "./permissions.js";
 import { sendEmailNotification } from "./emailNotifications.js";
+import {
+  sendResidentAccountCreatedEmail,
+  sendResidentAccountVerifiedEmail,
+} from "./accountEmailNotifications.js";
+import { startAdminReportSummaryScheduler } from "./adminReportSummaryScheduler.js";
 import { analyzeReportThemes } from "./thematicAnalysis.js";
 import {
   ChatProviderError,
@@ -784,6 +789,17 @@ async function initializeDatabase() {
   await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(500) NULL");
   await pool.query("UPDATE users SET standing = 'Active' WHERE standing = 'Warned'");
   await pool.query("ALTER TABLE users MODIFY COLUMN password_hash VARCHAR(255) NOT NULL");
+  await pool.query(`CREATE TABLE IF NOT EXISTS admin_report_email_runs (
+    period_type ENUM('weekly','monthly') NOT NULL,
+    period_start DATE NOT NULL,
+    recipient_id INT UNSIGNED NOT NULL,
+    status ENUM('pending','sent') NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    sent_at TIMESTAMP NULL,
+    PRIMARY KEY (period_type, period_start, recipient_id),
+    CONSTRAINT admin_report_email_runs_user_fk
+      FOREIGN KEY (recipient_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB`);
   await pool.query(`CREATE TABLE IF NOT EXISTS reports (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, public_id VARCHAR(32) NOT NULL UNIQUE,
     title VARCHAR(255) NOT NULL, description TEXT NOT NULL, category VARCHAR(80) NOT NULL,
@@ -2438,9 +2454,21 @@ app.post("/api/auth/register", async (req, res) => {
       [hashSessionToken(sessionToken), result.insertId],
     );
     await connection.commit();
+    const user = {
+      id: result.insertId,
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      mobile: mobile ?? "",
+      barangay: barangay ?? "Mati City",
+      role: "resident",
+    };
+    const emailNotification = await sendResidentAccountCreatedEmail(user, {
+      appUrl: process.env.APP_PUBLIC_URL,
+    });
     res.status(201).json({
       token: sessionToken,
-      user: { id: result.insertId, name: name.trim(), email: email.trim().toLowerCase(), mobile: mobile ?? "", barangay: barangay ?? "Mati City", role: "resident" },
+      user,
+      emailNotification,
     });
   } catch (error) {
     if (transactionStarted) await connection.rollback();
@@ -3301,13 +3329,14 @@ app.patch("/api/users/:id/moderation", async (req, res) => {
   res.json({ user: updatedUser });
 });
 app.patch("/api/users/:id/verification", async (req, res) => {
+  let emailNotification;
   const decision = String(req.body?.decision || "").toLowerCase();
   if (!["approve", "reject"].includes(decision)) {
     return res.status(400).json({ error: "Choose approve or reject for this verification." });
   }
 
   const [[targetUser]] = await pool.query(
-    "SELECT id, name, barangay, verification FROM users WHERE id = ? AND role = 'resident'",
+    "SELECT id, name, email, barangay, verification FROM users WHERE id = ? AND role = 'resident'",
     [Number(req.params.id)],
   );
   if (!targetUser) return res.status(404).json({ error: "Resident account not found" });
@@ -3346,6 +3375,9 @@ app.patch("/api/users/:id/verification", async (req, res) => {
         userId: targetUser.id,
         ...welcomeNotification,
       });
+      emailNotification = await sendResidentAccountVerifiedEmail(targetUser, {
+        appUrl: process.env.APP_PUBLIC_URL,
+      });
     }
   }
   await writeAuditLog(req, {
@@ -3355,7 +3387,7 @@ app.patch("/api/users/:id/verification", async (req, res) => {
     resourceId: targetUser.id,
     details: { verification },
   });
-  res.json({ ok: true, verification });
+  res.json({ ok: true, verification, ...(emailNotification ? { emailNotification } : {}) });
 });
 app.get("/api/reports", async (req, res) => {
   const userId = Number(req.query.userId);
@@ -3498,6 +3530,10 @@ initializeDatabase()
     setInterval(() => {
       sweepEscalations().catch((error) => console.error("Escalation sweep failed:", error.message));
     }, 5 * 60 * 1000);
-    return app.listen(port, () => { scheduleDatabaseBackups(); console.log(`InfraTrack Admin server running on http://localhost:${port} using MySQL database ${dbName}`); });
+    return app.listen(port, () => {
+      scheduleDatabaseBackups();
+      startAdminReportSummaryScheduler({ pool });
+      console.log(`InfraTrack Admin server running on http://localhost:${port} using MySQL database ${dbName}`);
+    });
   })
   .catch((error) => { console.error("Unable to initialize XAMPP MySQL database:", error.message); process.exit(1); });
