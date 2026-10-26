@@ -36,7 +36,7 @@ const navy = Color(0xFF0E3A4C);
 const deepNavy = Color(0xFF092732);
 const teal = Color(0xFF1B8A83);
 const clay = Color(0xFFC1592B);
-const brandOrange = Color(0xFFFF956B);
+const brandOrange = Color(0xFFF06423);
 const sand = Color(0xFFF3EFE6);
 const ink = Color(0xFF17231F);
 const inkSoft = Color(0xFF5B6B67);
@@ -366,37 +366,16 @@ class AppLoadingPage extends StatefulWidget {
   State<AppLoadingPage> createState() => _AppLoadingPageState();
 }
 
-class _AppLoadingPageState extends State<AppLoadingPage>
-    with SingleTickerProviderStateMixin {
+class _AppLoadingPageState extends State<AppLoadingPage> {
   static const _minimumDisplayDuration = Duration(seconds: 3);
 
   bool _sessionReady = false;
-  bool? _reduceMotion;
   late final Stopwatch _startupTimer = Stopwatch()..start();
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 2400),
-  );
 
   @override
   void initState() {
     super.initState();
     unawaited(_restoreSession());
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final reduceMotion = MediaQuery.of(context).disableAnimations;
-    if (_reduceMotion == reduceMotion) return;
-    _reduceMotion = reduceMotion;
-    if (reduceMotion) {
-      _controller
-        ..stop()
-        ..value = .38;
-    } else {
-      _controller.repeat();
-    }
   }
 
   Future<void> _restoreSession() async {
@@ -423,12 +402,6 @@ class _AppLoadingPageState extends State<AppLoadingPage>
   }
 
   @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: deepNavy,
     body: SafeArea(
@@ -451,92 +424,74 @@ class _AppLoadingPageState extends State<AppLoadingPage>
           builder: (context, constraints) => SingleChildScrollView(
             child: ConstrainedBox(
               constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: AnimatedBuilder(
-                animation: _controller,
-                builder: (context, child) {
-                  final progress = _controller.value;
-                  final mascotBob = _reduceMotion == true
-                      ? 0.0
-                      : math.sin(progress * math.pi * 2) * 8;
-                  final mascotTilt = _reduceMotion == true
-                      ? 0.0
-                      : math.sin(progress * math.pi * 2) * .018;
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 30,
-                        vertical: 32,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 30,
+                    vertical: 32,
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Image.asset(
+                        'assets/chatbot_character/thinking_animation/trako_loading.png',
+                        key: const ValueKey('startup-trako-mascot'),
+                        width: 250,
+                        height: 310,
+                        fit: BoxFit.contain,
+                        semanticLabel: 'Trako loading',
                       ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Transform.translate(
-                            offset: Offset(0, mascotBob),
-                            child: Transform.rotate(
-                              angle: mascotTilt,
-                              child: Image.asset(
-                                'assets/chatbot_character/thinking_animation/trako_loading.png',
-                                key: const ValueKey('startup-trako-mascot'),
-                                width: 250,
-                                height: 310,
-                                fit: BoxFit.contain,
-                                semanticLabel: 'Trako loading',
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text.rich(
+                      const SizedBox(height: 8),
+                      Text.rich(
+                        TextSpan(
+                          children: [
                             TextSpan(
-                              children: [
-                                TextSpan(
-                                  text: 'Infra',
-                                  style: infraHeading(
-                                    color: Colors.white,
-                                    fontSize: 30,
-                                    weight: FontWeight.w800,
-                                  ),
-                                ),
-                                TextSpan(
-                                  text: 'Track',
-                                  style: infraHeading(
-                                    color: brandOrange,
-                                    fontSize: 30,
-                                    weight: FontWeight.w800,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          const Text(
-                            'MATI CITY · DAVAO ORIENTAL',
-                            style: TextStyle(
-                              color: Color(0xFFD0E3E8),
-                              fontSize: 10,
-                              letterSpacing: 1.2,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 30),
-                          Semantics(
-                            liveRegion: true,
-                            child: Text(
-                              _sessionReady
-                                  ? 'Opening your community dashboard…'
-                                  : 'Restoring your session…',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Color(0xFFE0ECEF),
-                                fontSize: 13,
-                                letterSpacing: .1,
+                              text: 'Infra',
+                              style: infraHeading(
+                                color: Colors.white,
+                                fontSize: 30,
+                                weight: FontWeight.w800,
                               ),
                             ),
-                          ),
-                        ],
+                            TextSpan(
+                              text: 'Track',
+                              style: infraHeading(
+                                color: brandOrange,
+                                fontSize: 30,
+                                weight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-                },
+                      const SizedBox(height: 6),
+                      const Text(
+                        'MATI CITY · DAVAO ORIENTAL',
+                        style: TextStyle(
+                          color: Color(0xFFD0E3E8),
+                          fontSize: 10,
+                          letterSpacing: 1.2,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 30),
+                      Semantics(
+                        liveRegion: true,
+                        child: Text(
+                          _sessionReady
+                              ? 'Opening your community dashboard…'
+                              : 'Restoring your session…',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Color(0xFFE0ECEF),
+                            fontSize: 13,
+                            letterSpacing: .1,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),

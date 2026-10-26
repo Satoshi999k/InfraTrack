@@ -20,6 +20,8 @@ void main() {
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
+    locationPlatform.locationEnabled = true;
+    locationPlatform.openLocationSettingsCalls = 0;
     originalLocationPlatform = GeolocatorPlatform.instance;
     originalClientFactory = ApiService.httpClientFactory;
     GeolocatorPlatform.instance = locationPlatform;
@@ -71,6 +73,35 @@ void main() {
       expect(find.text(category), findsOneWidget);
     }
     expect(find.text('Water'), findsNothing);
+  });
+
+  testWidgets('prompts to enable location when device location is off', (
+    tester,
+  ) async {
+    locationPlatform.locationEnabled = false;
+    ApiService.httpClientFactory = () => MockClient((request) async {
+      if (request.url.path.endsWith('/mobile/profile')) {
+        return _verifiedProfileResponse();
+      }
+      return http.Response('Not found', 404);
+    });
+
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: ReportPage())),
+    );
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(find.text('Turn on location'), findsOneWidget);
+    expect(
+      find.text(
+        'Turn on your device location so InfraTrack can place your report accurately.',
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Open settings'));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(locationPlatform.openLocationSettingsCalls, 1);
   });
 
   testWidgets('submit report button stays clay orange with a rose accent', (
@@ -304,12 +335,22 @@ http.Response _verifiedProfileResponse() => http.Response(
 );
 
 class _FakeGeolocatorPlatform extends GeolocatorPlatform {
+  bool locationEnabled = true;
+  int openLocationSettingsCalls = 0;
+
   @override
-  Future<bool> isLocationServiceEnabled() async => true;
+  Future<bool> isLocationServiceEnabled() async => locationEnabled;
 
   @override
   Future<LocationPermission> checkPermission() async =>
       LocationPermission.whileInUse;
+
+  @override
+  Future<bool> openLocationSettings() async {
+    openLocationSettingsCalls += 1;
+    locationEnabled = true;
+    return true;
+  }
 
   @override
   Future<Position> getCurrentPosition({

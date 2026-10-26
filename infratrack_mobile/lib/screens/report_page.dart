@@ -16,7 +16,7 @@ class ReportPage extends StatefulWidget {
   State<ReportPage> createState() => _ReportPageState();
 }
 
-class _ReportPageState extends State<ReportPage> {
+class _ReportPageState extends State<ReportPage> with WidgetsBindingObserver {
   final _imagePicker = ImagePicker();
   final _descriptionController = TextEditingController();
   String category = 'Roads';
@@ -31,6 +31,8 @@ class _ReportPageState extends State<ReportPage> {
   bool _checkingVerification = false;
   String? _verificationError;
   bool _submitting = false;
+  bool _locationPromptOpen = false;
+  bool _returningFromLocationSettings = false;
 
   bool get _isVerified => _verification.toLowerCase() == 'verified';
 
@@ -39,11 +41,21 @@ class _ReportPageState extends State<ReportPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _refreshAccess();
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _returningFromLocationSettings) {
+      _returningFromLocationSettings = false;
+      unawaited(_refreshLocation());
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _descriptionController.dispose();
     super.dispose();
   }
@@ -206,12 +218,16 @@ class _ReportPageState extends State<ReportPage> {
 
   Future<void> _refreshLocation() async {
     if (_locating) return;
+    var locationServicesDisabled = false;
+    var permissionDeniedForever = false;
+    var permissionDenied = false;
     setState(() {
       _locating = true;
       _locationError = null;
     });
     try {
       if (!await Geolocator.isLocationServiceEnabled()) {
+        locationServicesDisabled = true;
         throw Exception('Location services are disabled.');
       }
       var permission = await Geolocator.checkPermission();
@@ -220,6 +236,9 @@ class _ReportPageState extends State<ReportPage> {
       }
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
+        permissionDeniedForever =
+            permission == LocationPermission.deniedForever;
+        permissionDenied = permission == LocationPermission.denied;
         throw Exception('Location permission is required to place a report.');
       }
       final position = await Geolocator.getCurrentPosition(
@@ -238,6 +257,81 @@ class _ReportPageState extends State<ReportPage> {
       }
     } finally {
       if (mounted) setState(() => _locating = false);
+    }
+    if (mounted &&
+        (locationServicesDisabled ||
+            permissionDeniedForever ||
+            permissionDenied)) {
+      await _showLocationSetupPrompt(
+        locationServicesDisabled: locationServicesDisabled,
+        permissionDeniedForever: permissionDeniedForever,
+      );
+    }
+  }
+
+  Future<void> _showLocationSetupPrompt({
+    required bool locationServicesDisabled,
+    required bool permissionDeniedForever,
+  }) async {
+    if (_locationPromptOpen || !mounted) return;
+    _locationPromptOpen = true;
+    try {
+      final openSettings = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          icon: const Icon(Icons.location_on_outlined, color: clay, size: 30),
+          title: Text(
+            locationServicesDisabled
+                ? 'Turn on location'
+                : 'Allow location access',
+          ),
+          content: Text(
+            locationServicesDisabled
+                ? 'Turn on your device location so InfraTrack can place your report accurately.'
+                : 'Allow InfraTrack to access your location while you use the app so your report can be placed accurately.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Not now'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text(
+                locationServicesDisabled || permissionDeniedForever
+                    ? 'Open settings'
+                    : 'Try again',
+              ),
+            ),
+          ],
+        ),
+      );
+      if (openSettings != true || !mounted) return;
+      if (locationServicesDisabled) {
+        final opened = await Geolocator.openLocationSettings();
+        _returningFromLocationSettings = opened;
+        if (!opened && mounted) {
+          showInfraNotice(
+            context,
+            'Could not open location settings. Please enable location from your device settings.',
+            kind: InfraNoticeKind.warning,
+          );
+        }
+      } else if (permissionDeniedForever) {
+        final opened = await Geolocator.openAppSettings();
+        _returningFromLocationSettings = opened;
+        if (!opened && mounted) {
+          showInfraNotice(
+            context,
+            'Could not open app settings. Please allow location access in your device settings.',
+            kind: InfraNoticeKind.warning,
+          );
+        }
+      } else {
+        await _refreshLocation();
+      }
+    } finally {
+      _locationPromptOpen = false;
     }
   }
 

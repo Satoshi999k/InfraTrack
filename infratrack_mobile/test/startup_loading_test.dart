@@ -50,7 +50,9 @@ void main() {
     );
     final mascotStartY = tester.getTopLeft(mascotFinder).dy;
     await tester.pump(const Duration(milliseconds: 500));
-    expect(tester.getTopLeft(mascotFinder).dy, isNot(mascotStartY));
+    expect(tester.getTopLeft(mascotFinder).dy, mascotStartY);
+    expect(find.text('InfraTrack'), findsOneWidget);
+    expect(brandOrange, const Color(0xFFF06423));
 
     await tester.pump(const Duration(milliseconds: 2200));
     expect(find.byType(AppLoadingPage), findsOneWidget);
@@ -58,34 +60,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
 
-    expect(find.byType(AppLoadingPage), findsNothing);
-  });
-
-  testWidgets('startup supports reduced-motion preferences', (
-    WidgetTester tester,
-  ) async {
-    SharedPreferences.setMockInitialValues({});
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) => MediaQuery(
-            data: MediaQuery.of(context).copyWith(disableAnimations: true),
-            child: const AppLoadingPage(),
-          ),
-        ),
-      ),
-    );
-    await tester.pump(const Duration(milliseconds: 100));
-
-    expect(find.text('Restoring your session…'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-
-    await tester.pump(const Duration(milliseconds: 2800));
-    expect(find.byType(AppLoadingPage), findsOneWidget);
-
-    await tester.pump(const Duration(milliseconds: 200));
-    await tester.pumpAndSettle();
     expect(find.byType(AppLoadingPage), findsNothing);
   });
 }
