@@ -182,6 +182,83 @@ void main() {
     },
   );
 
+  testWidgets('city advisory opens full details with its comment thread', (
+    WidgetTester tester,
+  ) async {
+    final originalClientFactory = ApiService.httpClientFactory;
+    var socialRequestCount = 0;
+    ApiService.httpClientFactory = () => MockClient((request) async {
+      if (request.url.path.endsWith('/mobile/issues')) {
+        return http.Response(jsonEncode({'issues': []}), 200);
+      }
+      if (request.url.path.endsWith('/mobile/advisories')) {
+        return http.Response(
+          jsonEncode({
+            'advisories': [
+              {
+                ..._advisory(31, 'Full city advisory', 'gen'),
+                'message': 'First paragraph.\n\nAdditional important details.',
+                'reaction_count': 4,
+                'user_has_reacted': false,
+              },
+            ],
+          }),
+          200,
+        );
+      }
+      if (request.url.path.endsWith('/mobile/advisories/31/social')) {
+        socialRequestCount++;
+        return http.Response(
+          jsonEncode({
+            'advisory': {
+              ..._advisory(31, 'Full city advisory', 'gen'),
+              'message': 'First paragraph.\n\nAdditional important details.',
+            },
+            'reaction_count': 4,
+            'user_has_reacted': false,
+            'comments': [
+              {
+                'id': 1,
+                'author_name': 'Mati Resident',
+                'body': 'Thank you for sharing this update.',
+                'created_at': '2026-10-21T02:30:00.000Z',
+              },
+            ],
+          }),
+          200,
+        );
+      }
+      return http.Response('{}', 404);
+    });
+
+    try {
+      await tester.pumpWidget(const MaterialApp(home: NewsPage()));
+      await tester.pumpAndSettle();
+
+      await tester.dragUntilVisible(
+        find.text('Read more'),
+        find.byType(ListView).first,
+        const Offset(0, -500),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Read more'));
+      await tester.pumpAndSettle();
+
+      expect(socialRequestCount, 1);
+      expect(
+        find.textContaining('Additional important details.'),
+        findsOneWidget,
+      );
+      expect(find.text('Mati Resident'), findsOneWidget);
+      expect(find.text('Thank you for sharing this update.'), findsOneWidget);
+      expect(find.text('4'), findsOneWidget);
+      expect(find.byType(TextField), findsOneWidget);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      ApiService.httpClientFactory = originalClientFactory;
+    }
+  });
+
   testWidgets('failed advisory media offers retry instead of loading forever', (
     WidgetTester tester,
   ) async {

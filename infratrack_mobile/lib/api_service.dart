@@ -519,6 +519,57 @@ class ApiService {
   static Future<List<Map<String, dynamic>>> advisories() async =>
       _readList(await _request('GET', '/mobile/advisories'), 'advisories');
 
+  static Future<Map<String, dynamic>> advisorySocial(String advisoryId) async {
+    final body = await _request(
+      'GET',
+      '/mobile/advisories/${Uri.encodeComponent(advisoryId)}/social',
+    );
+    if (body['advisory'] is! Map || body['comments'] is! List) {
+      throw Exception('The server returned an invalid advisory detail.');
+    }
+    return {
+      ...body,
+      'advisory': Map<String, dynamic>.from(body['advisory'] as Map),
+      'comments': (body['comments'] as List)
+          .map((comment) => Map<String, dynamic>.from(comment as Map))
+          .toList(),
+    };
+  }
+
+  static Future<Map<String, dynamic>> postAdvisoryComment({
+    required String advisoryId,
+    required String message,
+  }) async {
+    final body = await _request(
+      'POST',
+      '/mobile/advisories/${Uri.encodeComponent(advisoryId)}/comments',
+      authenticated: true,
+      body: {'body': message},
+    );
+    if (body['comment'] is! Map) {
+      throw Exception('The server returned an invalid advisory comment.');
+    }
+    return Map<String, dynamic>.from(body['comment'] as Map);
+  }
+
+  static Future<({bool liked, int reactionCount})> toggleAdvisoryReaction(
+    String advisoryId,
+  ) async {
+    final body = await _request(
+      'POST',
+      '/mobile/advisories/${Uri.encodeComponent(advisoryId)}/reaction',
+      authenticated: true,
+    );
+    if (body['liked'] is! bool ||
+        int.tryParse('${body['reaction_count']}') == null) {
+      throw Exception('The server returned an invalid advisory reaction.');
+    }
+    return (
+      liked: body['liked'] as bool,
+      reactionCount: int.parse('${body['reaction_count']}'),
+    );
+  }
+
   static Future<List<Map<String, dynamic>>> notifications() async {
     if (!isSignedIn) return [];
     return _readList(

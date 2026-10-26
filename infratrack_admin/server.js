@@ -816,6 +816,20 @@ async function initializeDatabase() {
     file_path VARCHAR(500) NOT NULL, media_type VARCHAR(40) NOT NULL, CONSTRAINT advisory_media_fk FOREIGN KEY (advisory_id) REFERENCES advisories(id) ON DELETE CASCADE
   ) ENGINE=InnoDB`);
   await pool.query("ALTER TABLE advisories ADD COLUMN IF NOT EXISTS barangay VARCHAR(120) NULL");
+  await pool.query(`CREATE TABLE IF NOT EXISTS advisory_comments (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, advisory_id INT UNSIGNED NOT NULL,
+    author_id INT UNSIGNED NULL, body TEXT NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT advisory_comments_advisory_fk FOREIGN KEY (advisory_id) REFERENCES advisories(id) ON DELETE CASCADE,
+    CONSTRAINT advisory_comments_author_fk FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX advisory_comments_thread_idx (advisory_id, created_at, id)
+  ) ENGINE=InnoDB`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS advisory_reactions (
+    advisory_id INT UNSIGNED NOT NULL, user_id INT UNSIGNED NOT NULL,
+    reacted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (advisory_id, user_id),
+    CONSTRAINT advisory_reactions_advisory_fk FOREIGN KEY (advisory_id) REFERENCES advisories(id) ON DELETE CASCADE,
+    CONSTRAINT advisory_reactions_user_fk FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB`);
   await pool.query(`CREATE TABLE IF NOT EXISTS notifications (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, user_id INT UNSIGNED NOT NULL, report_id INT UNSIGNED NULL, advisory_id INT UNSIGNED NULL,
     type VARCHAR(50) NOT NULL, title VARCHAR(255) NOT NULL, message TEXT NOT NULL, channel VARCHAR(30) NOT NULL DEFAULT 'push', read_at TIMESTAMP NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1012,9 +1026,14 @@ app.use(async (req, res, next) => {
   const isPublicDiscussionRead =
     req.method === "GET" &&
     /^\/api\/mobile\/issues\/[^/]+\/discussion$/.test(req.path);
+  const isPublicAdvisorySocialRead =
+    req.method === "GET" &&
+    /^\/api\/mobile\/advisories\/\d+\/social$/.test(req.path);
   const isPublicMobileRoute =
     req.method === "GET" &&
-    (publicMobileRoutes.has(req.path) || isPublicDiscussionRead);
+    (publicMobileRoutes.has(req.path) ||
+      isPublicDiscussionRead ||
+      isPublicAdvisorySocialRead);
   const isMobileUpload = req.path === "/api/uploads" && req.method === "POST";
   if (isPublicMobileRoute && !req.headers.authorization) return next();
   if (
@@ -1354,14 +1373,160 @@ app.get("/api/mobile/advisories", async (req, res) => {
     : { sql: " AND a.audience = 'All barangays'", params: [] };
   const [advisories] = await pool.query(`SELECT a.id, a.type, a.title, a.message,
     a.audience, a.barangay, a.published_at, a.created_at,
-    am.file_path AS media_url, am.media_type AS media_kind
+    am.file_path AS media_url, am.media_type AS media_kind,
+    (SELECT COUNT(*) FROM advisory_reactions ar WHERE ar.advisory_id = a.id) AS reaction_count,
+    ${req.auth ? "EXISTS (SELECT 1 FROM advisory_reactions mine WHERE mine.advisory_id = a.id AND mine.user_id = ?) " : "0 "}
+      AS user_has_reacted
     FROM advisories a LEFT JOIN advisory_media am ON am.advisory_id = a.id
     WHERE a.status = 'published'${scope.sql} ORDER BY a.created_at DESC`,
-  scope.params);
+    [...(req.auth ? [req.auth.id] : []), ...scope.params]);
   res.json({ advisories: advisories.map((advisory) => ({
     ...advisory,
     media_url: publicMediaUrl(req, advisory.media_url),
   })) });
+});
+function advisoryMobileScope(user, alias = "a") {
+  if (!user?.barangay) {
+    return { sql: ` AND ${alias}.audience = 'All barangays'`, params: [] };
+  }
+  return {
+    sql: ` AND (
+      ${alias}.audience = 'All barangays' OR ${alias}.barangay = ?
+      OR REPLACE(REPLACE(LOWER(${alias}.audience), 'barangay ', ''), 'brgy. ', '')
+         = REPLACE(REPLACE(LOWER(?), 'barangay ', ''), 'brgy. ', '')
+    )`,
+    params: [user.barangay, user.barangay],
+  };
+}
+
+async function findPublicMobileAdvisory(identifier, user) {
+  if (!/^\d+$/.test(String(identifier))) return null;
+  const scope = advisoryMobileScope(user);
+  const [advisories] = await pool.query(
+    `SELECT a.id, a.type, a.title, a.message, a.audience, a.barangay,
+      a.published_at, a.created_at,
+      (SELECT am.file_path FROM advisory_media am
+       WHERE am.advisory_id = a.id ORDER BY am.id DESC LIMIT 1) AS media_url,
+      (SELECT am.media_type FROM advisory_media am
+       WHERE am.advisory_id = a.id ORDER BY am.id DESC LIMIT 1) AS media_kind
+     FROM advisories a
+     WHERE a.id = ? AND a.status = 'published'${scope.sql}
+     LIMIT 1`,
+    [Number(identifier), ...scope.params],
+  );
+  return advisories[0] ?? null;
+}
+
+app.get("/api/mobile/advisories/:id/social", async (req, res) => {
+  const advisory = await findPublicMobileAdvisory(req.params.id, req.auth);
+  if (!advisory) return res.status(404).json({ error: "Advisory not found" });
+  const [[reactionSummary]] = await pool.query(
+    `SELECT COUNT(*) AS reaction_count,
+      ${req.auth ? "EXISTS (SELECT 1 FROM advisory_reactions mine WHERE mine.advisory_id = ? AND mine.user_id = ?) " : "0 "}
+        AS user_has_reacted
+     FROM advisory_reactions WHERE advisory_id = ?`,
+    req.auth
+      ? [advisory.id, req.auth.id, advisory.id]
+      : [advisory.id],
+  );
+  const [comments] = await pool.query(
+    `SELECT c.id, c.body, c.created_at, u.name AS author_name
+     FROM advisory_comments c
+     LEFT JOIN users u ON u.id = c.author_id
+     WHERE c.advisory_id = ?
+     ORDER BY c.created_at DESC, c.id DESC
+     LIMIT 100`,
+    [advisory.id],
+  );
+  res.json({
+    advisory: {
+      ...advisory,
+      media_url: publicMediaUrl(req, advisory.media_url),
+    },
+    reaction_count: Number(reactionSummary.reaction_count || 0),
+    user_has_reacted: Boolean(reactionSummary.user_has_reacted),
+    comments: comments.reverse().map((comment) => ({
+      id: comment.id,
+      body: comment.body,
+      author_name: comment.author_name || "Former user",
+      created_at: comment.created_at,
+    })),
+  });
+});
+
+app.post("/api/mobile/advisories/:id/comments", async (req, res) => {
+  const advisory = await findPublicMobileAdvisory(req.params.id, req.auth);
+  if (!advisory) return res.status(404).json({ error: "Advisory not found" });
+  const body = req.body?.body;
+  if (typeof body !== "string" || !body.trim()) {
+    return res.status(400).json({ error: "Write a comment before sending." });
+  }
+  if (body.trim().length > 1000) {
+    return res.status(400).json({
+      error: "Comments must be 1,000 characters or fewer.",
+    });
+  }
+  const [result] = await pool.query(
+    `INSERT INTO advisory_comments (advisory_id, author_id, body)
+     VALUES (?, ?, ?)`,
+    [advisory.id, req.auth.id, body.trim()],
+  );
+  const [[comment]] = await pool.query(
+    `SELECT c.id, c.body, c.created_at, u.name AS author_name
+     FROM advisory_comments c
+     LEFT JOIN users u ON u.id = c.author_id
+     WHERE c.id = ?`,
+    [result.insertId],
+  );
+  res.status(201).json({
+    comment: {
+      ...comment,
+      author_name: comment.author_name || "Resident",
+    },
+  });
+});
+
+app.post("/api/mobile/advisories/:id/reaction", async (req, res) => {
+  const advisory = await findPublicMobileAdvisory(req.params.id, req.auth);
+  if (!advisory) return res.status(404).json({ error: "Advisory not found" });
+
+  const connection = await pool.getConnection();
+  let transactionStarted = false;
+  try {
+    await connection.beginTransaction();
+    transactionStarted = true;
+    const [[existingReaction]] = await connection.query(
+      "SELECT advisory_id FROM advisory_reactions WHERE advisory_id = ? AND user_id = ? FOR UPDATE",
+      [advisory.id, req.auth.id],
+    );
+    const liked = !existingReaction;
+    if (liked) {
+      await connection.query(
+        "INSERT INTO advisory_reactions (advisory_id, user_id) VALUES (?, ?)",
+        [advisory.id, req.auth.id],
+      );
+    } else {
+      await connection.query(
+        "DELETE FROM advisory_reactions WHERE advisory_id = ? AND user_id = ?",
+        [advisory.id, req.auth.id],
+      );
+    }
+    const [[summary]] = await connection.query(
+      "SELECT COUNT(*) AS reaction_count FROM advisory_reactions WHERE advisory_id = ?",
+      [advisory.id],
+    );
+    await connection.commit();
+    transactionStarted = false;
+    res.json({
+      liked,
+      reaction_count: Number(summary.reaction_count || 0),
+    });
+  } catch (error) {
+    if (transactionStarted) await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 });
 app.get("/api/mobile/reports", async (req, res) => {
   const [reports] = await pool.query(`SELECT r.*, u.name AS reporter,
