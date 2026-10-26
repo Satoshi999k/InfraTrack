@@ -6,7 +6,9 @@ import {
   BarChart3,
   Bell,
   Camera,
+  CalendarDays,
   CheckCircle2,
+  ChevronLeft,
   ChevronDown,
   ChevronRight,
   ClipboardList,
@@ -157,6 +159,7 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
   const [query, setQuery] = useState("");
   const [modal, setModal] = useState(null);
   const [issues, setIssues] = useState([]);
+  const [advisoryActivity, setAdvisoryActivity] = useState([]);
   const [users, setUsers] = useState([]);
   const [teams, setTeams] = useState([]);
   const [overviewData, setOverviewData] = useState(null);
@@ -190,18 +193,20 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
     const refreshDashboard = async () => {
       try {
         const scope = `?userId=${encodeURIComponent(user.id)}`;
-        const [userResponse, teamResponse] = await Promise.all([
+        const [userResponse, teamResponse, activityResponse] = await Promise.all([
           apiFetch(`/users${scope}`),
           apiFetch("/teams"),
+          apiFetch("/advisory-activity"),
         ]);
-        if (!userResponse.ok || !teamResponse.ok) {
+        if (!userResponse.ok || !teamResponse.ok || !activityResponse.ok) {
           throw new Error(
-            `API request failed (${userResponse.status}/${teamResponse.status})`,
+            `API request failed (${userResponse.status}/${teamResponse.status}/${activityResponse.status})`,
           );
         }
-        const [userData, teamData] = await Promise.all([
+        const [userData, teamData, activityData] = await Promise.all([
           userResponse.json(),
           teamResponse.json(),
+          activityResponse.json(),
         ]);
         const overviewResponse = await apiFetch(`/overview${scope}`);
         if (!overviewResponse.ok)
@@ -210,6 +215,7 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
         if (active) {
           setUsers(userData.users ?? []);
           setTeams(teamData.teams ?? []);
+          setAdvisoryActivity(activityData.activity ?? []);
           setOverviewData(overviewData);
           setApiError("");
         }
@@ -310,13 +316,37 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
 
   const notifications = useMemo(
     () =>
-      [...issues]
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-        .slice(0, 5),
-    [issues],
+      [
+        ...issues.map((issue) => ({
+          ...issue,
+          activity_type: "issue",
+          notification_id: issue.public_id,
+          notification_title: issue.title,
+          notification_message: `${issue.status} · ${issue.location}`,
+        })),
+        ...advisoryActivity.map((activity) => ({
+          ...activity,
+          notification_id: activity.id,
+          notification_title:
+            activity.activity_type === "comment"
+              ? `${activity.actor_name} commented`
+              : `${activity.actor_name} liked an advisory`,
+          notification_message:
+            activity.activity_type === "comment"
+              ? `${activity.advisory_title} · ${activity.body}`
+              : activity.advisory_title,
+        })),
+      ]
+        .sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        )
+        .slice(0, 8),
+    [advisoryActivity, issues],
   );
   const unreadNotificationCount = notifications.filter(
-    (issue) => !readNotificationIds.includes(issue.public_id),
+    (notification) =>
+      !readNotificationIds.includes(notification.notification_id),
   ).length;
 
   useEffect(() => {
@@ -353,9 +383,23 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
   }, []);
 
   const markNotificationsRead = () => {
-    const ids = notifications.map((issue) => issue.public_id);
+    const ids = notifications.map(
+      (notification) => notification.notification_id,
+    );
     setReadNotificationIds((current) => {
       const next = [...new Set([...current, ...ids])];
+      localStorage.setItem(
+        "infratrack.readNotifications",
+        JSON.stringify(next),
+      );
+      return next;
+    });
+  };
+
+  const markNotificationRead = (notificationId) => {
+    setReadNotificationIds((current) => {
+      if (current.includes(notificationId)) return current;
+      const next = [...current, notificationId];
       localStorage.setItem(
         "infratrack.readNotifications",
         JSON.stringify(next),
@@ -573,30 +617,37 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
                     )}
                   </div>
                   <div className="notification-list">
-                    {notifications.map((issue) => {
+                    {notifications.map((notification) => {
                       const unread = !readNotificationIds.includes(
-                        issue.public_id,
+                        notification.notification_id,
                       );
                       return (
                         <button
                           className={`notification-item ${unread ? "unread" : ""}`}
                           type="button"
-                          key={issue.public_id}
+                          key={`${notification.activity_type}:${notification.notification_id}`}
                           onClick={() => {
-                            setModal({ type: "issue", ...issue });
+                            markNotificationRead(notification.notification_id);
+                            if (notification.activity_type === "issue") {
+                              setModal({ type: "issue", ...notification });
+                            } else {
+                              setModal({
+                                type: "advisory-engagement",
+                                advisoryId: notification.advisory_id,
+                                advisoryTitle: notification.advisory_title,
+                              });
+                            }
                             setNotificationsOpen(false);
                           }}
                         >
                           <span
-                            className={`notification-status ${issue.status === "Resolved" ? "resolved" : "pending"}`}
+                            className={`notification-status ${notification.activity_type}`}
                           />
                           <span className="notification-copy">
-                            <strong>{issue.title}</strong>
-                            <small>
-                              {issue.status} · {issue.location}
-                            </small>
+                            <strong>{notification.notification_title}</strong>
+                            <small>{notification.notification_message}</small>
                             <em>
-                              {new Date(issue.created_at).toLocaleString()}
+                              {new Date(notification.created_at).toLocaleString()}
                             </em>
                           </span>
                           {unread && <b aria-label="Unread" />}
@@ -605,7 +656,7 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
                     })}
                     {!notifications.length && (
                       <p className="notification-empty">
-                        No infrastructure updates yet.
+                        No new reports or advisory activity.
                       </p>
                     )}
                   </div>
@@ -617,7 +668,7 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
                       setNotificationsOpen(false);
                     }}
                   >
-                    View issue queue <ChevronRight size={15} />
+                    View published advisories <ChevronRight size={15} />
                   </button>
                 </div>
               )}
@@ -784,6 +835,13 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
             }
             onOpenUser={(user) => setModal({ type: "user", user })}
             onNavigate={navigate}
+            onViewEngagement={(advisory) =>
+              setModal({
+                type: "advisory-engagement",
+                advisoryId: advisory.id,
+                advisoryTitle: advisory.title,
+              })
+            }
             onNotify={showToast}
             overviewData={overviewData}
             user={user}
@@ -918,6 +976,7 @@ function PageContent({
   onOpenIssue,
   onOpenUser,
   onNavigate,
+  onViewEngagement,
   onNotify,
   overviewData,
   user,
@@ -950,11 +1009,19 @@ function PageContent({
       <AdvisoryPage
         user={user}
         onNotify={onNotify}
+        onViewEngagement={onViewEngagement}
         onViewAll={() => onNavigate("published")}
       />
     );
   } else if (page === "published") {
-    pageView = <AdvisoryPage user={user} onNotify={onNotify} publishedOnly />;
+    pageView = (
+      <AdvisoryPage
+        user={user}
+        onNotify={onNotify}
+        onViewEngagement={onViewEngagement}
+        publishedOnly
+      />
+    );
   } else if (page === "logs") {
     pageView = <SettingsPage user={user} logsOnly />;
   } else if (page === "settings") {
@@ -1007,100 +1074,10 @@ function DashboardLoading({ message = "Loading your workspace…" }) {
 
 function Overview({ issues, overviewData, onOpenIssue, onNavigate, user }) {
   const summary = getDashboardSummary(issues);
-  const now = new Date();
-  const firstName = user?.name?.trim().split(/\s+/)[0] || "there";
-  const greeting =
-    now.getHours() < 12
-      ? "Good morning"
-      : now.getHours() < 18
-        ? "Good afternoon"
-        : "Good evening";
-  const dateLabel = new Intl.DateTimeFormat(undefined, {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  }).format(now);
-  const overviewArea =
-    user?.role === "barangay_staff" && user.barangay
-      ? user.barangay
-      : "Mati City";
-  const activeIssues = issues.filter(
-    (issue) =>
-      !["resolved", "rejected", "archived"].includes(
-        String(issue.status || "")
-          .trim()
-          .toLowerCase(),
-      ),
-  );
-  const criticalCount = activeIssues.filter(
-    (issue) => issue.severity === "Critical",
-  ).length;
-  const unassignedCount = activeIssues.filter((issue) => {
-    const assignedTeam = String(
-      issue.assigned_team || issue.assignedTeam || "",
-    ).trim();
-    return !assignedTeam || assignedTeam.toLowerCase() === "unassigned";
-  }).length;
 
   return (
     <div className="dashboard-overview">
-      <section className="overview-welcome" aria-label="Welcome">
-        <div className="overview-welcome-copy">
-          <p className="overview-date-label">{dateLabel}</p>
-          <h2>
-            {greeting}, {firstName}.
-          </h2>
-          <div
-            className={`overview-attention ${summary.activeCount === 0 ? "all-clear" : ""}`}
-          >
-            <span className="overview-attention-dot" />
-            <span>
-              {summary.activeCount === 0
-                ? "You’re all caught up on active reports."
-                : `${summary.activeCount} active ${summary.activeCount === 1 ? "report needs" : "reports need"} your attention.`}
-            </span>
-          </div>
-        </div>
-        <aside
-          className="overview-operations-snapshot"
-          aria-label="Operations snapshot"
-        >
-          <div className="overview-snapshot-heading">
-            <span className="overview-snapshot-location">
-              <MapPin size={14} aria-hidden="true" />
-              {overviewArea}
-            </span>
-            <span className="overview-snapshot-live">
-              <i />
-              Live overview
-            </span>
-          </div>
-          <div className="overview-snapshot-metrics">
-            <div>
-              <strong>{summary.activeCount}</strong>
-              <span>Active</span>
-            </div>
-            <div className={criticalCount ? "has-critical" : ""}>
-              <strong>{criticalCount}</strong>
-              <span>Critical</span>
-            </div>
-            <div>
-              <strong>{summary.inProgressIssues.length}</strong>
-              <span>In progress</span>
-            </div>
-          </div>
-          <div className="overview-snapshot-footer">
-            <span>
-              {unassignedCount
-                ? `${unassignedCount} unassigned`
-                : "All active reports assigned"}
-            </span>
-            <button type="button" onClick={() => onNavigate("queue")}>
-              Open queue <ChevronRight size={14} aria-hidden="true" />
-            </button>
-          </div>
-        </aside>
-      </section>
+      <OverviewCalendar issues={issues} onOpenIssue={onOpenIssue} />
       <div className="kpi-grid">
         <Kpi
           icon={FileText}
@@ -1146,6 +1123,198 @@ function Overview({ issues, overviewData, onOpenIssue, onNavigate, user }) {
         <TeamCard teams={overviewData?.teams ?? []} />
       </div>
     </div>
+  );
+}
+
+function calendarDateKey(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function OverviewCalendar({ issues, onOpenIssue }) {
+  const [visibleMonth, setVisibleMonth] = useState(() => {
+    const today = new Date();
+    return new Date(today.getFullYear(), today.getMonth(), 1);
+  });
+  const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const calendarDays = useMemo(() => {
+    const firstOfMonth = new Date(
+      visibleMonth.getFullYear(),
+      visibleMonth.getMonth(),
+      1,
+    );
+    const mondayOffset = (firstOfMonth.getDay() + 6) % 7;
+    const gridStart = new Date(
+      firstOfMonth.getFullYear(),
+      firstOfMonth.getMonth(),
+      1 - mondayOffset,
+    );
+
+    return Array.from(
+      { length: 42 },
+      (_, index) =>
+        new Date(
+          gridStart.getFullYear(),
+          gridStart.getMonth(),
+          gridStart.getDate() + index,
+        ),
+    );
+  }, [visibleMonth]);
+  const reportsByDate = useMemo(() => {
+    const grouped = new Map();
+    issues.forEach((issue) => {
+      if (!issue.created_at) return;
+      const createdAt = new Date(issue.created_at);
+      if (Number.isNaN(createdAt.getTime())) return;
+      const key = calendarDateKey(createdAt);
+      grouped.set(key, [...(grouped.get(key) || []), issue]);
+    });
+    return grouped;
+  }, [issues]);
+  const selectedDateKey = calendarDateKey(selectedDate);
+  const selectedReports = reportsByDate.get(selectedDateKey) || [];
+  const monthLabel = new Intl.DateTimeFormat(undefined, {
+    month: "long",
+    year: "numeric",
+  }).format(visibleMonth);
+  const selectedDateLabel = new Intl.DateTimeFormat(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  }).format(selectedDate);
+
+  const changeMonth = (amount) => {
+    const nextMonth = new Date(
+      visibleMonth.getFullYear(),
+      visibleMonth.getMonth() + amount,
+      1,
+    );
+    setVisibleMonth(nextMonth);
+    setSelectedDate(nextMonth);
+  };
+
+  const selectDate = (date) => {
+    setSelectedDate(date);
+    if (date.getMonth() !== visibleMonth.getMonth()) {
+      setVisibleMonth(new Date(date.getFullYear(), date.getMonth(), 1));
+    }
+  };
+
+  return (
+    <section className="card overview-calendar" aria-label="Report calendar">
+      <div className="overview-calendar-month">
+        <div className="overview-calendar-heading">
+          <div>
+            <div className="overview-calendar-title">
+              <CalendarDays size={18} aria-hidden="true" />
+              <h2>Report calendar</h2>
+            </div>
+            <p>Track reports by date</p>
+          </div>
+          <div className="overview-calendar-controls">
+            <button
+              type="button"
+              aria-label="Previous month"
+              onClick={() => changeMonth(-1)}
+            >
+              <ChevronLeft size={16} aria-hidden="true" />
+            </button>
+            <strong aria-live="polite">{monthLabel}</strong>
+            <button
+              type="button"
+              aria-label="Next month"
+              onClick={() => changeMonth(1)}
+            >
+              <ChevronRight size={16} aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+        <div className="overview-calendar-grid" aria-label={monthLabel}>
+          {weekdays.map((weekday) => (
+            <span className="overview-calendar-weekday" key={weekday}>
+              {weekday}
+            </span>
+          ))}
+          {calendarDays.map((date) => {
+            const dateKey = calendarDateKey(date);
+            const isCurrentMonth = date.getMonth() === visibleMonth.getMonth();
+            const isToday = dateKey === calendarDateKey(new Date());
+            const isSelected = dateKey === selectedDateKey;
+            const reportCount = reportsByDate.get(dateKey)?.length || 0;
+            return (
+              <button
+                type="button"
+                className={[
+                  "overview-calendar-day",
+                  !isCurrentMonth && "outside-month",
+                  isToday && "today",
+                  isSelected && "selected",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                aria-label={`${new Intl.DateTimeFormat(undefined, {
+                  weekday: "long",
+                  month: "long",
+                  day: "numeric",
+                  year: "numeric",
+                }).format(date)}${reportCount ? `, ${reportCount} ${reportCount === 1 ? "report" : "reports"}` : ""}`}
+                aria-pressed={isSelected}
+                key={dateKey}
+                onClick={() => selectDate(date)}
+              >
+                <span>{date.getDate()}</span>
+                {reportCount > 0 && <i aria-hidden="true" />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <aside className="overview-calendar-agenda" aria-live="polite">
+        <div className="overview-calendar-agenda-heading">
+          <div>
+            <span>Report activity</span>
+            <h3>{selectedDateLabel}</h3>
+          </div>
+          <strong>
+            {selectedReports.length}{" "}
+            {selectedReports.length === 1 ? "report" : "reports"}
+          </strong>
+        </div>
+        {selectedReports.length ? (
+          <div className="overview-calendar-reports">
+            {selectedReports.slice(0, 4).map((issue) => (
+              <button
+                type="button"
+                className="overview-calendar-report"
+                key={issue.id}
+                onClick={() => onOpenIssue(issue)}
+              >
+                <span className="overview-calendar-report-marker" />
+                <span>
+                  <strong>{issue.title || "Infrastructure report"}</strong>
+                  <small>
+                    {issue.category || "Report"} · {issue.location || "Mati City"}
+                  </small>
+                </span>
+                <ChevronRight size={15} aria-hidden="true" />
+              </button>
+            ))}
+            {selectedReports.length > 4 && (
+              <p className="overview-calendar-more">
+                +{selectedReports.length - 4} more reports on this date
+              </p>
+            )}
+          </div>
+        ) : (
+          <p className="overview-calendar-empty">
+            No reports recorded for this date.
+          </p>
+        )}
+      </aside>
+    </section>
   );
 }
 

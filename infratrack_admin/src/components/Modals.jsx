@@ -16,11 +16,13 @@ import {
   ClipboardList,
   FileText,
   Eye,
+  Heart,
   Image as ImageIcon,
   LayoutDashboard,
   MapPin,
   Map,
   Megaphone,
+  MessageCircle,
   ScanEye,
   ScrollText,
   Send,
@@ -61,7 +63,176 @@ export function Modal({
   if (data.type === "walkin")
     return <WalkInModal onClose={onClose} onSave={onSave} />;
   if (data.type === "help") return <HelpModal onClose={onClose} />;
+  if (data.type === "advisory-engagement")
+    return <AdvisoryEngagementModal data={data} onClose={onClose} />;
   return <IssueModal data={data} onClose={onClose} onSave={onSave} />;
+}
+
+function AdvisoryEngagementModal({ data, onClose }) {
+  const [engagement, setEngagement] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  useEffect(() => {
+    let active = true;
+    const loadEngagement = async () => {
+      try {
+        const response = await apiFetch(
+          `/advisories/${encodeURIComponent(data.advisoryId)}/engagement`,
+        );
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.error || "Could not load advisory activity.");
+        }
+        if (active) setEngagement(result);
+      } catch (loadError) {
+        if (active) {
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : "Could not load advisory activity.",
+          );
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    loadEngagement();
+    return () => {
+      active = false;
+    };
+  }, [data.advisoryId]);
+
+  const advisory = engagement?.advisory;
+  const comments = engagement?.comments ?? [];
+  const reactions = engagement?.reactions ?? [];
+
+  return (
+    <div className="modal-backdrop advisory-engagement-backdrop" onClick={onClose}>
+      <section
+        className="modal advisory-engagement-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="advisory-engagement-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="advisory-engagement-header">
+          <div>
+            <span>Public advisory</span>
+            <h2 id="advisory-engagement-title">
+              {advisory?.title || data.advisoryTitle || "Advisory activity"}
+            </h2>
+          </div>
+          <button
+            type="button"
+            className="modal-close"
+            onClick={onClose}
+            aria-label="Close advisory activity"
+          >
+            <X size={18} />
+          </button>
+        </header>
+        {loading ? (
+          <div className="advisory-engagement-state" role="status">
+            Loading advisory activity…
+          </div>
+        ) : error ? (
+          <div className="advisory-engagement-state error" role="alert">
+            {error}
+          </div>
+        ) : (
+          <div className="advisory-engagement-body">
+            <p className="advisory-engagement-message">{advisory?.message}</p>
+            <div className="advisory-engagement-stats">
+              <div>
+                <Heart size={16} aria-hidden="true" />
+                <strong>{advisory?.reaction_count ?? reactions.length}</strong>
+                <span>Likes</span>
+              </div>
+              <div>
+                <MessageCircle size={16} aria-hidden="true" />
+                <strong>{advisory?.comment_count ?? comments.length}</strong>
+                <span>Comments</span>
+              </div>
+            </div>
+            <section className="advisory-engagement-section">
+              <div className="advisory-engagement-section-heading">
+                <h3>Resident comments</h3>
+                <span>{advisory?.comment_count ?? comments.length}</span>
+              </div>
+              {Number(advisory?.comment_count || 0) > comments.length && (
+                <p className="advisory-engagement-limit">
+                  Showing the {comments.length} most recent comments.
+                </p>
+              )}
+              {comments.length ? (
+                <div className="advisory-engagement-comments">
+                  {comments.map((comment) => (
+                    <article
+                      className="advisory-engagement-comment"
+                      key={comment.id}
+                    >
+                      <div>
+                        <strong>{comment.author_name}</strong>
+                        <time dateTime={comment.created_at}>
+                          {comment.created_at
+                            ? new Date(comment.created_at).toLocaleString()
+                            : ""}
+                        </time>
+                      </div>
+                      <p>{comment.body}</p>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="advisory-engagement-empty">
+                  No comments yet.
+                </p>
+              )}
+            </section>
+            <section className="advisory-engagement-section">
+              <div className="advisory-engagement-section-heading">
+                <h3>Liked by</h3>
+                <span>{advisory?.reaction_count ?? reactions.length}</span>
+              </div>
+              {reactions.length ? (
+                <ul className="advisory-engagement-likes">
+                  {reactions.map((reaction) => (
+                    <li key={reaction.user_id}>
+                      <span aria-hidden="true">
+                        {reaction.user_name?.trim().charAt(0).toUpperCase() ||
+                          "R"}
+                      </span>
+                      <strong>{reaction.user_name}</strong>
+                    </li>
+                  ))}
+                  {Number(advisory?.reaction_count || 0) > reactions.length && (
+                    <li className="advisory-engagement-more-likes">
+                      and {Number(advisory.reaction_count) - reactions.length}{" "}
+                      more
+                    </li>
+                  )}
+                </ul>
+              ) : (
+                <p className="advisory-engagement-empty">
+                  No likes yet.
+                </p>
+              )}
+            </section>
+          </div>
+        )}
+      </section>
+    </div>
+  );
 }
 
 function HelpModal({ onClose }) {

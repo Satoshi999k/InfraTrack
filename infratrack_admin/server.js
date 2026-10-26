@@ -2514,7 +2514,9 @@ app.get("/api/advisories", async (req, res) => {
   const status = req.query.status || "published";
   const scope = getAdvisoryReadScope(req.auth, "a");
   const [advisories] = await pool.query(`SELECT a.*, u.name AS author,
-    am.file_path AS media_url, am.media_type AS media_kind
+    am.file_path AS media_url, am.media_type AS media_kind,
+    (SELECT COUNT(*) FROM advisory_reactions ar WHERE ar.advisory_id = a.id) AS reaction_count,
+    (SELECT COUNT(*) FROM advisory_comments ac WHERE ac.advisory_id = a.id) AS comment_count
     FROM advisories a LEFT JOIN users u ON u.id = a.created_by
     LEFT JOIN advisory_media am ON am.advisory_id = a.id
     WHERE a.status = ?${scope.sql} ORDER BY a.created_at DESC`, [status, ...scope.params]);
@@ -2522,6 +2524,83 @@ app.get("/api/advisories", async (req, res) => {
     ...advisory,
     media_url: publicMediaUrl(req, advisory.media_url),
   })) });
+});
+app.get("/api/advisory-activity", async (req, res) => {
+  const scope = getAdvisoryReadScope(req.auth, "a");
+  const [activity] = await pool.query(
+    `SELECT activity_type, activity_id, advisory_id, advisory_title,
+      actor_name, body, created_at
+     FROM (
+       SELECT 'comment' AS activity_type, c.id AS activity_id,
+         a.id AS advisory_id, a.title AS advisory_title,
+         COALESCE(u.name, 'Former user') AS actor_name,
+         c.body, c.created_at
+       FROM advisory_comments c
+       JOIN advisories a ON a.id = c.advisory_id
+       LEFT JOIN users u ON u.id = c.author_id
+       WHERE a.status = 'published'${scope.sql}
+       UNION ALL
+       SELECT 'like' AS activity_type, ar.user_id AS activity_id,
+         a.id AS advisory_id, a.title AS advisory_title,
+         COALESCE(u.name, 'Former user') AS actor_name,
+         NULL AS body, ar.reacted_at AS created_at
+       FROM advisory_reactions ar
+       JOIN advisories a ON a.id = ar.advisory_id
+       LEFT JOIN users u ON u.id = ar.user_id
+       WHERE a.status = 'published'${scope.sql}
+     ) advisory_activity
+     ORDER BY created_at DESC, activity_id DESC
+     LIMIT 30`,
+    [...scope.params, ...scope.params],
+  );
+  res.json({
+    activity: activity.map((item) => ({
+      ...item,
+      id: `${item.activity_type}:${item.activity_id}:${item.advisory_id}`,
+    })),
+  });
+});
+app.get("/api/advisories/:id/engagement", async (req, res) => {
+  const scope = getAdvisoryReadScope(req.auth, "a");
+  const [advisories] = await pool.query(
+    `SELECT a.id, a.title, a.message, a.type, a.audience, a.barangay,
+      a.published_at, a.created_at,
+      (SELECT COUNT(*) FROM advisory_reactions ar WHERE ar.advisory_id = a.id) AS reaction_count,
+      (SELECT COUNT(*) FROM advisory_comments ac WHERE ac.advisory_id = a.id) AS comment_count
+     FROM advisories a
+     WHERE a.id = ? AND a.status = 'published'${scope.sql}
+     LIMIT 1`,
+    [Number(req.params.id), ...scope.params],
+  );
+  const advisory = advisories[0];
+  if (!advisory) return res.status(404).json({ error: "Advisory not found" });
+
+  const [comments] = await pool.query(
+    `SELECT c.id, c.body, c.created_at,
+      COALESCE(u.name, 'Former user') AS author_name
+     FROM advisory_comments c
+     LEFT JOIN users u ON u.id = c.author_id
+     WHERE c.advisory_id = ?
+     ORDER BY c.created_at DESC, c.id DESC
+     LIMIT 100`,
+    [advisory.id],
+  );
+  const [reactions] = await pool.query(
+    `SELECT ar.user_id, ar.reacted_at,
+      COALESCE(u.name, 'Former user') AS user_name
+     FROM advisory_reactions ar
+     LEFT JOIN users u ON u.id = ar.user_id
+     WHERE ar.advisory_id = ?
+     ORDER BY ar.reacted_at DESC
+     LIMIT 50`,
+    [advisory.id],
+  );
+
+  res.json({
+    advisory,
+    comments: comments.reverse(),
+    reactions,
+  });
 });
 app.post("/api/uploads", (req, res, next) => {
   upload.fields([

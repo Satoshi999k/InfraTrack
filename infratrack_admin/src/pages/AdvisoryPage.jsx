@@ -6,8 +6,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Image,
+  Heart,
   Megaphone,
   MapPin,
+  MessageCircle,
   Pencil,
   Send,
   Trash2,
@@ -84,7 +86,13 @@ const typeMeta = {
   gen: ["Announcement", Megaphone],
 };
 
-export default function AdvisoryPage({ publishedOnly = false, onNotify, onViewAll, user }) {
+export default function AdvisoryPage({
+  publishedOnly = false,
+  onNotify,
+  onViewAll,
+  onViewEngagement,
+  user,
+}) {
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [type, setType] = useState("advertisement");
@@ -468,6 +476,23 @@ export default function AdvisoryPage({ publishedOnly = false, onNotify, onViewAl
               <p>{advisory.message}</p>
               <div className="advisory-card-footer">
                 <small>{advisory.created_at ? new Date(advisory.created_at).toLocaleString() : "Recently issued"}</small>
+                <div className="advisory-engagement-summary">
+                  <span>
+                    <Heart size={13} aria-hidden="true" />
+                    {Number(advisory.reaction_count) || 0}
+                  </span>
+                  <span>
+                    <MessageCircle size={13} aria-hidden="true" />
+                    {Number(advisory.comment_count) || 0}
+                  </span>
+                  <button
+                    type="button"
+                    className="advisory-engagement-trigger"
+                    onClick={() => onViewEngagement?.(advisory)}
+                  >
+                    View activity
+                  </button>
+                </div>
                 <span>
                   <button
                     type="button"
