@@ -2230,7 +2230,7 @@ class AppScroll extends StatelessWidget {
         parent: AlwaysScrollableScrollPhysics(),
       ),
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      clipBehavior: Clip.none,
+      clipBehavior: Clip.hardEdge,
       itemCount: 1,
       itemBuilder: (context, index) => child,
     );

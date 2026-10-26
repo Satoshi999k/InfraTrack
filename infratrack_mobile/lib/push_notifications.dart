@@ -164,12 +164,6 @@ class PushNotifications {
     final childId = parsedId != null && parsedId > 0
         ? parsedId
         : (message.messageId?.hashCode.abs() ?? 1).clamp(1, 0x7ffffffe).toInt();
-    final imageBytes = message.data['advisoryId'] == null
-        ? null
-        : await _downloadNotificationImage(
-            message.data['imageUrl']?.toString(),
-          );
-
     await notifications.show(
       id: childId,
       title: title,
@@ -178,7 +172,6 @@ class PushNotifications {
         groupSummary: false,
         latestTitle: title,
         latestBody: body,
-        imageBytes: imageBytes,
       ),
       payload: payload,
     );
@@ -205,6 +198,25 @@ class PushNotifications {
         latestBody: body,
       ),
       payload: jsonEncode({'openNotifications': 'true'}),
+    );
+
+    if (message.data['advisoryId'] == null) return;
+    final imageBytes = await _downloadNotificationImage(
+      message.data['imageUrl']?.toString(),
+    );
+    if (imageBytes == null) return;
+
+    await notifications.show(
+      id: childId,
+      title: title,
+      body: body,
+      notificationDetails: groupedNotificationDetails(
+        groupSummary: false,
+        latestTitle: title,
+        latestBody: body,
+        imageBytes: imageBytes,
+      ),
+      payload: payload,
     );
   }
 

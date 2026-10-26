@@ -11,6 +11,42 @@ import 'package:infatrack/main.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  testWidgets('tab scroll content stays clipped below the status bar', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    tester.view.viewPadding = const FakeViewPadding(top: 40);
+    tester.view.padding = const FakeViewPadding(top: 40);
+
+    try {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: SafeArea(
+              child: AppScroll(
+                child: SizedBox(
+                  height: 1200,
+                  child: Text('Scrollable content'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final listView = tester.widget<ListView>(find.byType(ListView));
+      expect(listView.clipBehavior, Clip.hardEdge);
+      expect(tester.getTopLeft(find.byType(ListView)).dy, 40);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      tester.view.resetViewPadding();
+      tester.view.resetPadding();
+    }
+  });
+
   testWidgets('News page separates report updates from city advisories', (
     WidgetTester tester,
   ) async {
