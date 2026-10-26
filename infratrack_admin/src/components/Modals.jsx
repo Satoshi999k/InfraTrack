@@ -27,12 +27,16 @@ import {
   ShieldAlert,
   ShieldCheck,
   Sparkles,
+  Star,
   Users,
   X,
 } from "lucide-react";
 import { apiFetch } from "../api";
 import { progressUpdateError } from "../../progressWorkflow.js";
-import { isReportDiscussionOpen, REPORT_COMMENT_MAX_LENGTH } from "../../reportDiscussion.js";
+import {
+  isReportDiscussionOpen,
+  REPORT_COMMENT_MAX_LENGTH,
+} from "../../reportDiscussion.js";
 import { REPORT_CATEGORIES } from "../../reportCategories.js";
 import { startVisiblePolling } from "../visiblePolling.js";
 
@@ -339,7 +343,7 @@ function WalkInModal({ onClose, onSave }) {
 
       if (event.key !== "Tab" || !modal) return;
       const focusable = modal.querySelectorAll(
-        'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled)',
+        "button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled)",
       );
       if (!focusable.length) return;
       const first = focusable[0];
@@ -364,7 +368,9 @@ function WalkInModal({ onClose, onSave }) {
     event.preventDefault();
     if (saving) return;
     if (!title.trim() || !description.trim() || !location.trim()) {
-      setSaveError("Complete the title, location, and description before saving.");
+      setSaveError(
+        "Complete the title, location, and description before saving.",
+      );
       return;
     }
     setSaveError("");
@@ -378,7 +384,9 @@ function WalkInModal({ onClose, onSave }) {
         severity,
       });
     } catch (error) {
-      setSaveError(error.message || "Could not save the report. Please try again.");
+      setSaveError(
+        error.message || "Could not save the report. Please try again.",
+      );
     } finally {
       setSaving(false);
     }
@@ -535,6 +543,9 @@ export function IssueModal({ data, onClose, onSave }) {
   const [discussionExpanded, setDiscussionExpanded] = useState(false);
   const [discussionLoading, setDiscussionLoading] = useState(true);
   const [discussionError, setDiscussionError] = useState("");
+  const [ratings, setRatings] = useState([]);
+  const [ratingsLoading, setRatingsLoading] = useState(true);
+  const [ratingsError, setRatingsError] = useState("");
   const [reply, setReply] = useState("");
   const [isPostingReply, setIsPostingReply] = useState(false);
   const [note, setNote] = useState("");
@@ -589,6 +600,43 @@ export function IssueModal({ data, onClose, onSave }) {
     return () => {
       active = false;
       stopPolling();
+    };
+  }, [data.id]);
+
+  useEffect(() => {
+    if (!data.id) return undefined;
+    let active = true;
+    setRatings([]);
+    setRatingsError("");
+    setRatingsLoading(true);
+    const loadRatings = async () => {
+      try {
+        const response = await apiFetch(
+          `/issues/${encodeURIComponent(data.id)}/ratings`,
+        );
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.error || "Could not load resident feedback.");
+        }
+        if (active) {
+          setRatings(result.ratings ?? []);
+          setRatingsError("");
+        }
+      } catch (error) {
+        if (active) {
+          setRatingsError(
+            error instanceof Error
+              ? error.message
+              : "Could not load resident feedback.",
+          );
+        }
+      } finally {
+        if (active) setRatingsLoading(false);
+      }
+    };
+    void loadRatings();
+    return () => {
+      active = false;
     };
   }, [data.id]);
 
@@ -760,9 +808,7 @@ export function IssueModal({ data, onClose, onSave }) {
             </div>
           )}
           <div className="issue-modal-hero-badges">
-            <span
-              className={`issue-modal-status ${severity.toLowerCase()}`}
-            >
+            <span className={`issue-modal-status ${severity.toLowerCase()}`}>
               <AlertTriangle size={13} /> Priority {severity}
             </span>
             <span className="issue-modal-current-status">{status}</span>
@@ -830,6 +876,87 @@ export function IssueModal({ data, onClose, onSave }) {
                 <h3>Description</h3>
                 <p>{data.description || "No description provided."}</p>
               </div>
+              <section
+                className="resident-review-section"
+                aria-labelledby="resident-review-title"
+              >
+                <div className="resident-review-heading">
+                  <div>
+                    <span>COMMUNITY FEEDBACK</span>
+                    <h3 id="resident-review-title">Resident review</h3>
+                  </div>
+                  {!ratingsLoading && ratings.length > 0 && (
+                    <span className="resident-review-count">
+                      {ratings.length}{" "}
+                      {ratings.length === 1 ? "review" : "reviews"}
+                    </span>
+                  )}
+                </div>
+                {ratingsLoading ? (
+                  <p className="resident-review-state" role="status">
+                    Loading resident feedback...
+                  </p>
+                ) : ratingsError ? (
+                  <p className="resident-review-error" role="alert">
+                    {ratingsError}
+                  </p>
+                ) : ratings.length === 0 ? (
+                  <p className="resident-review-state">
+                    {status === "Resolved"
+                      ? "No resident review has been submitted yet."
+                      : "Resident feedback will appear here after the report is resolved."}
+                  </p>
+                ) : (
+                  <div className="resident-review-list">
+                    {ratings.map((review, index) => {
+                      const rating = Math.min(
+                        5,
+                        Math.max(0, Number(review.rating) || 0),
+                      );
+                      return (
+                        <article
+                          className="resident-review-card"
+                          key={`${review.created_at || "review"}-${index}`}
+                        >
+                          <div className="resident-review-meta">
+                            <strong>
+                              {review.reviewer_name || "Resident"}
+                            </strong>
+                            <time>
+                              {review.created_at
+                                ? new Date(review.created_at).toLocaleString()
+                                : "Recently"}
+                            </time>
+                          </div>
+                          <div
+                            className="resident-review-rating"
+                            aria-label={`${rating} out of 5 stars`}
+                          >
+                            <span className="resident-review-stars">
+                              {Array.from({ length: 5 }, (_, star) => (
+                                <Star
+                                  key={star}
+                                  size={15}
+                                  className={star < rating ? "is-filled" : ""}
+                                  aria-hidden="true"
+                                />
+                              ))}
+                            </span>
+                            <strong>{rating}/5</strong>
+                          </div>
+                          {review.comment?.trim() ? (
+                            <p>{review.comment}</p>
+                          ) : (
+                            <p className="resident-review-no-comment">
+                              No written comment was provided.
+                            </p>
+                          )}
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
               <div className="modal-section discussion-section">
                 <div className="discussion-section-heading">
                   <div>
@@ -914,7 +1041,9 @@ export function IssueModal({ data, onClose, onSave }) {
                     className="discussion-toggle"
                     aria-expanded={discussionExpanded}
                     aria-controls="issue-discussion-replies"
-                    onClick={() => setDiscussionExpanded((expanded) => !expanded)}
+                    onClick={() =>
+                      setDiscussionExpanded((expanded) => !expanded)
+                    }
                   >
                     {discussionExpanded ? (
                       <>

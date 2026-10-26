@@ -8782,6 +8782,126 @@ tbody tr:last-child td {
   overflow-wrap: anywhere;
 }
 
+.resident-review-section {
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid #d8e7e3;
+  border-radius: 14px;
+  background: linear-gradient(145deg, #f5faf8, #fff 72%);
+}
+
+.resident-review-heading,
+.resident-review-meta,
+.resident-review-rating {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.resident-review-heading > div {
+  min-width: 0;
+}
+
+.resident-review-heading > div > span {
+  color: var(--teal);
+  font-size: calc((9px) * var(--appearance-text-scale, 1));
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.resident-review-heading h3 {
+  margin: 4px 0 0;
+  color: var(--navy);
+  font: 700 calc(14px * var(--appearance-text-scale, 1)) "Archivo Expanded";
+}
+
+.resident-review-count {
+  flex: 0 0 auto;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #e5f2ef;
+  color: #226f69;
+  font-size: calc((10px) * var(--appearance-text-scale, 1));
+  font-weight: 700;
+}
+
+.resident-review-state,
+.resident-review-error {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: calc((11px) * var(--appearance-text-scale, 1));
+  line-height: 1.5;
+}
+
+.resident-review-error {
+  color: var(--red);
+}
+
+.resident-review-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.resident-review-card {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: #fff;
+}
+
+.resident-review-meta {
+  align-items: flex-start;
+}
+
+.resident-review-meta strong {
+  color: var(--navy);
+  font-size: calc((11px) * var(--appearance-text-scale, 1));
+}
+
+.resident-review-meta time {
+  color: var(--muted);
+  font-size: calc((9px) * var(--appearance-text-scale, 1));
+  text-align: right;
+}
+
+.resident-review-rating {
+  justify-content: flex-start;
+  margin-top: 8px;
+}
+
+.resident-review-stars {
+  display: inline-flex;
+  gap: 2px;
+  color: #bdc5c1;
+}
+
+.resident-review-stars svg.is-filled {
+  fill: var(--amber);
+  color: var(--amber);
+}
+
+.resident-review-rating > strong {
+  color: var(--navy);
+  font-size: calc((10px) * var(--appearance-text-scale, 1));
+}
+
+.resident-review-card p {
+  margin: 9px 0 0;
+  color: #465955;
+  font-size: calc((12px) * var(--appearance-text-scale, 1));
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.resident-review-card p.resident-review-no-comment {
+  color: var(--muted);
+  font-size: calc((10px) * var(--appearance-text-scale, 1));
+  font-style: italic;
+}
+
 .issue-detail-modal .discussion-section {
   margin-top: 22px;
 }
@@ -9294,10 +9414,32 @@ tbody tr:last-child td {
 :root[data-theme="dark"] .issue-detail-modal .issue-modal-metadata-item,
 :root[data-theme="dark"] .issue-detail-modal .discussion,
 :root[data-theme="dark"] .issue-detail-modal .case-management,
-:root[data-theme="dark"] .issue-ai-assessment {
+:root[data-theme="dark"] .issue-ai-assessment,
+:root[data-theme="dark"] .resident-review-section {
   border-color: var(--line);
   background: #1b3035;
   color: var(--ink);
+}
+
+:root[data-theme="dark"] .resident-review-heading h3,
+:root[data-theme="dark"] .resident-review-meta strong,
+:root[data-theme="dark"] .resident-review-rating > strong {
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .resident-review-count {
+  border: 1px solid #38645e;
+  background: #173a3a;
+  color: #a8ded2;
+}
+
+:root[data-theme="dark"] .resident-review-card {
+  border-color: var(--line);
+  background: #102126;
+}
+
+:root[data-theme="dark"] .resident-review-card p {
+  color: var(--muted);
 }
 
 :root[data-theme="dark"] .issue-ai-assessment-heading {

@@ -70,6 +70,9 @@ void main() {
 
       expect(find.text('HOW DID WE DO?'), findsOneWidget);
       expect(find.text('Rate the completed work'), findsOneWidget);
+      expect(find.text('COMPLETION EVIDENCE'), findsOneWidget);
+      expect(find.text('BEFORE'), findsOneWidget);
+      expect(find.text('AFTER'), findsOneWidget);
       await tester.tap(find.byTooltip('5 stars'));
       await tester.enterText(
         find.byType(TextField),
@@ -133,6 +136,7 @@ _TestReport _report({
   coordinates: '',
   age: '2026-10-20T10:00:00.000Z',
   image: '',
+  resolutionImage: '',
   status: status,
   color: teal,
   icon: Icons.add_road_rounded,
@@ -153,6 +157,7 @@ typedef _TestReport = ({
   String coordinates,
   String age,
   String image,
+  String resolutionImage,
   String status,
   Color color,
   IconData icon,

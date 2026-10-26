@@ -15,6 +15,7 @@ typedef _ReportDetails = ({
   String coordinates,
   String age,
   String image,
+  String resolutionImage,
   String status,
   Color color,
   IconData icon,
@@ -54,6 +55,8 @@ _ReportDetails _reportDetailsFromApi(Map<String, dynamic> item) {
         : 'Lat ${item['latitude']}, Lon ${item['longitude']}',
     age: item['created_at']?.toString() ?? '',
     image: publicMediaUrl(item['media_url'] as String?) ?? '',
+    resolutionImage:
+        publicMediaUrl(item['resolution_media_url'] as String?) ?? '',
     status: status,
     color: color,
     icon: switch (category) {
@@ -601,6 +604,7 @@ class _MyReportCard extends StatelessWidget {
     String coordinates,
     String age,
     String image,
+    String resolutionImage,
     String status,
     Color color,
     IconData icon,
@@ -764,6 +768,7 @@ class _ReportThumbnailPlaceholder extends StatelessWidget {
     String coordinates,
     String age,
     String image,
+    String resolutionImage,
     String status,
     Color color,
     IconData icon,
@@ -799,6 +804,7 @@ class MyReportDetailsPage extends StatelessWidget {
     String coordinates,
     String age,
     String image,
+    String resolutionImage,
     String status,
     Color color,
     IconData icon,
@@ -887,6 +893,11 @@ class MyReportDetailsPage extends StatelessWidget {
               if (report.status == 'Resolved') ...[
                 const SizedBox(height: 18),
                 _ReportRatingSection(reportId: report.reportId),
+                const SizedBox(height: 18),
+                _ReportResolutionEvidenceSection(
+                  beforeImage: report.image,
+                  afterImage: report.resolutionImage,
+                ),
               ],
               if (report.status == 'In progress') ...[
                 const SizedBox(height: 18),
@@ -956,6 +967,197 @@ class MyReportDetailsPage extends StatelessWidget {
   );
 }
 
+class _ReportResolutionEvidenceSection extends StatelessWidget {
+  const _ReportResolutionEvidenceSection({
+    required this.beforeImage,
+    required this.afterImage,
+  });
+
+  final String beforeImage;
+  final String afterImage;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final muted = infraMutedTextColor(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: line.withValues(alpha: .9)),
+        boxShadow: [
+          BoxShadow(
+            color: navy.withValues(alpha: .04),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: teal.withValues(alpha: .12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.compare_outlined,
+                  color: teal,
+                  size: 19,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'COMPLETION EVIDENCE',
+                      style: TextStyle(
+                        color: muted,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: .8,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'Before and after',
+                      style: infraHeading(
+                        color: theme.colorScheme.onSurface,
+                        fontSize: 13,
+                        weight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _ResolutionEvidencePhoto(
+                  label: 'BEFORE',
+                  imageUrl: beforeImage,
+                  accent: clay,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _ResolutionEvidencePhoto(
+                  label: 'AFTER',
+                  imageUrl: afterImage,
+                  accent: teal,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResolutionEvidencePhoto extends StatelessWidget {
+  const _ResolutionEvidencePhoto({
+    required this.label,
+    required this.imageUrl,
+    required this.accent,
+  });
+
+  final String label;
+  final String imageUrl;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final muted = infraMutedTextColor(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 7,
+              height: 7,
+              decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: theme.colorScheme.onSurface,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                letterSpacing: .45,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 7),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: AspectRatio(
+            aspectRatio: 1.15,
+            child: imageUrl.isEmpty
+                ? _emptyEvidence(theme, muted)
+                : Image.network(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, progress) {
+                      if (progress == null) return child;
+                      return _emptyEvidence(theme, muted, loading: true);
+                    },
+                    errorBuilder: (context, error, stackTrace) =>
+                        _emptyEvidence(theme, muted),
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _emptyEvidence(ThemeData theme, Color muted, {bool loading = false}) =>
+      ColoredBox(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: .55),
+        child: Center(
+          child: loading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: teal),
+                )
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.image_not_supported_outlined,
+                      color: muted,
+                      size: 20,
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      'Photo unavailable',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: muted, fontSize: 9),
+                    ),
+                  ],
+                ),
+        ),
+      );
+}
+
 String _locationFor(
   ({
     String title,
@@ -972,6 +1174,7 @@ String _locationFor(
     String coordinates,
     String age,
     String image,
+    String resolutionImage,
     String status,
     Color color,
     IconData icon,
@@ -2146,6 +2349,7 @@ class _DetailsHero extends StatelessWidget {
     String coordinates,
     String age,
     String image,
+    String resolutionImage,
     String status,
     Color color,
     IconData icon,

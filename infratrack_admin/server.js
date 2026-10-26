@@ -1298,8 +1298,9 @@ app.get("/api/mobile/issues", async (req, res) => {
   const [issues] = await pool.query(`SELECT r.public_id, r.title, r.description, r.category,
     r.location, u.barangay AS reporter_barangay, r.latitude, r.longitude, r.severity, r.status,
     r.assigned_team, r.resolution_note, r.progress_percentage, r.created_at, r.updated_at,
-    (SELECT m.file_path FROM media m WHERE m.report_id = r.id ORDER BY m.id ASC LIMIT 1) AS media_url,
-    (SELECT m.media_type FROM media m WHERE m.report_id = r.id ORDER BY m.id ASC LIMIT 1) AS media_kind
+    (SELECT m.file_path FROM media m WHERE m.report_id = r.id AND m.media_type <> 'resolution_photo' ORDER BY m.id ASC LIMIT 1) AS media_url,
+    (SELECT m.media_type FROM media m WHERE m.report_id = r.id AND m.media_type <> 'resolution_photo' ORDER BY m.id ASC LIMIT 1) AS media_kind,
+    (SELECT m.file_path FROM media m WHERE m.report_id = r.id AND m.media_type = 'resolution_photo' ORDER BY m.id DESC LIMIT 1) AS resolution_media_url
     FROM reports r LEFT JOIN users u ON u.id = r.reporter_id
     WHERE ${statusFilter} ORDER BY r.created_at DESC`);
   let progressEvents = [];
@@ -1322,6 +1323,7 @@ app.get("/api/mobile/issues", async (req, res) => {
   res.json({ issues: issuesWithProgress.map((issue) => ({
     ...issue,
     media_url: publicMediaUrl(req, issue.media_url),
+    resolution_media_url: publicMediaUrl(req, issue.resolution_media_url),
   })) });
 });
 app.get("/api/mobile/overview", async (_req, res) => {
@@ -2035,6 +2037,28 @@ app.get("/api/issues/:id/discussion", async (req, res) => {
     [report.id],
   );
   res.json({ comments: comments.reverse().map(formatDiscussionComment) });
+});
+app.get("/api/issues/:id/ratings", async (req, res) => {
+  const report = await findDiscussionReport(req.params.id);
+  if (!report || !getReportScope(req.auth).allows(report)) {
+    return res.status(404).json({ error: "Report not found" });
+  }
+  const [ratings] = await pool.query(
+    `SELECT rr.rating, rr.comment, rr.created_at, u.name AS reviewer_name
+     FROM report_ratings rr
+     LEFT JOIN users u ON u.id = rr.user_id
+     WHERE rr.report_id = ?
+     ORDER BY rr.created_at DESC`,
+    [report.id],
+  );
+  res.json({
+    ratings: ratings.map((rating) => ({
+      rating: Number(rating.rating),
+      comment: rating.comment || "",
+      reviewer_name: rating.reviewer_name || "Resident",
+      created_at: rating.created_at,
+    })),
+  });
 });
 app.post("/api/issues/:id/discussion", async (req, res) => {
   const report = await findDiscussionReport(req.params.id);
