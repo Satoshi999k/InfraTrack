@@ -8,9 +8,11 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-val keystorePropertiesFile = rootProject.file("key.properties")
+val keystorePropertiesFile = rootProject.file("android/key.properties")
+    .takeIf { it.exists() }
+    ?: rootProject.file("key.properties")
 val keystoreProperties = Properties()
-if (keystorePropertiesFile.exists()) {
+if (keystorePropertiesFile != null && keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
@@ -41,12 +43,22 @@ android {
     }
 
     signingConfigs {
-        if (keystorePropertiesFile.exists()) {
+        if (keystorePropertiesFile != null && keystorePropertiesFile.exists()) {
             create("release") {
-                keyAlias = keystoreProperties["keyAlias"] as String
-                keyPassword = keystoreProperties["keyPassword"] as String
-                storeFile = rootProject.file(keystoreProperties["storeFile"] as String)
-                storePassword = keystoreProperties["storePassword"] as String
+                val alias = keystoreProperties["keyAlias"] as? String
+                val password = keystoreProperties["keyPassword"] as? String
+                val storePasswordValue = keystoreProperties["storePassword"] as? String
+                val storeFileValue = keystoreProperties["storeFile"] as? String
+
+                require(!alias.isNullOrBlank()) { "keyAlias is missing in key.properties" }
+                require(!password.isNullOrBlank()) { "keyPassword is missing in key.properties" }
+                require(!storePasswordValue.isNullOrBlank()) { "storePassword is missing in key.properties" }
+                require(!storeFileValue.isNullOrBlank()) { "storeFile is missing in key.properties" }
+
+                keyAlias = alias
+                keyPassword = password
+                storeFile = rootProject.file(storeFileValue)
+                storePassword = storePasswordValue
             }
         }
     }
@@ -55,7 +67,7 @@ android {
         release {
             isMinifyEnabled = false
             isShrinkResources = false
-            signingConfig = if (keystorePropertiesFile.exists()) {
+            signingConfig = if (keystorePropertiesFile != null && keystorePropertiesFile.exists()) {
                 signingConfigs.getByName("release")
             } else {
                 signingConfigs.getByName("debug")
