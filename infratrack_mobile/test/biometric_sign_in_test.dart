@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:infatrack/biometric_sign_in.dart';
 import 'package:infatrack/api_service.dart';
 import 'package:flutter/material.dart';
@@ -38,6 +42,160 @@ void main() {
 
     expect(find.text('Sign in with biometrics'), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  test(
+    'wrong login credentials do not invalidate the signed-in session',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final originalClientFactory = ApiService.httpClientFactory;
+      final expiredSessionCount = ApiService.sessionExpired.value;
+      var loginCount = 0;
+      ApiService.httpClientFactory = () => MockClient((request) async {
+        expect(request.url.path, endsWith('/mobile/auth/login'));
+        loginCount++;
+        if (loginCount == 1) {
+          return http.Response(
+            jsonEncode({
+              'token': 'active-session-test-token',
+              'user': {'id': 42, 'name': 'Test Resident'},
+            }),
+            200,
+          );
+        }
+        return http.Response(
+          jsonEncode({'error': 'Invalid email or password'}),
+          401,
+        );
+      });
+
+      try {
+        await ApiService.login('resident@example.test', 'correct-password');
+        await expectLater(
+          ApiService.login('resident@example.test', 'wrong-password'),
+          throwsA(isA<ApiException>()),
+        );
+
+        expect(ApiService.sessionExpired.value, expiredSessionCount);
+        expect(ApiService.consumeSessionNotice(), isNull);
+        expect(ApiService.isSignedIn, isTrue);
+      } finally {
+        ApiService.httpClientFactory = originalClientFactory;
+        await ApiService.signOutForExpiredSession();
+      }
+    },
+  );
+
+  test(
+    'an unauthorized authenticated request still expires the session',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final originalClientFactory = ApiService.httpClientFactory;
+      final expiredSessionCount = ApiService.sessionExpired.value;
+      ApiService.httpClientFactory = () => MockClient((request) async {
+        if (request.url.path.endsWith('/mobile/auth/login')) {
+          return http.Response(
+            jsonEncode({
+              'token': 'expired-session-test-token',
+              'user': {'id': 42, 'name': 'Test Resident'},
+            }),
+            200,
+          );
+        }
+        return http.Response(jsonEncode({'error': 'Session expired'}), 401);
+      });
+
+      try {
+        await ApiService.login('resident@example.test', 'test-password');
+        await expectLater(ApiService.reports(), throwsA(isA<ApiException>()));
+
+        expect(ApiService.sessionExpired.value, expiredSessionCount + 1);
+        expect(
+          ApiService.consumeSessionNotice(),
+          contains('session has expired'),
+        );
+        expect(ApiService.isSignedIn, isFalse);
+      } finally {
+        ApiService.httpClientFactory = originalClientFactory;
+        await ApiService.signOutForExpiredSession();
+      }
+    },
+  );
+
+  testWidgets('biometric enrollment password can be shown while typing', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    final originalClientFactory = ApiService.httpClientFactory;
+    ApiService.httpClientFactory = () => MockClient((request) async {
+      if (request.url.path.endsWith('/mobile/auth/login')) {
+        return http.Response(
+          jsonEncode({
+            'token': 'biometric-visibility-test-token',
+            'user': {
+              'id': 42,
+              'name': 'Test Resident',
+              'email': 'resident@example.test',
+              'role': 'resident',
+            },
+          }),
+          200,
+        );
+      }
+      if (request.url.path.endsWith('/mobile/preferences')) {
+        return http.Response(
+          jsonEncode({
+            'preferences': {
+              'allowNotifications': true,
+              'showLocationOnReports': true,
+            },
+          }),
+          200,
+        );
+      }
+      return http.Response('Not found', 404);
+    });
+
+    try {
+      await ApiService.login('resident@example.test', 'test-password');
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PrivacySecurityPage(
+            biometricService: _AvailableBiometricService(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final biometricSwitch = find.descendant(
+        of: find.ancestor(
+          of: find.text('Biometric sign-in'),
+          matching: find.byType(ListTile),
+        ),
+        matching: find.byType(Switch),
+      );
+      await tester.ensureVisible(biometricSwitch);
+      await tester.tap(biometricSwitch);
+      await tester.pumpAndSettle();
+
+      final passwordField = find.byType(TextField);
+      expect(tester.widget<TextField>(passwordField).obscureText, isTrue);
+      await tester.tap(find.byTooltip('Show password'));
+      await tester.pump();
+      expect(tester.widget<TextField>(passwordField).obscureText, isFalse);
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    } finally {
+      ApiService.httpClientFactory = originalClientFactory;
+      await tester.pumpWidget(const SizedBox.shrink());
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      await ApiService.signOutForExpiredSession();
+    }
   });
 
   test(
@@ -161,6 +319,17 @@ void main() {
       ApiService.currentUser = originalUser;
     }
   });
+}
+
+class _AvailableBiometricService extends BiometricSignInService {
+  @override
+  Future<bool> get isAvailable async => true;
+
+  @override
+  Future<bool> get isEnabled async => false;
+
+  @override
+  Future<bool> authenticate(String reason) async => true;
 }
 
 class _MemoryStore implements BiometricCredentialStore {

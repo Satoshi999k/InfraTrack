@@ -201,7 +201,7 @@ class ApiService {
       if (response.statusCode != 401) {
         await _recordSessionActivity(requestToken);
       }
-      return _decodeResponse(response);
+      return _decodeResponse(response, invalidateSession: authenticated);
     } on SocketException {
       connectionIssue.value = 'Could not connect to InfraTrack. Check your internet connection and try again.';
       throw Exception(
@@ -220,8 +220,11 @@ class ApiService {
     }
   }
 
-  static Map<String, dynamic> _decodeResponse(http.Response response) {
-    if (response.statusCode == 401) {
+  static Map<String, dynamic> _decodeResponse(
+    http.Response response, {
+    bool invalidateSession = false,
+  }) {
+    if (response.statusCode == 401 && invalidateSession) {
       _sessionNotice = 'Your session has expired. For your security, please sign in again to continue.';
       unawaited(_clearSession());
       sessionExpired.value++;
@@ -234,7 +237,9 @@ class ApiService {
     final body = Map<String, dynamic>.from(decoded);
     if (response.statusCode >= 400) {
       final code = body['code']?.toString();
-      if (code == 'ACCOUNT_BANNED' && _sessionToken != null) {
+      if (code == 'ACCOUNT_BANNED' &&
+          invalidateSession &&
+          _sessionToken != null) {
         unawaited(_clearSession());
         accountBanned.value++;
       } else if (code == 'REPORTING_SUSPENDED' && currentUser != null) {
@@ -644,7 +649,7 @@ class ApiService {
       if (response.statusCode != 401) {
         await _recordSessionActivity(requestToken);
       }
-      final body = _decodeResponse(response);
+      final body = _decodeResponse(response, invalidateSession: true);
       currentUser = Map<String, dynamic>.from(body['user'] as Map);
       await _persistSession();
       return currentUser!;
@@ -783,7 +788,7 @@ class ApiService {
       if (response.statusCode != 401) {
         await _recordSessionActivity(requestToken);
       }
-      final body = _decodeResponse(response);
+      final body = _decodeResponse(response, invalidateSession: true);
       final severity = body['severity'];
       final analysis = body['analysis'];
       if (severity is! String ||
@@ -836,7 +841,8 @@ class ApiService {
       final response = await http.Response.fromStream(streamedResponse)
           .timeout(const Duration(seconds: 60));
       _markConnected();
-      return _decodeResponse(response)['url'] as String;
+      return _decodeResponse(response, invalidateSession: true)['url']
+          as String;
     } on SocketException {
       connectionIssue.value = 'Could not connect to InfraTrack. Check your internet connection and try again.';
       throw Exception(

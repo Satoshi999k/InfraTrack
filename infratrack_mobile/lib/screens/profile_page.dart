@@ -2545,38 +2545,10 @@ class _PrivacySecurityPageState extends State<PrivacySecurityPage> {
   }
 
   Future<String?> _requestBiometricPassword() async {
-    final controller = TextEditingController();
-    try {
-      return await showDialog<String>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('Confirm your password'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            obscureText: true,
-            textInputAction: TextInputAction.done,
-            onSubmitted: (value) => Navigator.of(dialogContext).pop(value),
-            decoration: const InputDecoration(
-              labelText: 'Current password',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-              child: const Text('Continue'),
-            ),
-          ],
-        ),
-      );
-    } finally {
-      controller.dispose();
-    }
+    return showDialog<String>(
+      context: context,
+      builder: (_) => const _BiometricPasswordConfirmationDialog(),
+    );
   }
 
   Future<void> _savePreferences({
@@ -3098,6 +3070,61 @@ class _PasswordHint extends StatelessWidget {
         ),
       ],
     ),
+  );
+}
+
+class _BiometricPasswordConfirmationDialog extends StatefulWidget {
+  const _BiometricPasswordConfirmationDialog();
+
+  @override
+  State<_BiometricPasswordConfirmationDialog> createState() =>
+      _BiometricPasswordConfirmationDialogState();
+}
+
+class _BiometricPasswordConfirmationDialogState
+    extends State<_BiometricPasswordConfirmationDialog> {
+  final _controller = TextEditingController();
+  bool _obscurePassword = true;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Confirm your password'),
+    content: TextField(
+      controller: _controller,
+      autofocus: true,
+      obscureText: _obscurePassword,
+      textInputAction: TextInputAction.done,
+      onSubmitted: (value) => Navigator.of(context).pop(value),
+      decoration: InputDecoration(
+        labelText: 'Current password',
+        border: const OutlineInputBorder(),
+        suffixIcon: IconButton(
+          tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+          icon: Icon(
+            _obscurePassword
+                ? Icons.visibility_off_outlined
+                : Icons.visibility_outlined,
+          ),
+        ),
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.of(context).pop(),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        onPressed: () => Navigator.of(context).pop(_controller.text),
+        child: const Text('Continue'),
+      ),
+    ],
   );
 }
 
