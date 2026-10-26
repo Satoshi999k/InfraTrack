@@ -23,9 +23,21 @@ void main() {
           widget is Image &&
           widget.image is AssetImage &&
           (widget.image as AssetImage).assetName ==
-              'assets/chatbot_character/chatbot_face/mascot.png',
+              'assets/chatbot_character/thinking_animation/trako_loading.png',
     );
     expect(mascotFinder, findsOneWidget);
+    expect(
+      find.byWidgetPredicate((widget) {
+        if (widget is! DecoratedBox || widget.decoration is! BoxDecoration) {
+          return false;
+        }
+        final image = (widget.decoration as BoxDecoration).image?.image;
+        return image is AssetImage &&
+            image.assetName ==
+                'assets/chatbot_character/thinking_animation/loading_background.png';
+      }),
+      findsOneWidget,
+    );
     expect(
       find.byWidgetPredicate(
         (widget) =>
@@ -34,7 +46,7 @@ void main() {
             (widget.image as AssetImage).assetName ==
                 'assets/chatbot_character/chatbot_face/logo (2).png',
       ),
-      findsOneWidget,
+      findsNothing,
     );
     final mascotStartY = tester.getTopLeft(mascotFinder).dy;
     await tester.pump(const Duration(milliseconds: 500));

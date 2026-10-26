@@ -28,6 +28,28 @@ void main() {
     );
     await tester.pump();
 
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is AssetImage &&
+            (widget.image as AssetImage).assetName ==
+                'assets/chatbot_character/chatbot_face/logo (2).png',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byWidgetPredicate((widget) {
+        if (widget is! DecoratedBox || widget.decoration is! BoxDecoration) {
+          return false;
+        }
+        final image = (widget.decoration as BoxDecoration).image?.image;
+        return image is AssetImage &&
+            image.assetName ==
+                'assets/chatbot_character/chatbot_face/background.png';
+      }),
+      findsOneWidget,
+    );
     expect(find.text('Sign in with biometrics'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

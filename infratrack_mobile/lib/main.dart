@@ -434,11 +434,17 @@ class _AppLoadingPageState extends State<AppLoadingPage>
     body: SafeArea(
       child: DecoratedBox(
         decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment(0, -.12),
-            radius: 1.2,
-            colors: [Color(0xFF104252), deepNavy],
-            stops: [0, .82],
+          image: DecorationImage(
+            image: AssetImage(
+              'assets/chatbot_character/thinking_animation/loading_background.png',
+            ),
+            fit: BoxFit.cover,
+          ),
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0x16092732), Color(0x24092732), Color(0xB3092732)],
+            stops: [0, .55, 1],
           ),
         ),
         child: LayoutBuilder(
@@ -449,9 +455,12 @@ class _AppLoadingPageState extends State<AppLoadingPage>
                 animation: _controller,
                 builder: (context, child) {
                   final progress = _controller.value;
-                  final markScale = _reduceMotion == true
-                      ? 1.0
-                      : 1 + math.sin(progress * math.pi * 2) * .025;
+                  final mascotBob = _reduceMotion == true
+                      ? 0.0
+                      : math.sin(progress * math.pi * 2) * 8;
+                  final mascotTilt = _reduceMotion == true
+                      ? 0.0
+                      : math.sin(progress * math.pi * 2) * .018;
                   return Center(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
@@ -461,101 +470,48 @@ class _AppLoadingPageState extends State<AppLoadingPage>
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          SizedBox(
-                            width: 176,
-                            height: 176,
-                            child: Stack(
-                              alignment: Alignment.center,
+                          Transform.translate(
+                            offset: Offset(0, mascotBob),
+                            child: Transform.rotate(
+                              angle: mascotTilt,
+                              child: Image.asset(
+                                'assets/chatbot_character/thinking_animation/trako_loading.png',
+                                key: const ValueKey('startup-trako-mascot'),
+                                width: 250,
+                                height: 310,
+                                fit: BoxFit.contain,
+                                semanticLabel: 'Trako loading',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text.rich(
+                            TextSpan(
                               children: [
-                                Container(
-                                  width: 168,
-                                  height: 168,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: Colors.white.withValues(
-                                        alpha: .09,
-                                      ),
-                                    ),
+                                TextSpan(
+                                  text: 'Infra',
+                                  style: infraHeading(
+                                    color: Colors.white,
+                                    fontSize: 30,
+                                    weight: FontWeight.w800,
                                   ),
                                 ),
-                                Container(
-                                  width: 132,
-                                  height: 132,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: teal.withValues(alpha: .16),
-                                    ),
-                                  ),
-                                ),
-                                Transform.rotate(
-                                  angle: progress * math.pi * 2,
-                                  child: CustomPaint(
-                                    size: const Size(156, 156),
-                                    painter: _StartupOrbitPainter(),
-                                  ),
-                                ),
-                                Transform.translate(
-                                  offset: Offset(
-                                    0,
-                                    _reduceMotion == true
-                                        ? 0
-                                        : math.sin(progress * math.pi * 2) * 5,
-                                  ),
-                                  child: Transform.scale(
-                                    scale: markScale,
-                                    child: Image.asset(
-                                      'assets/chatbot_character/chatbot_face/mascot.png',
-                                      width: 132,
-                                      height: 150,
-                                      fit: BoxFit.contain,
-                                      semanticLabel: 'Trako loading',
-                                    ),
+                                TextSpan(
+                                  text: 'Track',
+                                  style: infraHeading(
+                                    color: brandOrange,
+                                    fontSize: 30,
+                                    weight: FontWeight.w800,
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          const SizedBox(height: 24),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Image.asset(
-                                  'assets/chatbot_character/chatbot_face/logo (2).png',
-                                  width: 34,
-                                  height: 34,
-                                  fit: BoxFit.cover,
-                                  semanticLabel: 'InfraTrack logo',
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              const Text.rich(
-                                TextSpan(
-                                  children: [
-                                    TextSpan(text: 'Infra'),
-                                    TextSpan(
-                                      text: 'Track',
-                                      style: TextStyle(color: brandOrange),
-                                    ),
-                                  ],
-                                ),
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 30,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: -.4,
-                                ),
-                              ),
-                            ],
-                          ),
                           const SizedBox(height: 6),
                           const Text(
                             'MATI CITY · DAVAO ORIENTAL',
                             style: TextStyle(
-                              color: Color(0xFF9BBCC2),
+                              color: Color(0xFFD0E3E8),
                               fontSize: 10,
                               letterSpacing: 1.2,
                               fontWeight: FontWeight.w700,
@@ -570,7 +526,7 @@ class _AppLoadingPageState extends State<AppLoadingPage>
                                   : 'Restoring your session…',
                               textAlign: TextAlign.center,
                               style: const TextStyle(
-                                color: Color(0xFFB2CCD0),
+                                color: Color(0xFFE0ECEF),
                                 fontSize: 13,
                                 letterSpacing: .1,
                               ),
@@ -588,39 +544,6 @@ class _AppLoadingPageState extends State<AppLoadingPage>
       ),
     ),
   );
-}
-
-class _StartupOrbitPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    final trackPaint = Paint()
-      ..color = Colors.white.withValues(alpha: .12)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
-    final orbitPaint = Paint()
-      ..color = teal
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.5
-      ..strokeCap = StrokeCap.round;
-    canvas.drawArc(rect.deflate(2), 0, math.pi * 2, false, trackPaint);
-    canvas.drawArc(
-      rect.deflate(2),
-      -math.pi / 2,
-      math.pi * 1.05,
-      false,
-      orbitPaint,
-    );
-    final accentPaint = Paint()..color = amber;
-    canvas.drawCircle(
-      Offset(size.width * .07, size.height * .28),
-      3,
-      accentPaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _StartupOrbitPainter oldDelegate) => false;
 }
 
 class SplashPage extends StatelessWidget {
@@ -843,8 +766,21 @@ class _LoginPageState extends State<LoginPage> {
     body: Stack(
       children: [
         const Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              image: DecorationImage(
+                image: AssetImage(
+                  'assets/chatbot_character/chatbot_face/background.png',
+                ),
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+        ),
+        const Positioned.fill(
           child: CustomPaint(painter: _LoginBackgroundPainter()),
         ),
+        const Positioned.fill(child: ColoredBox(color: Color(0x66F7FAF7))),
         SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) => SingleChildScrollView(
@@ -882,17 +818,16 @@ class _LoginPageState extends State<LoginPage> {
                               Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Container(
+                                  SizedBox(
                                     width: 38,
                                     height: 38,
-                                    decoration: BoxDecoration(
-                                      color: clay,
+                                    child: ClipRRect(
                                       borderRadius: BorderRadius.circular(11),
-                                    ),
-                                    child: const Icon(
-                                      Icons.add_location_alt,
-                                      color: Colors.white,
-                                      size: 21,
+                                      child: Image.asset(
+                                        'assets/chatbot_character/chatbot_face/logo (2).png',
+                                        fit: BoxFit.cover,
+                                        semanticLabel: 'InfraTrack logo',
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(width: 9),
@@ -1201,18 +1136,6 @@ class _LoginBackgroundPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final bounds = Offset.zero & size;
-    canvas.drawRect(
-      bounds,
-      Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFF7FAF7), Color(0xFFE9F3EF), Color(0xFFF3EFE6)],
-          stops: [0.0, .56, 1.0],
-        ).createShader(bounds),
-    );
-
     final tealShape = Paint()..color = teal.withValues(alpha: .09);
     canvas.drawCircle(
       Offset(size.width * .96, size.height * .12),
