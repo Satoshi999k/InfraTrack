@@ -18,7 +18,7 @@ import {
   HelpCircle,
   LayoutDashboard,
   LogOut,
-  Map,
+  Map as MapIcon,
   MapPin,
   Menu,
   Megaphone,
@@ -69,7 +69,7 @@ import {
 const navIcons = {
   overview: LayoutDashboard,
   queue: ClipboardList,
-  map: Map,
+  map: MapIcon,
   analytics: BarChart3,
   users: Users,
   announce: Megaphone,
