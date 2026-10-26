@@ -203,7 +203,7 @@ class _InfraTrackAppState extends State<InfraTrackApp> {
           final systemBarBackground = Theme.of(context).scaffoldBackgroundColor;
           return AnnotatedRegion<SystemUiOverlayStyle>(
             value: SystemUiOverlayStyle(
-              statusBarColor: Colors.transparent,
+              statusBarColor: systemBarBackground,
               statusBarIconBrightness: brightness == Brightness.dark
                   ? Brightness.light
                   : Brightness.dark,
@@ -211,28 +211,24 @@ class _InfraTrackAppState extends State<InfraTrackApp> {
             ),
             child: ColoredBox(
               color: systemBarBackground,
-              child: SafeArea(
-                top: true,
-                bottom: false,
-                child: MediaQuery(
-                  data: MediaQuery.of(context).copyWith(
-                    textScaler: TextScaler.linear(
-                      MediaQuery.textScalerOf(context).scale(1) * textScale,
-                    ),
+              child: MediaQuery(
+                data: MediaQuery.of(context).copyWith(
+                  textScaler: TextScaler.linear(
+                    MediaQuery.textScalerOf(context).scale(1) * textScale,
                   ),
-                  child: ValueListenableBuilder<String?>(
-                    valueListenable: ApiService.connectionIssue,
-                    builder: (context, issue, _) => Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        ?child,
-                        if (issue != null)
-                          _ConnectionUnavailablePage(
-                            message: issue,
-                            onRetry: ApiService.checkServerConnection,
-                          ),
-                      ],
-                    ),
+                ),
+                child: ValueListenableBuilder<String?>(
+                  valueListenable: ApiService.connectionIssue,
+                  builder: (context, issue, _) => Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      ?child,
+                      if (issue != null)
+                        _ConnectionUnavailablePage(
+                          message: issue,
+                          onRetry: ApiService.checkServerConnection,
+                        ),
+                    ],
                   ),
                 ),
               ),

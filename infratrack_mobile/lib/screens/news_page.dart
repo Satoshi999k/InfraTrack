@@ -1093,6 +1093,7 @@ class AdvisoryDetailsPage extends StatefulWidget {
 
 class _AdvisoryDetailsPageState extends State<AdvisoryDetailsPage> {
   final _commentController = TextEditingController();
+  final _commentsSectionKey = GlobalKey();
   late Map<String, dynamic> _advisory;
   List<Map<String, dynamic>> _comments = [];
   bool _loading = true;
@@ -1222,14 +1223,29 @@ class _AdvisoryDetailsPageState extends State<AdvisoryDetailsPage> {
     final audience = audienceValue.toLowerCase() == 'all barangays'
         ? 'Mati City-wide'
         : audienceValue;
+    final publishedAt = _newsDate(
+      _advisory['published_at']?.toString() ??
+          _advisory['created_at']?.toString(),
+    );
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('City advisory'),
+        titleTextStyle: infraHeading(
+          color: theme.colorScheme.onSurface,
+          fontSize: 17,
+          weight: FontWeight.w700,
+        ),
+        backgroundColor: theme.scaffoldBackgroundColor,
+        scrolledUnderElevation: 0,
         leading: IconButton(
           tooltip: 'Back',
           onPressed: () => Navigator.of(context).pop(),
           icon: const Icon(Icons.arrow_back_rounded),
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Divider(height: 1, color: theme.dividerColor),
         ),
       ),
       body: SafeArea(
@@ -1240,159 +1256,247 @@ class _AdvisoryDetailsPageState extends State<AdvisoryDetailsPage> {
               child: RefreshIndicator(
                 onRefresh: _loadSocial,
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                  padding: const EdgeInsets.only(bottom: 24),
                   children: [
                     if (mediaUrl != null)
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(20),
-                        child: _AdvisoryMedia(
-                          url: mediaUrl,
-                          kind: _advisory['media_kind'] as String?,
-                        ),
+                      _AdvisoryMedia(
+                        url: mediaUrl,
+                        kind: _advisory['media_kind'] as String?,
+                        height: 230,
                       ),
-                    const SizedBox(height: 16),
-                    _AdvisoryTypeBadge(
-                      type: _advisory['type']?.toString() ?? 'gen',
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      _advisory['title']?.toString() ?? 'City advisory',
-                      style: infraHeading(
-                        color: theme.colorScheme.onSurface,
-                        fontSize: 22,
-                        weight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.location_on_outlined,
-                          color: theme.colorScheme.primary,
-                          size: 17,
-                        ),
-                        const SizedBox(width: 5),
-                        Expanded(
-                          child: Text(
-                            audience,
-                            style: TextStyle(
-                              color: muted,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 19,
+                                backgroundColor: theme.colorScheme.primary
+                                    .withValues(alpha: .12),
+                                child: Icon(
+                                  Icons.account_balance_rounded,
+                                  size: 19,
+                                  color: theme.colorScheme.primary,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Mati City',
+                                      style: TextStyle(
+                                        color: theme.colorScheme.onSurface,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Official city advisory',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: muted,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Icon(
+                                Icons.verified_rounded,
+                                color: theme.colorScheme.primary,
+                                size: 19,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 18),
+                          _AdvisoryTypeBadge(
+                            type: _advisory['type']?.toString() ?? 'gen',
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            _advisory['title']?.toString() ?? 'City advisory',
+                            style: infraHeading(
+                              color: theme.colorScheme.onSurface,
+                              fontSize: 25,
+                              weight: FontWeight.w800,
                             ),
                           ),
-                        ),
-                        Icon(Icons.schedule_rounded, color: muted, size: 15),
-                        const SizedBox(width: 5),
-                        Text(
-                          _newsDate(
-                            _advisory['published_at']?.toString() ??
-                                _advisory['created_at']?.toString(),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              _AdvisoryMetaPill(
+                                icon: Icons.location_on_outlined,
+                                label: audience,
+                              ),
+                              if (publishedAt.isNotEmpty)
+                                _AdvisoryMetaPill(
+                                  icon: Icons.schedule_rounded,
+                                  label: publishedAt,
+                                ),
+                            ],
                           ),
-                          style: TextStyle(color: muted, fontSize: 10),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      _advisory['message']?.toString() ?? '',
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurface,
-                        fontSize: 15,
-                        height: 1.65,
+                          const SizedBox(height: 18),
+                          Text(
+                            _advisory['message']?.toString() ?? '',
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface,
+                              fontSize: 15,
+                              height: 1.65,
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+                          Divider(height: 1, color: theme.dividerColor),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _AdvisoryReactionButton(
+                                  liked: _liked,
+                                  count: _reactionCount,
+                                  busy: _reacting,
+                                  onPressed: _toggleReaction,
+                                ),
+                              ),
+                              Expanded(
+                                child: TextButton.icon(
+                                  onPressed: () {
+                                    final sectionContext =
+                                        _commentsSectionKey.currentContext;
+                                    if (sectionContext != null) {
+                                      unawaited(
+                                        Scrollable.ensureVisible(
+                                          sectionContext,
+                                          duration: const Duration(
+                                            milliseconds: 300,
+                                          ),
+                                          curve: Curves.easeOutCubic,
+                                        ),
+                                      );
+                                    }
+                                  },
+                                  icon: Icon(
+                                    Icons.mode_comment_outlined,
+                                    size: 18,
+                                    color: muted,
+                                  ),
+                                  label: Text(
+                                    '${_comments.length} ${_comments.length == 1 ? 'comment' : 'comments'}',
+                                    style: TextStyle(
+                                      color: muted,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          Divider(height: 1, color: theme.dividerColor),
+                          const SizedBox(height: 18),
+                          Row(
+                            key: _commentsSectionKey,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Comments',
+                                  style: infraHeading(
+                                    color: theme.colorScheme.onSurface,
+                                    fontSize: 17,
+                                    weight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                tooltip: 'Refresh comments',
+                                onPressed: _loading ? null : _loadSocial,
+                                visualDensity: VisualDensity.compact,
+                                icon: const Icon(
+                                  Icons.refresh_rounded,
+                                  size: 20,
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (_loading && _comments.isEmpty)
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(24),
+                                child: CircularProgressIndicator(),
+                              ),
+                            )
+                          else if (_error != null && _comments.isEmpty)
+                            _AdvisoryInlineError(
+                              message: _error!,
+                              onRetry: _loadSocial,
+                            )
+                          else if (_comments.isEmpty)
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 22,
+                              ),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.surface,
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
+                                  color: theme.colorScheme.outline,
+                                ),
+                              ),
+                              child: Column(
+                                children: [
+                                  Icon(
+                                    Icons.forum_outlined,
+                                    size: 28,
+                                    color: muted,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Start the conversation',
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onSurface,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Share a helpful comment about this city update.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: muted,
+                                      fontSize: 12,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else
+                            for (final comment in _comments)
+                              _AdvisoryCommentCard(comment: comment),
+                          if (_error != null && _comments.isNotEmpty)
+                            _AdvisoryInlineError(
+                              message: _error!,
+                              onRetry: _loadSocial,
+                            ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    const Divider(),
-                    Row(
-                      children: [
-                        _AdvisoryReactionButton(
-                          liked: _liked,
-                          count: _reactionCount,
-                          busy: _reacting,
-                          onPressed: _toggleReaction,
-                        ),
-                        const SizedBox(width: 8),
-                        Icon(
-                          Icons.chat_bubble_outline_rounded,
-                          size: 17,
-                          color: muted,
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          '${_comments.length} ${_comments.length == 1 ? 'comment' : 'comments'}',
-                          style: TextStyle(color: muted, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Text(
-                          'COMMENTS',
-                          style: TextStyle(
-                            color: muted,
-                            fontSize: 10,
-                            letterSpacing: .8,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const Spacer(),
-                        IconButton(
-                          tooltip: 'Refresh comments',
-                          onPressed: _loading ? null : _loadSocial,
-                          icon: const Icon(Icons.refresh_rounded, size: 19),
-                        ),
-                      ],
-                    ),
-                    if (_loading && _comments.isEmpty)
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(20),
-                          child: CircularProgressIndicator(),
-                        ),
-                      )
-                    else if (_error != null && _comments.isEmpty)
-                      _AdvisoryInlineError(
-                        message: _error!,
-                        onRetry: _loadSocial,
-                      )
-                    else if (_comments.isEmpty)
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surface,
-                          borderRadius: BorderRadius.circular(15),
-                          border: Border.all(color: theme.colorScheme.outline),
-                        ),
-                        child: Text(
-                          'No comments yet. Start a helpful conversation about this city update.',
-                          style: TextStyle(
-                            color: muted,
-                            fontSize: 12,
-                            height: 1.5,
-                          ),
-                        ),
-                      )
-                    else
-                      for (final comment in _comments)
-                        _AdvisoryCommentCard(comment: comment),
-                    if (_error != null && _comments.isNotEmpty)
-                      _AdvisoryInlineError(
-                        message: _error!,
-                        onRetry: _loadSocial,
-                      ),
                   ],
                 ),
               ),
             ),
             Container(
-              padding: EdgeInsets.fromLTRB(
-                14,
-                10,
-                14,
-                10 + MediaQuery.paddingOf(context).bottom,
-              ),
+              padding: EdgeInsets.fromLTRB(14, 10, 14, 10),
               decoration: BoxDecoration(
                 color: theme.colorScheme.surface,
                 border: Border(top: BorderSide(color: theme.dividerColor)),
@@ -1412,12 +1516,30 @@ class _AdvisoryDetailsPageState extends State<AdvisoryDetailsPage> {
                             ? 'Write a comment...'
                             : 'Sign in to comment',
                         counterText: '',
+                        filled: true,
+                        fillColor: theme.scaffoldBackgroundColor,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 14,
                           vertical: 11,
                         ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(20),
+                          borderSide: BorderSide(
+                            color: theme.colorScheme.outline,
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          borderSide: BorderSide(
+                            color: theme.colorScheme.outline,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          borderSide: BorderSide(
+                            color: theme.colorScheme.primary,
+                            width: 1.5,
+                          ),
                         ),
                       ),
                       onSubmitted: (_) => _sendComment(),
@@ -1501,6 +1623,46 @@ class _AdvisoryTypeBadge extends StatelessWidget {
   }
 }
 
+class _AdvisoryMetaPill extends StatelessWidget {
+  const _AdvisoryMetaPill({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 250),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: theme.colorScheme.outline),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: theme.colorScheme.primary),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: infraMutedTextColor(context),
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _AdvisoryCommentCard extends StatelessWidget {
   const _AdvisoryCommentCard({required this.comment});
 
@@ -1515,12 +1677,10 @@ class _AdvisoryCommentCard extends StatelessWidget {
         ? 'R'
         : author.trim().characters.first.toUpperCase();
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(13),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: theme.colorScheme.outline),
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1537,38 +1697,51 @@ class _AdvisoryCommentCard extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 9),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        author,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                Container(
+                  padding: const EdgeInsets.fromLTRB(12, 9, 12, 10),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: theme.colorScheme.outline),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              author,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurface,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            _newsDate(comment['created_at']?.toString()),
+                            style: TextStyle(color: muted, fontSize: 9),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        comment['body']?.toString() ?? '',
                         style: TextStyle(
                           color: theme.colorScheme.onSurface,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
+                          fontSize: 12,
+                          height: 1.45,
                         ),
                       ),
-                    ),
-                    Text(
-                      _newsDate(comment['created_at']?.toString()),
-                      style: TextStyle(color: muted, fontSize: 9),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  comment['body']?.toString() ?? '',
-                  style: TextStyle(
-                    color: theme.colorScheme.onSurface,
-                    fontSize: 12,
-                    height: 1.5,
+                    ],
                   ),
                 ),
               ],
@@ -1604,10 +1777,15 @@ class _AdvisoryInlineError extends StatelessWidget {
 }
 
 class _AdvisoryMedia extends StatefulWidget {
-  const _AdvisoryMedia({required this.url, required this.kind});
+  const _AdvisoryMedia({
+    required this.url,
+    required this.kind,
+    this.height = 170,
+  });
 
   final String url;
   final String? kind;
+  final double height;
 
   @override
   State<_AdvisoryMedia> createState() => _AdvisoryMediaState();
@@ -1720,7 +1898,7 @@ class _AdvisoryMediaState extends State<_AdvisoryMedia> {
   }
 
   Widget _mediaError(BuildContext context) => SizedBox(
-    height: 170,
+    height: widget.height,
     width: double.infinity,
     child: ColoredBox(
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
@@ -1748,13 +1926,13 @@ class _AdvisoryMediaState extends State<_AdvisoryMedia> {
     if (_mediaFailed) return _mediaError(context);
     if (widget.kind == 'gif') {
       return SizedBox(
-        height: 170,
+        height: widget.height,
         width: double.infinity,
         child: ClipRect(
           child: Image.network(
             widget.url,
             width: double.infinity,
-            height: 170,
+            height: widget.height,
             fit: BoxFit.cover,
             alignment: Alignment.center,
             gaplessPlayback: true,
@@ -1764,9 +1942,9 @@ class _AdvisoryMediaState extends State<_AdvisoryMedia> {
                 _loadTimeout?.cancel();
                 return child;
               }
-              return const SkeletonShimmer(
+              return SkeletonShimmer(
                 child: SkeletonBlock(
-                  height: 170,
+                  height: widget.height,
                   width: double.infinity,
                   radius: 0,
                 ),
@@ -1780,7 +1958,7 @@ class _AdvisoryMediaState extends State<_AdvisoryMedia> {
     if (widget.kind != 'video') {
       return Image.network(
         widget.url,
-        height: 170,
+        height: widget.height,
         width: double.infinity,
         fit: BoxFit.cover,
         key: ValueKey('${widget.url}-$_mediaAttempt'),
@@ -1789,9 +1967,9 @@ class _AdvisoryMediaState extends State<_AdvisoryMedia> {
             _loadTimeout?.cancel();
             return child;
           }
-          return const SkeletonShimmer(
+          return SkeletonShimmer(
             child: SkeletonBlock(
-              height: 170,
+              height: widget.height,
               width: double.infinity,
               radius: 0,
             ),
