@@ -106,6 +106,22 @@ void main() {
 
         expect(requestedHomeUpdates, isTrue);
         expect(reportCards, hasLength(7));
+        expect(find.text('Trako'), findsOneWidget);
+        expect(
+          find.textContaining('Need help reporting an issue'),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('home-trako-welcome')),
+          findsOneWidget,
+        );
+        await tester.tap(find.byKey(const ValueKey('home-trako-welcome')));
+        await tester.pumpAndSettle();
+        expect(find.byType(ChatbotPage), findsOneWidget);
+        expect(find.text('Trako'), findsOneWidget);
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+
         expect(
           reportCards.map((card) => card.title),
           contains('Central approved 1'),

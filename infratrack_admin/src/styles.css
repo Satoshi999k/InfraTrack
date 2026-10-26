@@ -4857,12 +4857,33 @@ tbody tr:last-child td {
 .advisory-engagement-comments {
   display: grid;
 }
+.advisory-comment-thread {
+  border-bottom: 1px solid var(--line);
+}
 .advisory-engagement-comment {
   display: flex;
   align-items: flex-start;
   gap: 10px;
   padding: 12px 0;
-  border-bottom: 1px solid var(--line);
+}
+.advisory-comment-replies {
+  margin: 0 0 8px 34px;
+  padding-left: 12px;
+  border-left: 2px solid var(--line);
+}
+.advisory-engagement-comment.is-reply {
+  gap: 8px;
+  padding: 8px 0 4px;
+}
+.advisory-engagement-comment.is-reply .advisory-comment-avatar {
+  width: 28px;
+  height: 28px;
+  flex-basis: 28px;
+  font-size: calc(10px * var(--appearance-text-scale, 1));
+}
+.advisory-engagement-comment.is-reply .advisory-comment-bubble {
+  padding: 8px 11px;
+  border-radius: 4px 13px 13px;
 }
 .advisory-comment-avatar,
 .advisory-reply-avatar {
@@ -4927,11 +4948,18 @@ tbody tr:last-child td {
   line-height: 1.55;
   overflow-wrap: anywhere;
 }
+.advisory-engagement-comment .advisory-comment-mention {
+  color: var(--teal);
+  font-size: inherit;
+}
 .advisory-comment-actions {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 5px 10px 0;
+}
+.advisory-engagement-comment.is-reply .advisory-comment-actions {
+  padding-top: 3px;
 }
 .advisory-comment-actions button {
   padding: 0;

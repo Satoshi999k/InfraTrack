@@ -148,6 +148,14 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                   ),
+                  _TrakoWelcomeCard(
+                    firstName: _firstName,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const ChatbotPage(),
+                      ),
+                    ),
+                  ),
                   _ReportIssueCallout(onTap: () => _openReport(context)),
                   const SizedBox(height: 16),
                   if (_featuredStories.isNotEmpty)
@@ -487,6 +495,102 @@ class _HomeMetricCard extends StatelessWidget {
       ],
     ),
   );
+}
+
+class _TrakoWelcomeCard extends StatelessWidget {
+  const _TrakoWelcomeCard({required this.firstName, required this.onTap});
+
+  final String firstName;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Material(
+        color: theme.colorScheme.primary.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          key: const ValueKey('home-trako-welcome'),
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 14, 10),
+            child: Row(
+              children: [
+                Image.asset(
+                  'assets/chatbot_character/chatbot_face/thumbs_up.png',
+                  width: 76,
+                  height: 82,
+                  fit: BoxFit.contain,
+                  semanticLabel: 'Trako, your InfraTrack assistant',
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 13,
+                      vertical: 11,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface,
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(
+                        color: theme.colorScheme.outline.withValues(alpha: .7),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Trako',
+                          style: TextStyle(
+                            color: theme.colorScheme.primary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          'Hi $firstName! Need help reporting an issue or checking a city update? I’m here to help.',
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface,
+                            fontSize: 11,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Chat with Trako',
+                              style: TextStyle(
+                                color: theme.colorScheme.primary,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(width: 3),
+                            Icon(
+                              Icons.arrow_forward_rounded,
+                              size: 13,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _HomeDashboardSkeleton extends StatelessWidget {

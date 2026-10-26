@@ -121,6 +121,83 @@ function AdvisoryEngagementModal({ data, onClose }) {
   const advisory = engagement?.advisory;
   const comments = engagement?.comments ?? [];
   const reactions = engagement?.reactions ?? [];
+  const commentsById = new Map(
+    comments.map((comment) => [Number(comment.id), comment]),
+  );
+  const topLevelComments = [];
+  const repliesByParent = new Map();
+  for (const comment of comments) {
+    const parentId = Number(comment.parent_comment_id);
+    if (comment.parent_comment_id != null && commentsById.has(parentId)) {
+      const parent = commentsById.get(parentId);
+      const threadId = parent.parent_comment_id
+        ? Number(parent.parent_comment_id)
+        : parentId;
+      const replies = repliesByParent.get(threadId) ?? [];
+      replies.push(comment);
+      repliesByParent.set(threadId, replies);
+    } else {
+      topLevelComments.push(comment);
+    }
+  }
+  const renderComment = (comment, { replyToName = null, isReply = false } = {}) => {
+    const body = String(comment.body ?? "");
+    const mention = replyToName ? `@${replyToName}` : "";
+    const hasMention = mention && body.startsWith(mention);
+    return (
+      <article
+        className={`advisory-engagement-comment ${isReply ? "is-reply" : ""} ${comment.author_role && comment.author_role !== "resident" ? "from-staff" : ""}`}
+        key={comment.id}
+      >
+        <span className="advisory-comment-avatar" aria-hidden="true">
+          {comment.author_name?.trim().charAt(0).toUpperCase() || "R"}
+        </span>
+        <div className="advisory-comment-content">
+          <div className="advisory-comment-bubble">
+            <div className="advisory-comment-meta">
+              <strong>{comment.author_name}</strong>
+              {comment.author_role &&
+                comment.author_role !== "resident" && (
+                  <span className="advisory-comment-staff">City staff</span>
+                )}
+            </div>
+            <p>
+              {hasMention && (
+                <strong className="advisory-comment-mention">
+                  {mention}
+                </strong>
+              )}
+              {hasMention ? body.slice(mention.length) : body}
+            </p>
+          </div>
+          <div className="advisory-comment-actions">
+            <time dateTime={comment.created_at}>
+              {comment.created_at
+                ? new Date(comment.created_at).toLocaleString()
+                : ""}
+            </time>
+            <button
+              type="button"
+              onClick={() => {
+                setReplyingTo(comment);
+                setReplyDraft(formatAdvisoryMention(comment.author_name));
+                setReplyError("");
+                window.requestAnimationFrame(() => {
+                  replyInputRef.current?.focus();
+                  replyInputRef.current?.scrollIntoView({
+                    block: "nearest",
+                    behavior: "smooth",
+                  });
+                });
+              }}
+            >
+              Reply
+            </button>
+          </div>
+        </div>
+      </article>
+    );
+  };
 
   return (
     <div className="modal-backdrop advisory-engagement-backdrop" onClick={onClose}>
@@ -202,57 +279,24 @@ function AdvisoryEngagementModal({ data, onClose }) {
               )}
               {comments.length ? (
                 <div className="advisory-engagement-comments">
-                  {comments.map((comment) => (
-                    <article
-                      className={`advisory-engagement-comment ${comment.author_role && comment.author_role !== "resident" ? "from-staff" : ""}`}
-                      key={comment.id}
-                    >
-                      <span className="advisory-comment-avatar" aria-hidden="true">
-                        {comment.author_name?.trim().charAt(0).toUpperCase() ||
-                          "R"}
-                      </span>
-                      <div className="advisory-comment-content">
-                        <div className="advisory-comment-bubble">
-                          <div className="advisory-comment-meta">
-                            <strong>{comment.author_name}</strong>
-                            {comment.author_role &&
-                              comment.author_role !== "resident" && (
-                                <span className="advisory-comment-staff">
-                                  City staff
-                                </span>
-                              )}
+                  {topLevelComments.map((comment) => {
+                    const replies = repliesByParent.get(Number(comment.id)) ?? [];
+                    return (
+                      <div className="advisory-comment-thread" key={comment.id}>
+                        {renderComment(comment)}
+                        {replies.length > 0 && (
+                          <div className="advisory-comment-replies">
+                            {replies.map((reply) =>
+                              renderComment(reply, {
+                                replyToName: comment.author_name,
+                                isReply: true,
+                              }),
+                            )}
                           </div>
-                          <p>{comment.body}</p>
-                        </div>
-                        <div className="advisory-comment-actions">
-                          <time dateTime={comment.created_at}>
-                            {comment.created_at
-                              ? new Date(comment.created_at).toLocaleString()
-                              : ""}
-                          </time>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setReplyingTo(comment);
-                              setReplyDraft(
-                                formatAdvisoryMention(comment.author_name),
-                              );
-                              setReplyError("");
-                              window.requestAnimationFrame(() => {
-                                replyInputRef.current?.focus();
-                                replyInputRef.current?.scrollIntoView({
-                                  block: "nearest",
-                                  behavior: "smooth",
-                                });
-                              });
-                            }}
-                          >
-                            Reply
-                          </button>
-                        </div>
+                        )}
                       </div>
-                    </article>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="advisory-engagement-empty">

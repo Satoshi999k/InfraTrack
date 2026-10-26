@@ -231,6 +231,13 @@ void main() {
                 longitude: 126.2122,
               ),
               _issue(
+                id: 4,
+                title: 'Broken streetlight',
+                category: 'Streetlights',
+                latitude: 6.9532,
+                longitude: 126.2121,
+              ),
+              _issue(
                 id: 3,
                 title: 'Streetlight outage',
                 category: 'Streetlights',
@@ -266,7 +273,11 @@ void main() {
         ),
         hasLength(1),
       );
-      expect(find.text('3 matching reports'), findsOneWidget);
+      final clusterMarker = markers.singleWhere(
+        (marker) => marker.key?.toString().contains('report-cluster-') ?? false,
+      );
+      expect(clusterMarker.point, const LatLng(6.9532, 126.2121));
+      expect(find.text('4 matching reports'), findsOneWidget);
       expect(tester.takeException(), isNull);
     } finally {
       ApiService.httpClientFactory = originalClientFactory;

@@ -240,7 +240,7 @@ class _MapPageState extends State<MapPage> {
         markers.add(
           Marker(
             key: ValueKey('report-cluster-${group.first.id}'),
-            point: group.first.point,
+            point: _clusterAnchorPoint(group),
             width: 54,
             height: 62,
             alignment: Alignment.bottomCenter,
@@ -277,6 +277,23 @@ class _MapPageState extends State<MapPage> {
       }
     }
     return markers;
+  }
+
+  LatLng _clusterAnchorPoint(List<_MapReport> reports) {
+    var anchor = reports.first.point;
+    var shortestTotalDistance = double.infinity;
+    for (final candidate in reports) {
+      final totalDistance = reports.fold<double>(
+        0,
+        (total, report) =>
+            total + _distanceInMeters(candidate.point, report.point),
+      );
+      if (totalDistance < shortestTotalDistance) {
+        shortestTotalDistance = totalDistance;
+        anchor = candidate.point;
+      }
+    }
+    return anchor;
   }
 
   double _clusterRadiusMeters(LatLng point) {
@@ -992,7 +1009,7 @@ class _ReportClusterMarker extends StatelessWidget {
       alignment: Alignment.topCenter,
       children: [
         Positioned(
-          bottom: 3,
+          bottom: 0,
           child: Transform.rotate(
             angle: math.pi / 4,
             child: Container(
