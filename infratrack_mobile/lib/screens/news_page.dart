@@ -1,12 +1,19 @@
 part of '../main.dart';
 
+bool isVideoAdvisoryMedia(String? mediaKind, String? mediaUrl) {
+  final kind = (mediaKind ?? '').trim().toLowerCase();
+  final extension =
+      Uri.tryParse(mediaUrl ?? '')?.path.split('.').last.toLowerCase() ?? '';
+  return kind == 'video' ||
+      const {'mp4', 'mov', 'm4v', 'webm', 'mkv'}.contains(extension);
+}
+
 bool isRotatingAdvisoryMedia(String? mediaKind, String? mediaUrl) {
   if (mediaUrl == null || mediaUrl.trim().isEmpty) return false;
-  final kind = (mediaKind ?? '').toLowerCase();
+  final kind = (mediaKind ?? '').trim().toLowerCase();
   final extension =
       Uri.tryParse(mediaUrl)?.path.split('.').last.toLowerCase() ?? '';
-  const videoExtensions = {'mp4', 'mov', 'm4v', 'webm', 'mkv'};
-  if (kind == 'video' || videoExtensions.contains(extension)) return false;
+  if (isVideoAdvisoryMedia(mediaKind, mediaUrl)) return false;
   if (kind == 'gif' || kind == 'photo' || kind == 'image') return true;
   return kind.isEmpty &&
       const {'gif', 'jpg', 'jpeg', 'png', 'webp', 'avif'}.contains(extension);
@@ -1802,7 +1809,7 @@ class _AdvisoryMediaState extends State<_AdvisoryMedia> {
   @override
   void initState() {
     super.initState();
-    if (widget.kind == 'video') {
+    if (isVideoAdvisoryMedia(widget.kind, widget.url)) {
       _initializeVideo();
     } else {
       _startLoadTimeout();
@@ -1822,7 +1829,7 @@ class _AdvisoryMediaState extends State<_AdvisoryMedia> {
     }
     _mediaFailed = false;
     _mediaAttempt = 0;
-    if (widget.kind == 'video') {
+    if (isVideoAdvisoryMedia(widget.kind, widget.url)) {
       _initializeVideo();
     } else {
       _startLoadTimeout();
@@ -1873,7 +1880,7 @@ class _AdvisoryMediaState extends State<_AdvisoryMedia> {
       _mediaAttempt++;
       _mediaFailed = false;
     });
-    if (widget.kind == 'video') {
+    if (isVideoAdvisoryMedia(widget.kind, widget.url)) {
       final oldController = _controller;
       _controller = null;
       if (oldController != null) {
@@ -1955,7 +1962,7 @@ class _AdvisoryMediaState extends State<_AdvisoryMedia> {
         ),
       );
     }
-    if (widget.kind != 'video') {
+    if (!isVideoAdvisoryMedia(widget.kind, widget.url)) {
       return Image.network(
         widget.url,
         height: widget.height,

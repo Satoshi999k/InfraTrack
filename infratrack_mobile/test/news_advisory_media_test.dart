@@ -2,6 +2,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:infatrack/main.dart';
 
 void main() {
+  test('video advisory media is identified by kind or file extension', () {
+    expect(isVideoAdvisoryMedia('video', 'https://example.test/ad'), isTrue);
+    expect(isVideoAdvisoryMedia(' Video ', 'https://example.test/ad'), isTrue);
+    expect(
+      isVideoAdvisoryMedia(null, 'https://example.test/ad.mp4?download=1'),
+      isTrue,
+    );
+    expect(
+      isVideoAdvisoryMedia('photo', 'https://example.test/ad.jpg'),
+      isFalse,
+    );
+  });
+
   test('rotating advisory media accepts images and GIFs only', () {
     expect(
       isRotatingAdvisoryMedia('gif', 'https://example.test/ad.gif'),

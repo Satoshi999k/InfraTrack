@@ -20,6 +20,63 @@ import { getAdvisoryAudience, validateAdvisoryDraft } from "../advisoryForm";
 
 const ADVISORIES_PER_PAGE = 6;
 
+async function createVideoNotificationThumbnail(file) {
+  const video = document.createElement("video");
+  const objectUrl = URL.createObjectURL(file);
+  video.muted = true;
+  video.preload = "metadata";
+  video.src = objectUrl;
+
+  try {
+    await new Promise((resolve, reject) => {
+      video.onloadeddata = resolve;
+      video.onerror = () =>
+        reject(new Error("Could not read a frame from this video."));
+    });
+    const scale = Math.min(1, 640 / video.videoWidth);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+    canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Could not create a video preview.");
+
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const radius = Math.max(20, Math.min(canvas.width, canvas.height) * 0.13);
+    context.fillStyle = "rgba(0, 0, 0, 0.58)";
+    context.beginPath();
+    context.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    context.fill();
+    context.fillStyle = "#ffffff";
+    context.beginPath();
+    context.moveTo(centerX - radius * 0.28, centerY - radius * 0.48);
+    context.lineTo(centerX + radius * 0.5, centerY);
+    context.lineTo(centerX - radius * 0.28, centerY + radius * 0.48);
+    context.closePath();
+    context.fill();
+
+    return await new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (blob) =>
+          blob
+            ? resolve(
+                new File([blob], "video-notification.jpg", {
+                  type: "image/jpeg",
+                }),
+              )
+            : reject(new Error("Could not encode the video preview.")),
+        "image/jpeg",
+        0.82,
+      );
+    });
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+    video.removeAttribute("src");
+    video.load();
+  }
+}
+
 const typeMeta = {
   alert: ["Advertisement", Image],
   advertisement: ["Advertisement", Image],
@@ -54,6 +111,9 @@ export default function AdvisoryPage({ publishedOnly = false, onNotify, onViewAl
     try {
       const formData = new FormData();
       formData.append("file", file);
+      if (file.type.startsWith("video/")) {
+        formData.append("thumbnail", await createVideoNotificationThumbnail(file));
+      }
       const response = await apiFetch(`/uploads`, { method: "POST", body: formData });
       const rawText = await response.text();
       const contentType = response.headers.get("content-type") || "";
@@ -82,7 +142,11 @@ export default function AdvisoryPage({ publishedOnly = false, onNotify, onViewAl
         throw new Error("The upload request did not include a file URL. Please try again.");
       }
 
-      const uploaded = { kind: data.mediaKind, src: data.url };
+      const uploaded = {
+        kind: data.mediaKind,
+        src: data.url,
+        thumbnailUrl: data.thumbnailUrl || null,
+      };
       if (target === "edit") setEditingAdvisory((current) => ({ ...current, draftMedia: uploaded }));
       else setMedia(uploaded);
     } catch (uploadError) {
@@ -161,7 +225,7 @@ export default function AdvisoryPage({ publishedOnly = false, onNotify, onViewAl
       const response = await apiFetch(`/advisories`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, title, message, audience: getAdvisoryAudience(user, audience), barangay: user?.barangay, mediaUrl: media?.src, mediaKind: media?.kind }),
+        body: JSON.stringify({ type, title, message, audience: getAdvisoryAudience(user, audience), barangay: user?.barangay, mediaUrl: media?.src, mediaKind: media?.kind, mediaThumbnailUrl: media?.thumbnailUrl }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not publish advisory");

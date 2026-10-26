@@ -96,6 +96,8 @@ Future<Uint8List?> _downloadNotificationImage(String? imageUrl) async {
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  if (message.notification != null) return;
+
   try {
     await Firebase.initializeApp();
     final notifications = FlutterLocalNotificationsPlugin();

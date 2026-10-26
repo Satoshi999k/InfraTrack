@@ -12,6 +12,8 @@ void main() {
     expect(details.setAsGroupSummary, isFalse);
     expect(details.groupAlertBehavior, GroupAlertBehavior.children);
     expect(details.onlyAlertOnce, isTrue);
+    expect(details.importance, Importance.high);
+    expect(details.priority, Priority.high);
   });
 
   test('group summary is silent and displays an inbox-style digest', () {

@@ -419,6 +419,8 @@ async function sendNotificationPush(notification) {
       title: notification.title,
       message: String(notification.message).slice(0, 1000),
       imageUrl: notification.image_url,
+      mediaKind: notification.media_kind,
+      mediaUrl: notification.media_url,
     })
       .filter(([, value]) => value !== null && value !== undefined)
       .map(([key, value]) => [key, String(value)]),
@@ -428,9 +430,20 @@ async function sendNotificationPush(notification) {
     const batch = tokens.slice(offset, offset + 500);
     const result = await messaging.sendEachForMulticast({
       tokens: batch,
+      notification: {
+        title: notification.title,
+        body: String(notification.message).slice(0, 1000),
+      },
       data,
       android: {
         priority: "high",
+        notification: {
+          channelId: "infratrack_city_updates",
+          sound: "default",
+          ...(notification.image_url
+            ? { imageUrl: notification.image_url }
+            : {}),
+        },
       },
     });
     for (let index = 0; index < result.responses.length; index += 1) {
@@ -491,6 +504,8 @@ async function queueAdvisoryNotifications({
   message,
   audience,
   imageUrl = null,
+  mediaKind = null,
+  mediaUrl = null,
 }) {
   const allBarangays = audience === "All barangays";
   const targetBarangay = allBarangays
@@ -539,7 +554,12 @@ async function queueAdvisoryNotifications({
     [advisoryId, notificationType, title],
   );
   for (const notification of queuedNotifications) {
-    await deliverNotificationPush({ ...notification, image_url: imageUrl });
+    await deliverNotificationPush({
+      ...notification,
+      image_url: imageUrl,
+      media_kind: mediaKind,
+      media_url: mediaUrl,
+    });
   }
 }
 
@@ -2504,7 +2524,10 @@ app.get("/api/advisories", async (req, res) => {
   })) });
 });
 app.post("/api/uploads", (req, res, next) => {
-  upload.single("file")(req, res, (error) => {
+  upload.fields([
+    { name: "file", maxCount: 1 },
+    { name: "thumbnail", maxCount: 1 },
+  ])(req, res, (error) => {
     if (error) {
       if (error.code === "LIMIT_FILE_SIZE") {
         return res.status(413).json({ error: "Video is too large. Please choose a file under 100MB." });
@@ -2514,22 +2537,48 @@ app.post("/api/uploads", (req, res, next) => {
     next();
   });
 }, async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: "Please select a photo or video" });
-  const mediaKind = req.file.mimetype === "image/gif" ? "gif" : req.file.mimetype.startsWith("video/") ? "video" : "photo";
+  const mediaFile = req.files?.file?.[0];
+  const thumbnailFile = req.files?.thumbnail?.[0];
+  if (!mediaFile) return res.status(400).json({ error: "Please select a photo or video" });
+  const mediaKind = mediaFile.mimetype === "image/gif" ? "gif" : mediaFile.mimetype.startsWith("video/") ? "video" : "photo";
+  if (thumbnailFile && (mediaKind !== "video" || !thumbnailFile.mimetype.startsWith("image/"))) {
+    await removeTemporaryUpload(mediaFile);
+    await removeTemporaryUpload(thumbnailFile);
+    return res.status(400).json({ error: "A video thumbnail must be an image uploaded with a video." });
+  }
   try {
     if (process.env.VERCEL && !hasCloudinaryStorage && !hasSignedCloudinaryStorage) {
       return res.status(503).json({
         error: "Media storage is not configured. Set Cloudinary storage variables before uploading media.",
       });
     }
-    const cloudinaryUrl = await uploadToCloudinary(req.file);
+    const cloudinaryUrl = await uploadToCloudinary(mediaFile);
     if (cloudinaryUrl) {
-      await removeTemporaryUpload(req.file);
-      return res.status(201).json({ url: cloudinaryUrl, mediaKind, originalName: req.file.originalname, storage: "cloudinary" });
+      const thumbnailUrl = thumbnailFile
+        ? await uploadToCloudinary(thumbnailFile)
+        : null;
+      await removeTemporaryUpload(mediaFile);
+      await removeTemporaryUpload(thumbnailFile);
+      return res.status(201).json({
+        url: cloudinaryUrl,
+        thumbnailUrl,
+        mediaKind,
+        originalName: mediaFile.originalname,
+        storage: "cloudinary",
+      });
     }
-    res.status(201).json({ url: `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`, mediaKind, originalName: req.file.originalname, storage: "local" });
+    res.status(201).json({
+      url: `${req.protocol}://${req.get("host")}/uploads/${mediaFile.filename}`,
+      thumbnailUrl: thumbnailFile
+        ? `${req.protocol}://${req.get("host")}/uploads/${thumbnailFile.filename}`
+        : null,
+      mediaKind,
+      originalName: mediaFile.originalname,
+      storage: "local",
+    });
   } catch (uploadError) {
-    await removeTemporaryUpload(req.file);
+    await removeTemporaryUpload(mediaFile);
+    await removeTemporaryUpload(thumbnailFile);
     console.error("Unable to store advisory media:", uploadError.message);
     res.status(502).json({ error: `Could not store media: ${uploadError.message}` });
   }
@@ -2623,7 +2672,7 @@ app.post("/api/advisories/:id/convert-gif", async (req, res) => {
   });
 });
 app.post("/api/advisories", async (req, res) => {
-  const { type = "gen", title, message, audience = "All barangays", barangay, mediaUrl, mediaKind } = req.body ?? {};
+  const { type = "gen", title, message, audience = "All barangays", barangay, mediaUrl, mediaKind, mediaThumbnailUrl } = req.body ?? {};
   const publisher = req.auth;
   const adminId = publisher.id;
   const targetBarangay = publisher?.role === "barangay_staff" ? publisher.barangay : barangay ?? null;
@@ -2638,9 +2687,13 @@ app.post("/api/advisories", async (req, res) => {
     message: message.trim(),
     audience: targetAudience,
     imageUrl:
-      ["photo", "gif", "image"].includes(String(mediaKind || "photo").toLowerCase())
+      String(mediaKind || "photo").toLowerCase() === "video"
+        ? mediaThumbnailUrl || null
+        : ["photo", "gif", "image"].includes(String(mediaKind || "photo").toLowerCase())
         ? publicMediaUrl(req, mediaUrl)
         : null,
+    mediaKind: mediaKind || null,
+    mediaUrl: mediaUrl || null,
   });
   const [advisories] = await pool.query("SELECT * FROM advisories WHERE id = ?", [result.insertId]);
   await writeAuditLog(req, { actorId: adminId, action: "advisory_created", resourceType: "advisory", resourceId: result.insertId, details: { title: title.trim(), audience: targetAudience } });
