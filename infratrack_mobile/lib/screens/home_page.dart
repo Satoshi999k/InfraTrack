@@ -511,7 +511,7 @@ class _TrakoWelcomeCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Image.asset(
-                'assets/chatbot_character/chatbot_face/thumbs_up.png',
+                'assets/chatbot_character/chatbot_face/mascot.png',
                 key: const ValueKey('home-trako-mascot'),
                 width: 132,
                 height: 154,
@@ -526,17 +526,12 @@ class _TrakoWelcomeCard extends StatelessWidget {
                     clipBehavior: Clip.none,
                     children: [
                       Positioned(
-                        left: 0,
-                        top: 29,
-                        child: Transform.rotate(
-                          angle: math.pi / 4,
-                          child: Container(
-                            width: 18,
-                            height: 18,
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.surface,
-                              borderRadius: BorderRadius.circular(3),
-                            ),
+                        left: -2,
+                        top: 34,
+                        child: CustomPaint(
+                          size: const Size(16, 20),
+                          painter: _TrakoBubbleTailPainter(
+                            color: theme.colorScheme.surface,
                           ),
                         ),
                       ),
@@ -545,11 +540,7 @@ class _TrakoWelcomeCard extends StatelessWidget {
                         padding: const EdgeInsets.fromLTRB(15, 13, 13, 12),
                         decoration: BoxDecoration(
                           color: theme.colorScheme.surface,
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(18),
-                            topRight: Radius.circular(18),
-                            bottomRight: Radius.circular(18),
-                          ),
+                          borderRadius: BorderRadius.circular(18),
                           boxShadow: [
                             BoxShadow(
                               color: navy.withValues(alpha: .08),
@@ -571,7 +562,7 @@ class _TrakoWelcomeCard extends StatelessWidget {
                             ),
                             const SizedBox(height: 5),
                             Text(
-                              'Hi $firstName! Need help reporting an issue or checking a city update? I’m here to help.',
+                              "Hi $firstName! Need help with a report or city update? I'm here to help.",
                               style: TextStyle(
                                 color: theme.colorScheme.onSurface,
                                 fontSize: 12,
@@ -611,6 +602,27 @@ class _TrakoWelcomeCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _TrakoBubbleTailPainter extends CustomPainter {
+  const _TrakoBubbleTailPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    final path = ui.Path()
+      ..moveTo(size.width, 0)
+      ..lineTo(0, size.height / 2)
+      ..lineTo(size.width, size.height)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_TrakoBubbleTailPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 class _HomeDashboardSkeleton extends StatelessWidget {

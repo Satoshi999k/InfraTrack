@@ -108,7 +108,7 @@ void main() {
         expect(reportCards, hasLength(7));
         expect(find.text('Trako'), findsOneWidget);
         expect(
-          find.textContaining('Need help reporting an issue'),
+          find.textContaining('Need help with a report or city update?'),
           findsOneWidget,
         );
         expect(
@@ -124,7 +124,7 @@ void main() {
           isA<AssetImage>().having(
             (image) => image.assetName,
             'assetName',
-            'assets/chatbot_character/chatbot_face/thumbs_up.png',
+            'assets/chatbot_character/chatbot_face/mascot.png',
           ),
         );
         await tester.tap(find.byKey(const ValueKey('home-trako-welcome')));
