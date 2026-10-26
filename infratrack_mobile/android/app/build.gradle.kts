@@ -8,11 +8,9 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-val keystorePropertiesFile = rootProject.file("android/key.properties")
-    .takeIf { it.exists() }
-    ?: rootProject.file("key.properties")
+val keystorePropertiesFile = rootProject.file("key.properties")
 val keystoreProperties = Properties()
-if (keystorePropertiesFile != null && keystorePropertiesFile.exists()) {
+if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
@@ -43,7 +41,7 @@ android {
     }
 
     signingConfigs {
-        if (keystorePropertiesFile != null && keystorePropertiesFile.exists()) {
+        if (keystorePropertiesFile.exists()) {
             create("release") {
                 val alias = keystoreProperties["keyAlias"] as? String
                 val password = keystoreProperties["keyPassword"] as? String
@@ -67,7 +65,7 @@ android {
         release {
             isMinifyEnabled = false
             isShrinkResources = false
-            signingConfig = if (keystorePropertiesFile != null && keystorePropertiesFile.exists()) {
+            signingConfig = if (keystorePropertiesFile.exists()) {
                 signingConfigs.getByName("release")
             } else {
                 signingConfigs.getByName("debug")
