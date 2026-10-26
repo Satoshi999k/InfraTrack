@@ -289,6 +289,14 @@ void main() {
       expect(find.text('Thank you for sharing this update.'), findsOneWidget);
       expect(find.text('4'), findsOneWidget);
       expect(find.byType(TextField), findsOneWidget);
+
+      final replyButton = find.widgetWithText(TextButton, 'Reply');
+      await tester.ensureVisible(replyButton);
+      await tester.pumpAndSettle();
+      await tester.tap(replyButton);
+      await tester.pumpAndSettle();
+      final commentField = tester.widget<TextField>(find.byType(TextField));
+      expect(commentField.controller!.text, '@Mati Resident ');
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
       ApiService.httpClientFactory = originalClientFactory;

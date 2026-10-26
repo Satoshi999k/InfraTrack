@@ -1100,6 +1100,7 @@ class AdvisoryDetailsPage extends StatefulWidget {
 
 class _AdvisoryDetailsPageState extends State<AdvisoryDetailsPage> {
   final _commentController = TextEditingController();
+  final _commentFocusNode = FocusNode();
   final _commentsSectionKey = GlobalKey();
   late Map<String, dynamic> _advisory;
   List<Map<String, dynamic>> _comments = [];
@@ -1126,6 +1127,7 @@ class _AdvisoryDetailsPageState extends State<AdvisoryDetailsPage> {
   @override
   void dispose() {
     _commentController.dispose();
+    _commentFocusNode.dispose();
     super.dispose();
   }
 
@@ -1216,6 +1218,18 @@ class _AdvisoryDetailsPageState extends State<AdvisoryDetailsPage> {
     } finally {
       if (mounted) setState(() => _sending = false);
     }
+  }
+
+  void _replyToComment(Map<String, dynamic> comment) {
+    final author = (comment['author_name']?.toString() ?? 'Resident')
+        .trim()
+        .replaceAll(RegExp(r'\s+'), ' ');
+    final mention = '@${author.isEmpty ? 'Resident' : author} ';
+    _commentController.value = TextEditingValue(
+      text: mention,
+      selection: TextSelection.collapsed(offset: mention.length),
+    );
+    _commentFocusNode.requestFocus();
   }
 
   @override
@@ -1489,7 +1503,10 @@ class _AdvisoryDetailsPageState extends State<AdvisoryDetailsPage> {
                             )
                           else
                             for (final comment in _comments)
-                              _AdvisoryCommentCard(comment: comment),
+                              _AdvisoryCommentCard(
+                                comment: comment,
+                                onReply: () => _replyToComment(comment),
+                              ),
                           if (_error != null && _comments.isNotEmpty)
                             _AdvisoryInlineError(
                               message: _error!,
@@ -1514,6 +1531,7 @@ class _AdvisoryDetailsPageState extends State<AdvisoryDetailsPage> {
                   Expanded(
                     child: TextField(
                       controller: _commentController,
+                      focusNode: _commentFocusNode,
                       enabled: !_sending,
                       minLines: 1,
                       maxLines: 4,
@@ -1671,9 +1689,10 @@ class _AdvisoryMetaPill extends StatelessWidget {
 }
 
 class _AdvisoryCommentCard extends StatelessWidget {
-  const _AdvisoryCommentCard({required this.comment});
+  const _AdvisoryCommentCard({required this.comment, required this.onReply});
 
   final Map<String, dynamic> comment;
+  final VoidCallback onReply;
 
   @override
   Widget build(BuildContext context) {
@@ -1746,6 +1765,23 @@ class _AdvisoryCommentCard extends StatelessWidget {
                           color: theme.colorScheme.onSurface,
                           fontSize: 12,
                           height: 1.45,
+                        ),
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton.icon(
+                          onPressed: onReply,
+                          icon: const Icon(Icons.reply_rounded, size: 15),
+                          label: const Text('Reply'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: muted,
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            textStyle: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
                       ),
                     ],
