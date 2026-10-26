@@ -1,4 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  Component,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   AlertTriangle,
   Ban,
@@ -42,6 +48,10 @@ import {
 import { REPORT_CATEGORIES } from "../../reportCategories.js";
 import { startVisiblePolling } from "../visiblePolling.js";
 import { formatAdvisoryMention } from "../../advisoryReply.js";
+import {
+  groupAdvisoryComments,
+  normalizeAdvisoryEngagement,
+} from "../../advisoryActivity.js";
 
 export function Modal({
   data,
@@ -65,8 +75,42 @@ export function Modal({
     return <WalkInModal onClose={onClose} onSave={onSave} />;
   if (data.type === "help") return <HelpModal onClose={onClose} />;
   if (data.type === "advisory-engagement")
-    return <AdvisoryEngagementModal data={data} onClose={onClose} />;
+    return (
+      <AdvisoryEngagementErrorBoundary onClose={onClose}>
+        <AdvisoryEngagementModal data={data} onClose={onClose} />
+      </AdvisoryEngagementErrorBoundary>
+    );
   return <IssueModal data={data} onClose={onClose} onSave={onSave} />;
+}
+
+class AdvisoryEngagementErrorBoundary extends Component {
+  state = { error: null };
+
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error("Could not render advisory activity.", error, errorInfo);
+  }
+
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <div className="modal-backdrop advisory-engagement-backdrop">
+        <section
+          className="modal advisory-engagement-modal advisory-engagement-state error"
+          role="alert"
+        >
+          <h2>Could not display advisory activity</h2>
+          <p>{this.state.error.message}</p>
+          <button type="button" className="secondary-button" onClick={this.props.onClose}>
+            Close
+          </button>
+        </section>
+      </div>
+    );
+  }
 }
 
 function AdvisoryEngagementModal({ data, onClose }) {
@@ -98,25 +142,7 @@ function AdvisoryEngagementModal({ data, onClose }) {
         if (!response.ok) {
           throw new Error(result.error || "Could not load advisory activity.");
         }
-        if (
-          !result ||
-          typeof result !== "object" ||
-          !Array.isArray(result.comments) ||
-          !Array.isArray(result.reactions)
-        ) {
-          throw new Error("The server returned invalid advisory activity.");
-        }
-        if (
-          result.comments.some(
-            (comment) => !comment || typeof comment !== "object",
-          ) ||
-          result.reactions.some(
-            (reaction) => !reaction || typeof reaction !== "object",
-          )
-        ) {
-          throw new Error("The server returned invalid advisory activity.");
-        }
-        if (active) setEngagement(result);
+        if (active) setEngagement(normalizeAdvisoryEngagement(result));
       } catch (loadError) {
         if (active) {
           setError(
@@ -137,31 +163,10 @@ function AdvisoryEngagementModal({ data, onClose }) {
   }, [data.advisoryId]);
 
   const advisory = engagement?.advisory;
-  const comments = Array.isArray(engagement?.comments)
-    ? engagement.comments
-    : [];
-  const reactions = Array.isArray(engagement?.reactions)
-    ? engagement.reactions
-    : [];
-  const commentsById = new Map(
-    comments.map((comment) => [Number(comment.id), comment]),
-  );
-  const topLevelComments = [];
-  const repliesByParent = new Map();
-  for (const comment of comments) {
-    const parentId = Number(comment.parent_comment_id);
-    if (comment.parent_comment_id != null && commentsById.has(parentId)) {
-      const parent = commentsById.get(parentId);
-      const threadId = parent.parent_comment_id
-        ? Number(parent.parent_comment_id)
-        : parentId;
-      const replies = repliesByParent.get(threadId) ?? [];
-      replies.push(comment);
-      repliesByParent.set(threadId, replies);
-    } else {
-      topLevelComments.push(comment);
-    }
-  }
+  const comments = engagement?.comments ?? [];
+  const reactions = engagement?.reactions ?? [];
+  const { topLevelComments, repliesByParent } =
+    groupAdvisoryComments(comments);
   const renderComment = (comment, { replyToName = null, isReply = false } = {}) => {
     const body = String(comment.body ?? "");
     const mention = replyToName ? `@${replyToName}` : "";
