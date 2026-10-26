@@ -9,6 +9,57 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'api_service.dart';
 
+const _notificationGroupKey = 'com.example.infatrack.updates';
+const _notificationSummaryId = 0;
+
+NotificationDetails groupedNotificationDetails({
+  required bool groupSummary,
+  int notificationCount = 1,
+  String? latestTitle,
+  String? latestBody,
+}) => NotificationDetails(
+  android: AndroidNotificationDetails(
+    'infratrack_city_updates',
+    'InfraTrack updates',
+    channelDescription: 'Announcements and other InfraTrack notifications.',
+    importance: Importance.high,
+    priority: Priority.high,
+    icon: 'ic_notification',
+    groupKey: _notificationGroupKey,
+    setAsGroupSummary: groupSummary,
+    groupAlertBehavior: GroupAlertBehavior.children,
+    onlyAlertOnce: true,
+    playSound: !groupSummary,
+    enableVibration: !groupSummary,
+    styleInformation: groupSummary
+        ? InboxStyleInformation(
+            [latestTitle, latestBody].whereType<String>().toList(),
+            contentTitle: 'InfraTrack updates',
+            summaryText:
+                '$notificationCount ${notificationCount == 1 ? 'update' : 'updates'} · Tap to view all notifications.',
+          )
+        : null,
+  ),
+);
+
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  try {
+    await Firebase.initializeApp();
+    final notifications = FlutterLocalNotificationsPlugin();
+    await notifications.initialize(
+      settings: const InitializationSettings(
+        android: AndroidInitializationSettings('ic_notification'),
+      ),
+    );
+    await PushNotifications.createAndroidNotificationChannel(notifications);
+    await PushNotifications.showGroupedNotification(notifications, message);
+  } catch (error, stackTrace) {
+    debugPrint('Could not display grouped background notification: $error');
+    debugPrintStack(stackTrace: stackTrace);
+  }
+}
+
 class PushNotifications {
   PushNotifications._();
 
@@ -26,6 +77,74 @@ class PushNotifications {
   Map<String, dynamic>? _pendingNotificationTap;
   bool _initialized = false;
   String? _currentToken;
+
+  static Future<void> createAndroidNotificationChannel(
+    FlutterLocalNotificationsPlugin notifications,
+  ) async {
+    const channel = AndroidNotificationChannel(
+      _channelId,
+      _channelName,
+      description: 'Announcements and other InfraTrack notifications.',
+      importance: Importance.high,
+    );
+    await notifications
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.createNotificationChannel(channel);
+  }
+
+  static Future<void> showGroupedNotification(
+    FlutterLocalNotificationsPlugin notifications,
+    RemoteMessage message,
+  ) async {
+    final title = message.notification?.title ?? message.data['title'];
+    final body =
+        message.notification?.body ??
+        message.data['message'] ??
+        message.data['body'];
+    if (title == null || title.isEmpty || body == null || body.isEmpty) return;
+
+    final payload = jsonEncode(message.data);
+    final parsedId = int.tryParse(
+      message.data['notificationId']?.toString() ?? '',
+    );
+    final childId = parsedId != null && parsedId > 0
+        ? parsedId
+        : (message.messageId?.hashCode.abs() ?? 1).clamp(1, 0x7ffffffe).toInt();
+
+    await notifications.show(
+      id: childId,
+      title: title,
+      body: body,
+      notificationDetails: groupedNotificationDetails(groupSummary: false),
+      payload: payload,
+    );
+    final activeNotifications = await notifications.getActiveNotifications();
+    final activeNotificationCount = activeNotifications
+        .where(
+          (activeNotification) =>
+              activeNotification.groupKey == _notificationGroupKey &&
+              activeNotification.id != _notificationSummaryId,
+        )
+        .length;
+    final notificationCount = activeNotificationCount == 0
+        ? 1
+        : activeNotificationCount;
+    await notifications.show(
+      id: _notificationSummaryId,
+      title:
+          'InfraTrack · $notificationCount ${notificationCount == 1 ? 'update' : 'updates'}',
+      body: title,
+      notificationDetails: groupedNotificationDetails(
+        groupSummary: true,
+        notificationCount: notificationCount,
+        latestTitle: title,
+        latestBody: body,
+      ),
+      payload: jsonEncode({'openNotifications': 'true'}),
+    );
+  }
 
   Future<void> initialize({required bool authenticated}) async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
@@ -52,6 +171,7 @@ class PushNotifications {
 
   Future<void> _initialize() async {
     await Firebase.initializeApp();
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
     await _localNotifications.initialize(
       settings: const InitializationSettings(
@@ -65,17 +185,7 @@ class PushNotifications {
       },
     );
 
-    const channel = AndroidNotificationChannel(
-      _channelId,
-      _channelName,
-      description: 'Announcements and other InfraTrack notifications.',
-      importance: Importance.high,
-    );
-    await _localNotifications
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.createNotificationChannel(channel);
+    await createAndroidNotificationChannel(_localNotifications);
 
     await FirebaseMessaging.instance.requestPermission();
     await _localNotifications
@@ -162,25 +272,7 @@ class PushNotifications {
   }
 
   Future<void> _showForegroundNotification(RemoteMessage message) async {
-    final title = message.notification?.title ?? message.data['title'];
-    final body = message.notification?.body ?? message.data['message'];
-    if (title == null || title.isEmpty || body == null || body.isEmpty) return;
-
-    await _localNotifications.show(
-      id: message.messageId?.hashCode ?? DateTime.now().millisecondsSinceEpoch,
-      title: title,
-      body: body,
-      notificationDetails: const NotificationDetails(
-        android: AndroidNotificationDetails(
-          _channelId,
-          _channelName,
-          importance: Importance.high,
-          priority: Priority.high,
-          icon: 'ic_notification',
-        ),
-      ),
-      payload: jsonEncode(message.data),
-    );
+    await showGroupedNotification(_localNotifications, message);
   }
 
   void _dispatchTap(Map<String, dynamic> data) {

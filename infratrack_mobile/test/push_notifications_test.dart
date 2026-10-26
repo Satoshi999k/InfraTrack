@@ -1,0 +1,25 @@
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:infatrack/push_notifications.dart';
+
+void main() {
+  test('individual notifications share one Android notification group', () {
+    final details = groupedNotificationDetails(groupSummary: false).android!;
+
+    expect(details.groupKey, isNotEmpty);
+    expect(details.setAsGroupSummary, isFalse);
+    expect(details.groupAlertBehavior, GroupAlertBehavior.children);
+    expect(details.onlyAlertOnce, isTrue);
+  });
+
+  test('group summary is silent and displays an inbox-style digest', () {
+    final details = groupedNotificationDetails(groupSummary: true).android!;
+
+    expect(details.groupKey, isNotEmpty);
+    expect(details.setAsGroupSummary, isTrue);
+    expect(details.groupAlertBehavior, GroupAlertBehavior.children);
+    expect(details.playSound, isFalse);
+    expect(details.enableVibration, isFalse);
+    expect(details.styleInformation, isA<InboxStyleInformation>());
+  });
+}

@@ -416,6 +416,8 @@ async function sendNotificationPush(notification) {
       reportId: notification.report_id,
       advisoryId: notification.advisory_id,
       type: notification.type,
+      title: notification.title,
+      message: String(notification.message).slice(0, 1000),
     })
       .filter(([, value]) => value !== null && value !== undefined)
       .map(([key, value]) => [key, String(value)]),
@@ -425,14 +427,9 @@ async function sendNotificationPush(notification) {
     const batch = tokens.slice(offset, offset + 500);
     const result = await messaging.sendEachForMulticast({
       tokens: batch,
-      notification: {
-        title: notification.title,
-        body: String(notification.message).slice(0, 1000),
-      },
       data,
       android: {
         priority: "high",
-        notification: { channelId: "infratrack_city_updates" },
       },
     });
     for (let index = 0; index < result.responses.length; index += 1) {
