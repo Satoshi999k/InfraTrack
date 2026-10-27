@@ -6,7 +6,7 @@
   --teal-soft: var(--user-accent-soft, #e4f2f0);
   --clay: #c1592b;
   --clay-soft: #fbe9df;
-  --sand: #ffffff;
+  --sand: #f3f5f4;
   --ink: #17231f;
   --muted: #5b6b67;
   --line: #e0e5e7;
@@ -32,7 +32,7 @@ body,
 }
 body {
   margin: 0;
-  background: #ffffff;
+  background: var(--sand);
   color: var(--ink);
   font-family: Inter, system-ui, sans-serif;
   font-size: calc((13px) * var(--appearance-text-scale, 1));
@@ -736,6 +736,7 @@ a:focus-visible,
 }
 .main-content {
   min-width: 0;
+  background: var(--sand);
 }
 .topbar {
   height: 78px;
