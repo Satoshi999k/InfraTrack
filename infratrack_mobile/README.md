@@ -30,6 +30,12 @@ Use `10.0.2.2` for the Android emulator. For a physical device, replace it with
 the computer's current LAN IP and make sure the API server is listening on the
 network. Web preview defaults to `http://localhost:3001/api`.
 
+The `start_infratrack.bat` and `restart_infratrack.bat` launchers enable
+`MOBILE_DESIGN_PREVIEW`, which hides the full-screen connection error so the
+mobile UI can be previewed without the local API running. API-backed content
+may remain empty until the API is available. Normal mobile builds keep the
+connection error screen enabled.
+
 ## Android push notifications
 
 Push notifications use Firebase Cloud Messaging (FCM). The app continues to

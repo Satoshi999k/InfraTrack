@@ -33,6 +33,8 @@ part 'screens/notifications_page.dart';
 part 'screens/chatbot_page.dart';
 part 'screens/create_account_page.dart';
 
+const _mobileDesignPreview = bool.fromEnvironment('MOBILE_DESIGN_PREVIEW');
+
 const navy = Color(0xFF0E3A4C);
 const deepNavy = Color(0xFF092732);
 const teal = Color(0xFF1B8A83);
@@ -238,7 +240,7 @@ class _InfraTrackAppState extends State<InfraTrackApp> {
                     fit: StackFit.expand,
                     children: [
                       ?child,
-                      if (issue != null)
+                      if (issue != null && !_mobileDesignPreview)
                         _ConnectionUnavailablePage(
                           message: issue,
                           onRetry: ApiService.checkServerConnection,

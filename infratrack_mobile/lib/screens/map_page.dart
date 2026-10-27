@@ -716,7 +716,7 @@ class _MapFilterChip extends StatelessWidget {
       side: BorderSide(
         color: selected
             ? Theme.of(context).colorScheme.primary
-            : color.withValues(alpha: .22),
+            : Theme.of(context).colorScheme.outline,
         width: infraAppearance.value.highContrast ? 2 : 1,
       ),
     ),

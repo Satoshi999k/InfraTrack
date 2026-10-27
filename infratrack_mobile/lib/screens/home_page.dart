@@ -840,9 +840,7 @@ class _ReportFilter extends StatelessWidget {
     side: BorderSide(
       color: selected
           ? Theme.of(context).colorScheme.primary
-          : (infraAppearance.value.highContrast
-                ? Theme.of(context).colorScheme.outline
-                : Colors.white.withValues(alpha: .9)),
+          : Theme.of(context).colorScheme.outline,
       width: infraAppearance.value.highContrast ? 2 : 1,
     ),
     shape: const StadiumBorder(),
