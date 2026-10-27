@@ -11,14 +11,27 @@ test("weekly summary is due Monday morning in Mati City time for the previous fu
   ]);
 });
 
-test("monthly summary is due on the first day after 8 a.m. in Mati City time", () => {
-  assert.deepEqual(getDueReportPeriods(new Date("2026-03-01T01:00:00.000Z")), [
-    { type: "monthly", start: "2026-02-01", end: "2026-03-01" },
+test("monthly summary is due on the last day after 8 a.m. in Mati City time", () => {
+  assert.deepEqual(getDueReportPeriods(new Date("2026-03-31T00:00:00.000Z")), [
+    { type: "monthly", start: "2026-03-01", end: "2026-04-01" },
   ]);
   assert.deepEqual(
-    getDueReportPeriods(new Date("2026-02-28T23:59:00.000Z")),
+    getDueReportPeriods(new Date("2026-03-30T23:59:00.000Z")),
     [],
   );
+  assert.deepEqual(
+    getDueReportPeriods(new Date("2026-04-01T01:00:00.000Z")),
+    [],
+  );
+});
+
+test("monthly summary handles February's last day, including leap years", () => {
+  assert.deepEqual(getDueReportPeriods(new Date("2026-02-28T00:00:00.000Z")), [
+    { type: "monthly", start: "2026-02-01", end: "2026-03-01" },
+  ]);
+  assert.deepEqual(getDueReportPeriods(new Date("2028-02-29T00:00:00.000Z")), [
+    { type: "monthly", start: "2028-02-01", end: "2028-03-01" },
+  ]);
 });
 
 test("summary email includes counts, top categories, and the reporting period", () => {

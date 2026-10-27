@@ -313,6 +313,7 @@ npm run build
 - Deploy the promotional website independently as a static Vite site using `infratrack_website/dist/`.
 - Set `DB_SSL=true` when required by the managed MySQL provider. Configure `TRUST_PROXY=true` only when the API is actually behind a trusted reverse proxy.
 - Configure persistent media storage before using uploads on ephemeral hosting. Configure EmailJS or Resend API variables for transactional email on Render; outbound SMTP is blocked there.
+- InfraTrack emails account-created and account-verified notices to residents, and sends monthly report summaries to active admin/LGU accounts after 8 a.m. on the last day of each month (Mati City time). Scheduled messages require the email provider to be configured and the API service to be running.
 - Use HTTPS for deployed services. Android/iOS production builds should be built with the intended API URL and release signing configuration.
 - Deployment providers, secrets, domains, database instances, and account credentials are environment-specific and are not stored in this repository.
 

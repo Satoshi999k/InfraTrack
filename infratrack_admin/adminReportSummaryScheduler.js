@@ -23,17 +23,12 @@ function shiftDate(dateString, days) {
   return date.toISOString().slice(0, 10);
 }
 
-function previousMonthStart(dateString) {
-  const date = new Date(`${dateString.slice(0, 7)}-01T00:00:00.000Z`);
-  date.setUTCMonth(date.getUTCMonth() - 1);
-  return date.toISOString().slice(0, 10);
-}
-
 export function getDueReportPeriods(date = new Date()) {
   const parts = getManilaDateParts(date);
   if (Number(parts.hour) < SCHEDULED_HOUR) return [];
 
   const today = `${parts.year}-${parts.month}-${parts.day}`;
+  const tomorrow = shiftDate(today, 1);
   const periods = [];
   if (parts.weekday === "Monday") {
     periods.push({
@@ -42,11 +37,11 @@ export function getDueReportPeriods(date = new Date()) {
       end: today,
     });
   }
-  if (parts.day === "01") {
+  if (tomorrow.slice(0, 7) !== today.slice(0, 7)) {
     periods.push({
       type: "monthly",
-      start: previousMonthStart(today),
-      end: today,
+      start: `${parts.year}-${parts.month}-01`,
+      end: tomorrow,
     });
   }
   return periods;
