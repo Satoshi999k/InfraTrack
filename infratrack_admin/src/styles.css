@@ -6,10 +6,10 @@
   --teal-soft: var(--user-accent-soft, #e4f2f0);
   --clay: #c1592b;
   --clay-soft: #fbe9df;
-  --sand: #f3efe6;
+  --sand: #ffffff;
   --ink: #17231f;
   --muted: #5b6b67;
-  --line: #ddd8cb;
+  --line: #e0e5e7;
   --white: #ffffff;
   --amber: #d99a2b;
   --amber-soft: #fbeed6;
@@ -32,7 +32,7 @@ body,
 }
 body {
   margin: 0;
-  background: #eae6da;
+  background: #ffffff;
   color: var(--ink);
   font-family: Inter, system-ui, sans-serif;
   font-size: calc((13px) * var(--appearance-text-scale, 1));
@@ -86,7 +86,7 @@ a:focus-visible,
   padding: 32px;
   background:
     radial-gradient(circle at top left, rgba(27, 138, 131, 0.2), transparent 32%),
-    linear-gradient(135deg, #edf2ef 0%, #e7e0d4 100%);
+    linear-gradient(135deg, #ffffff 0%, #f5f8f8 100%);
 }
 .login-panel {
   width: min(1100px, 100%);
