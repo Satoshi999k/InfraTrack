@@ -60,6 +60,7 @@ class ApiService {
   static const _sessionLifetime = Duration(hours: 8);
 
   static Map<String, dynamic>? currentUser;
+  static Map<String, dynamic>? lastAccountCreatedEmailNotification;
   static String? _sessionToken;
   static final ValueNotifier<int> sessionExpired = ValueNotifier<int>(0);
   static final ValueNotifier<int> accountBanned = ValueNotifier<int>(0);
@@ -340,6 +341,7 @@ class ApiService {
     required String barangay,
     required String password,
   }) async {
+    lastAccountCreatedEmailNotification = null;
     final body = await _request(
       'POST',
       '/auth/register',
@@ -351,6 +353,10 @@ class ApiService {
         'password': password,
       },
     );
+    final emailNotification = body['emailNotification'];
+    lastAccountCreatedEmailNotification = emailNotification is Map
+        ? Map<String, dynamic>.from(emailNotification)
+        : null;
     _sessionToken = body['token'] as String?;
     if (_sessionToken == null) {
       throw Exception('The server did not provide an account session.');

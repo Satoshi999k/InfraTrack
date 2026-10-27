@@ -184,8 +184,8 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
   const profileMenuRef = useRef(null);
   const profilePhotoInputRef = useRef(null);
   const toastSequence = useRef(0);
-  const showToast = (message) =>
-    setToast({ id: ++toastSequence.current, message });
+  const showToast = (message, tone = "success") =>
+    setToast({ id: ++toastSequence.current, message, tone });
 
   useEffect(() => {
     let active = true;
@@ -877,6 +877,19 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
               );
             setUsers((await usersResponse.json()).users ?? []);
             setModal(null);
+            if (decision === "approve") {
+              const emailSent = data.emailNotification?.sent === true;
+              showToast(
+                emailSent
+                  ? "ID approved. The verification email was sent."
+                  : data.emailNotification?.configured
+                    ? "ID approved, but the verification email could not be sent. Check the server logs."
+                    : "ID approved, but email notifications are not configured.",
+                emailSent ? "success" : "error",
+              );
+            } else {
+              showToast("ID verification rejected.");
+            }
           }}
           onFetchUserReports={fetchUserReports}
           onUserSave={async (changes) => {
@@ -959,8 +972,17 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
         />
       )}
       {toast && (
-        <div className="action-toast" role="status" aria-live="polite">
-          <CheckCircle2 size={18} />
+        <div
+          className="action-toast"
+          data-tone={toast.tone}
+          role="status"
+          aria-live={toast.tone === "error" ? "assertive" : "polite"}
+        >
+          {toast.tone === "error" ? (
+            <CircleAlert size={18} />
+          ) : (
+            <CheckCircle2 size={18} />
+          )}
           <span>{toast.message}</span>
         </div>
       )}

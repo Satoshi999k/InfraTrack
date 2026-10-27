@@ -35,6 +35,10 @@ async function deliverAccountEmail(notification, email, user, logger) {
       logger.error(
         `Resident account email was not sent for account ${user.id} (${result.reason || "unknown delivery error"}).`,
       );
+    } else {
+      logger.info?.(
+        `Resident account email sent for account ${user.id} via ${result.provider || "email provider"}.`,
+      );
     }
     return result;
   } catch (error) {

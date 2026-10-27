@@ -4,6 +4,7 @@ import {
   residentAccountCreatedEmail,
   residentAccountVerifiedEmail,
   sendResidentAccountCreatedEmail,
+  sendResidentAccountVerifiedEmail,
 } from "./accountEmailNotifications.js";
 
 const resident = {
@@ -50,4 +51,23 @@ test("email delivery failures are reported without interrupting account actions"
   });
   assert.equal(errors.length, 1);
   assert.match(errors[0][0], /account 14/);
+});
+
+test("verified-account email returns the delivery result for admin feedback", async () => {
+  let notification;
+  const result = await sendResidentAccountVerifiedEmail(resident, {
+    sendEmail: async (email) => {
+      notification = email;
+      return { sent: true, configured: true, provider: "emailjs" };
+    },
+    logger: { error: assert.fail, info() {} },
+  });
+
+  assert.equal(notification.recipient, resident.email);
+  assert.equal(notification.subject, "Your InfraTrack account is verified");
+  assert.deepEqual(result, {
+    sent: true,
+    configured: true,
+    provider: "emailjs",
+  });
 });

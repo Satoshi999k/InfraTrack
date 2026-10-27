@@ -3373,6 +3373,9 @@ app.patch("/api/users/:id/verification", async (req, res) => {
     targetUser.id,
   ]);
   if (decision === "approve") {
+    emailNotification = await sendResidentAccountVerifiedEmail(targetUser, {
+      appUrl: process.env.APP_PUBLIC_URL,
+    });
     const welcomeNotification = verificationApprovalNotification(
       targetUser.verification,
     );
@@ -3380,9 +3383,6 @@ app.patch("/api/users/:id/verification", async (req, res) => {
       await queueNotification({
         userId: targetUser.id,
         ...welcomeNotification,
-      });
-      emailNotification = await sendResidentAccountVerifiedEmail(targetUser, {
-        appUrl: process.env.APP_PUBLIC_URL,
       });
     }
   }

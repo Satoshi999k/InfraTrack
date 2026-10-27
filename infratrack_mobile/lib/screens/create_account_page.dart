@@ -101,292 +101,306 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
                 key: _formKey,
                 child: AppScroll(
                   paddingTop: 10,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(28),
-                    child: BackdropFilter(
-                      filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                      child: Container(
-                        padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: .52),
-                          borderRadius: BorderRadius.circular(28),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: .78),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: navy.withValues(alpha: .10),
-                              blurRadius: 26,
-                              offset: const Offset(0, 12),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const _SignupProgress(),
-                            const SizedBox(height: 18),
-                            Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: navy.withValues(alpha: .06),
-                                borderRadius: BorderRadius.circular(18),
-                                border: Border.all(
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 560),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(28),
+                        child: BackdropFilter(
+                          filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                          child: Container(
+                            padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: .52),
+                              borderRadius: BorderRadius.circular(28),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: .78),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
                                   color: navy.withValues(alpha: .10),
+                                  blurRadius: 26,
+                                  offset: const Offset(0, 12),
                                 ),
-                              ),
-                              child: const Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _SignupIntroIcon(),
-                                  SizedBox(width: 11),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Join the verified citizen network',
-                                          style: TextStyle(
-                                            color: navy,
-                                            fontSize: 13.5,
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                        ),
-                                        SizedBox(height: 5),
-                                        Text(
-                                          'Create an account to file reports, follow progress, and help improve Mati City.',
-                                          style: TextStyle(
-                                            color: inkSoft,
-                                            fontSize: 11,
-                                            height: 1.45,
-                                          ),
-                                        ),
-                                      ],
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const _SignupProgress(),
+                                const SizedBox(height: 18),
+                                Container(
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    color: navy.withValues(alpha: .06),
+                                    borderRadius: BorderRadius.circular(18),
+                                    border: Border.all(
+                                      color: navy.withValues(alpha: .10),
                                     ),
                                   ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            Text(
-                              'Create your citizen account',
-                              style: infraHeading(
-                                color: navy,
-                                fontSize: 22,
-                                weight: FontWeight.w800,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            const Text(
-                              'Every account is verified with a valid ID and a live selfie so reports stay trustworthy and duplicate or fake accounts are filtered out.',
-                              style: TextStyle(
-                                color: inkSoft,
-                                fontSize: 12.5,
-                                height: 1.5,
-                              ),
-                            ),
-                            const SizedBox(height: 22),
-                            _SignupField(
-                              label: 'Full legal name',
-                              hint: 'As shown on your ID',
-                              icon: Icons.badge_outlined,
-                              controller: _nameController,
-                              validator: (value) =>
-                                  _required(value, 'Full legal name'),
-                            ),
-                            const _SignupGroupHeading(
-                              title: 'ACCOUNT DETAILS',
-                              subtitle:
-                                  'Use contact details the city can reach.',
-                            ),
-                            _SignupField(
-                              label: 'Email address',
-                              hint: 'you@example.com',
-                              icon: Icons.mail_outline,
-                              controller: _emailController,
-                              keyboardType: TextInputType.emailAddress,
-                              validator: _emailValidator,
-                            ),
-                            _SignupField(
-                              label: 'Mobile number',
-                              hint: '09XX XXX XXXX',
-                              icon: Icons.call_outlined,
-                              controller: _mobileController,
-                              keyboardType: TextInputType.phone,
-                              validator: (value) =>
-                                  _required(value, 'Mobile number'),
-                            ),
-                            const _SignupLabel('Barangay'),
-                            DropdownButtonFormField<String>(
-                              initialValue: _barangay,
-                              decoration: const InputDecoration(
-                                prefixIcon: Icon(
-                                  Icons.place_outlined,
-                                  color: inkSoft,
-                                ),
-                              ),
-                              items:
-                                  const [
-                                    'Barangay Central',
-                                    'Purok 3',
-                                    'Dawan',
-                                    'Sainz',
-                                    'Bobon',
-                                  ].map((barangay) {
-                                    return DropdownMenuItem(
-                                      value: barangay,
-                                      child: Text(barangay),
-                                    );
-                                  }).toList(),
-                              onChanged: (value) =>
-                                  setState(() => _barangay = value!),
-                            ),
-                            const SizedBox(height: 14),
-                            const _SignupGroupHeading(
-                              title: 'SECURE YOUR ACCOUNT',
-                              subtitle:
-                                  'Create a password only you can access.',
-                            ),
-                            _SignupField(
-                              label: 'Password',
-                              hint: 'Min. 8 characters',
-                              icon: Icons.key_outlined,
-                              controller: _passwordController,
-                              obscureText: _obscurePassword,
-                              validator: (value) {
-                                final required = _required(value, 'Password');
-                                if (required != null) return required;
-                                if (value!.length < 8) {
-                                  return 'Password must be at least 8 characters.';
-                                }
-                                if (!_hasUppercase) {
-                                  return 'Password needs at least 1 uppercase letter.';
-                                }
-                                if (!_hasNumber) {
-                                  return 'Password needs at least 1 number.';
-                                }
-                                return null;
-                              },
-                              onChanged: (_) => setState(() {}),
-                              suffixIcon: IconButton(
-                                onPressed: () => setState(
-                                  () => _obscurePassword = !_obscurePassword,
-                                ),
-                                icon: Icon(
-                                  _obscurePassword
-                                      ? Icons.visibility_outlined
-                                      : Icons.visibility_off_outlined,
-                                  size: 19,
-                                ),
-                              ),
-                            ),
-                            _PasswordRequirements(
-                              hasLength: _passwordController.text.length >= 8,
-                              hasUppercase: _hasUppercase,
-                              hasNumber: _hasNumber,
-                            ),
-                            _SignupField(
-                              label: 'Confirm password',
-                              hint: 'Repeat your password',
-                              icon: Icons.key_outlined,
-                              controller: _confirmController,
-                              obscureText: _obscureConfirm,
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'Please confirm your password.';
-                                }
-                                if (value != _passwordController.text) {
-                                  return 'Your confirmation doesn’t match the Password above.';
-                                }
-                                return null;
-                              },
-                              onChanged: (_) => setState(() {}),
-                              suffixIcon: IconButton(
-                                onPressed: () => setState(
-                                  () => _obscureConfirm = !_obscureConfirm,
-                                ),
-                                icon: Icon(
-                                  _obscureConfirm
-                                      ? Icons.visibility_outlined
-                                      : Icons.visibility_off_outlined,
-                                  size: 19,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: teal.withValues(alpha: .10),
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: const Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Icon(
-                                    Icons.verified_user_outlined,
-                                    color: teal,
-                                    size: 20,
-                                  ),
-                                  SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      'Your account will be verified with a valid government ID and a live selfie. Your documents are never shown publicly.',
-                                      style: TextStyle(
-                                        color: Color(0xFF0E4F49),
-                                        fontSize: 11.5,
-                                        height: 1.45,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            SizedBox(
-                              width: double.infinity,
-                              height: 54,
-                              child: FilledButton(
-                                onPressed: _continue,
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: clay,
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                ),
-                                child: const Text(
-                                  'Continue to ID verification',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 14),
-                            Center(
-                              child: TextButton(
-                                onPressed: () => Navigator.of(context).pop(),
-                                child: const Text.rich(
-                                  TextSpan(
-                                    text: 'Already verified? ',
-                                    style: TextStyle(color: inkSoft),
+                                  child: const Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      TextSpan(
-                                        text: 'Log in',
-                                        style: TextStyle(
-                                          color: teal,
-                                          fontWeight: FontWeight.w700,
+                                      _SignupIntroIcon(),
+                                      SizedBox(width: 11),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Join the verified citizen network',
+                                              style: TextStyle(
+                                                color: navy,
+                                                fontSize: 13.5,
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                            ),
+                                            SizedBox(height: 5),
+                                            Text(
+                                              'Create an account to file reports, follow progress, and help improve Mati City.',
+                                              style: TextStyle(
+                                                color: inkSoft,
+                                                fontSize: 11,
+                                                height: 1.45,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     ],
                                   ),
                                 ),
-                              ),
+                                const SizedBox(height: 20),
+                                Text(
+                                  'Create your citizen account',
+                                  style: infraHeading(
+                                    color: navy,
+                                    fontSize: 22,
+                                    weight: FontWeight.w800,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'Every account is verified with a valid ID and a live selfie so reports stay trustworthy and duplicate or fake accounts are filtered out.',
+                                  style: TextStyle(
+                                    color: inkSoft,
+                                    fontSize: 12.5,
+                                    height: 1.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 22),
+                                _SignupField(
+                                  label: 'Full legal name',
+                                  hint: 'As shown on your ID',
+                                  icon: Icons.badge_outlined,
+                                  controller: _nameController,
+                                  validator: (value) =>
+                                      _required(value, 'Full legal name'),
+                                ),
+                                const _SignupGroupHeading(
+                                  title: 'ACCOUNT DETAILS',
+                                  subtitle:
+                                      'Use contact details the city can reach.',
+                                ),
+                                _SignupField(
+                                  label: 'Email address',
+                                  hint: 'you@example.com',
+                                  icon: Icons.mail_outline,
+                                  controller: _emailController,
+                                  keyboardType: TextInputType.emailAddress,
+                                  validator: _emailValidator,
+                                ),
+                                _SignupField(
+                                  label: 'Mobile number',
+                                  hint: '09XX XXX XXXX',
+                                  icon: Icons.call_outlined,
+                                  controller: _mobileController,
+                                  keyboardType: TextInputType.phone,
+                                  validator: (value) =>
+                                      _required(value, 'Mobile number'),
+                                ),
+                                const _SignupLabel('Barangay'),
+                                DropdownButtonFormField<String>(
+                                  initialValue: _barangay,
+                                  decoration: const InputDecoration(
+                                    prefixIcon: Icon(
+                                      Icons.place_outlined,
+                                      color: inkSoft,
+                                    ),
+                                  ),
+                                  items:
+                                      const [
+                                        'Barangay Central',
+                                        'Purok 3',
+                                        'Dawan',
+                                        'Sainz',
+                                        'Bobon',
+                                      ].map((barangay) {
+                                        return DropdownMenuItem(
+                                          value: barangay,
+                                          child: Text(barangay),
+                                        );
+                                      }).toList(),
+                                  onChanged: (value) =>
+                                      setState(() => _barangay = value!),
+                                ),
+                                const SizedBox(height: 14),
+                                const _SignupGroupHeading(
+                                  title: 'SECURE YOUR ACCOUNT',
+                                  subtitle:
+                                      'Create a password only you can access.',
+                                ),
+                                _SignupField(
+                                  label: 'Password',
+                                  hint: 'Min. 8 characters',
+                                  icon: Icons.key_outlined,
+                                  controller: _passwordController,
+                                  obscureText: _obscurePassword,
+                                  validator: (value) {
+                                    final required = _required(
+                                      value,
+                                      'Password',
+                                    );
+                                    if (required != null) return required;
+                                    if (value!.length < 8) {
+                                      return 'Password must be at least 8 characters.';
+                                    }
+                                    if (!_hasUppercase) {
+                                      return 'Password needs at least 1 uppercase letter.';
+                                    }
+                                    if (!_hasNumber) {
+                                      return 'Password needs at least 1 number.';
+                                    }
+                                    return null;
+                                  },
+                                  onChanged: (_) => setState(() {}),
+                                  suffixIcon: IconButton(
+                                    onPressed: () => setState(
+                                      () =>
+                                          _obscurePassword = !_obscurePassword,
+                                    ),
+                                    icon: Icon(
+                                      _obscurePassword
+                                          ? Icons.visibility_outlined
+                                          : Icons.visibility_off_outlined,
+                                      size: 19,
+                                    ),
+                                  ),
+                                ),
+                                _PasswordRequirements(
+                                  hasLength:
+                                      _passwordController.text.length >= 8,
+                                  hasUppercase: _hasUppercase,
+                                  hasNumber: _hasNumber,
+                                ),
+                                _SignupField(
+                                  label: 'Confirm password',
+                                  hint: 'Repeat your password',
+                                  icon: Icons.key_outlined,
+                                  controller: _confirmController,
+                                  obscureText: _obscureConfirm,
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'Please confirm your password.';
+                                    }
+                                    if (value != _passwordController.text) {
+                                      return 'Your confirmation doesn’t match the Password above.';
+                                    }
+                                    return null;
+                                  },
+                                  onChanged: (_) => setState(() {}),
+                                  suffixIcon: IconButton(
+                                    onPressed: () => setState(
+                                      () => _obscureConfirm = !_obscureConfirm,
+                                    ),
+                                    icon: Icon(
+                                      _obscureConfirm
+                                          ? Icons.visibility_outlined
+                                          : Icons.visibility_off_outlined,
+                                      size: 19,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Container(
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    color: teal.withValues(alpha: .10),
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: const Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Icon(
+                                        Icons.verified_user_outlined,
+                                        color: teal,
+                                        size: 20,
+                                      ),
+                                      SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          'Your account will be verified with a valid government ID and a live selfie. Your documents are never shown publicly.',
+                                          style: TextStyle(
+                                            color: Color(0xFF0E4F49),
+                                            fontSize: 11.5,
+                                            height: 1.45,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 54,
+                                  child: FilledButton(
+                                    onPressed: _continue,
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: clay,
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      'Continue to ID verification',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+                                Center(
+                                  child: TextButton(
+                                    onPressed: () =>
+                                        Navigator.of(context).pop(),
+                                    child: const Text.rich(
+                                      TextSpan(
+                                        text: 'Already verified? ',
+                                        style: TextStyle(color: inkSoft),
+                                        children: [
+                                          TextSpan(
+                                            text: 'Log in',
+                                            style: TextStyle(
+                                              color: teal,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
@@ -602,125 +616,144 @@ class _VerifyIdPageState extends State<VerifyIdPage> {
           top: false,
           child: AppScroll(
             paddingTop: 10,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(28),
-              child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: .52),
-                    borderRadius: BorderRadius.circular(28),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: .78),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const _SignupProgress(activeStep: 2),
-                      const SizedBox(height: 20),
-                      const _StepIcon(icon: Icons.badge_outlined, color: clay),
-                      const SizedBox(height: 14),
-                      Text(
-                        'Verify a government ID',
-                        style: infraHeading(
-                          color: navy,
-                          fontSize: 22,
-                          weight: FontWeight.w800,
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(28),
+                  child: BackdropFilter(
+                    filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: .76),
+                        borderRadius: BorderRadius.circular(28),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: .9),
                         ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: navy.withValues(alpha: .10),
+                            blurRadius: 26,
+                            offset: const Offset(0, 12),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        "This confirms you're a real resident before you can file reports.",
-                        style: TextStyle(
-                          color: inkSoft,
-                          fontSize: 12.5,
-                          height: 1.5,
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      const _VerificationNote(),
-                      const SizedBox(height: 20),
-                      const _SignupLabel('Select ID type'),
-                      SizedBox(
-                        height: 48,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: _idTypes.length,
-                          separatorBuilder: (_, _) => const SizedBox(width: 8),
-                          itemBuilder: (context, index) {
-                            final item = _idTypes[index];
-                            final selected = index == _selectedId;
-                            return ChoiceChip(
-                              label: Text(item.$1),
-                              avatar: Icon(item.$2, size: 16),
-                              selected: selected,
-                              onSelected: (_) =>
-                                  setState(() => _selectedId = index),
-                              selectedColor: navy,
-                              backgroundColor: Colors.white.withValues(
-                                alpha: .64,
-                              ),
-                              labelStyle: TextStyle(
-                                color: selected ? Colors.white : inkSoft,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                              ),
-                              side: BorderSide(color: selected ? navy : line),
-                              avatarBorder: const CircleBorder(),
-                              showCheckmark: false,
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      const _SignupLabel('Upload photos of your ID'),
-                      Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: _IdUploadBox(
-                              label: 'Front side',
-                              sublabel: 'Clear, no glare',
-                              image: _frontImage,
-                              onTap: () => _pickImage(front: true),
+                          const _SignupProgress(activeStep: 2),
+                          const SizedBox(height: 20),
+                          const _StepIcon(
+                            icon: Icons.badge_outlined,
+                            color: clay,
+                          ),
+                          const SizedBox(height: 14),
+                          Text(
+                            'Verify a government ID',
+                            style: infraHeading(
+                              color: navy,
+                              fontSize: 22,
+                              weight: FontWeight.w800,
                             ),
                           ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: _IdUploadBox(
-                              label: 'Back side',
-                              sublabel: 'Required, no glare',
-                              image: _backImage,
-                              onTap: () => _pickImage(front: false),
+                          const SizedBox(height: 8),
+                          const Text(
+                            "This confirms you're a real resident before you can file reports.",
+                            style: TextStyle(
+                              color: inkSoft,
+                              fontSize: 12.5,
+                              height: 1.5,
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+                          const _VerificationNote(),
+                          const SizedBox(height: 20),
+                          const _SignupLabel('Select ID type'),
+                          SizedBox(
+                            height: 48,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: _idTypes.length,
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(width: 8),
+                              itemBuilder: (context, index) {
+                                final item = _idTypes[index];
+                                final selected = index == _selectedId;
+                                return ChoiceChip(
+                                  label: Text(item.$1),
+                                  avatar: Icon(item.$2, size: 16),
+                                  selected: selected,
+                                  onSelected: (_) =>
+                                      setState(() => _selectedId = index),
+                                  selectedColor: navy,
+                                  backgroundColor: Colors.white.withValues(
+                                    alpha: .64,
+                                  ),
+                                  labelStyle: TextStyle(
+                                    color: selected ? Colors.white : inkSoft,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                  side: BorderSide(
+                                    color: selected ? navy : line,
+                                  ),
+                                  avatarBorder: const CircleBorder(),
+                                  showCheckmark: false,
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          const _SignupLabel('Upload photos of your ID'),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _IdUploadBox(
+                                  label: 'Front side',
+                                  sublabel: 'Clear, no glare',
+                                  image: _frontImage,
+                                  onTap: () => _pickImage(front: true),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _IdUploadBox(
+                                  label: 'Back side',
+                                  sublabel: 'Required, no glare',
+                                  image: _backImage,
+                                  onTap: () => _pickImage(front: false),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 18),
+                          const _VerificationChecklist(),
+                          const SizedBox(height: 20),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 54,
+                            child: FilledButton.icon(
+                              onPressed: _isProcessing ? null : _continue,
+                              icon: const Icon(Icons.arrow_forward, size: 19),
+                              label: Text(
+                                _isProcessing
+                                    ? 'Detecting face…'
+                                    : 'Continue to selfie verification',
+                              ),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: clay,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 18),
-                      const _VerificationChecklist(),
-                      const SizedBox(height: 20),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 54,
-                        child: FilledButton.icon(
-                          onPressed: _isProcessing ? null : _continue,
-                          icon: const Icon(Icons.arrow_forward, size: 19),
-                          label: Text(
-                            _isProcessing
-                                ? 'Detecting face…'
-                                : 'Continue to selfie verification',
-                          ),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: clay,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -1285,7 +1318,9 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
     }
   }
 
-  Future<void> _showAccountCreatedDialog() async {
+  Future<void> _showAccountCreatedDialog({
+    Map<String, dynamic>? emailNotification,
+  }) async {
     final navigator = Navigator.of(context);
     await showGeneralDialog<void>(
       context: context,
@@ -1303,6 +1338,7 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
           ),
           Center(
             child: AccountCreatedDialog(
+              emailNotification: emailNotification,
               onOk: () {
                 navigator.pop();
                 navigator.pushAndRemoveUntil(
@@ -1339,6 +1375,7 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
 
     _captureInProgress = true;
     var failureStage = 'selfie verification';
+    Map<String, dynamic>? welcomeEmailNotification;
     try {
       setState(() {
         _processing = true;
@@ -1396,6 +1433,8 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
             barangay: widget.barangay!,
             password: widget.password!,
           );
+          welcomeEmailNotification =
+              ApiService.lastAccountCreatedEmailNotification;
           await biometricSignIn.disableIfAccountMismatch(widget.email!);
         }
       }
@@ -1424,7 +1463,9 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
       if (isReverification) {
         await _showReverificationSubmittedDialog();
       } else {
-        await _showAccountCreatedDialog();
+        await _showAccountCreatedDialog(
+          emailNotification: welcomeEmailNotification,
+        );
       }
     } on MissingPluginException {
       _showMessage(
@@ -1494,182 +1535,227 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
     ),
     body: AppScroll(
       paddingTop: 10,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _SignupProgress(activeStep: 3),
-          const SizedBox(height: 20),
-          const _StepIcon(icon: Icons.face_retouching_natural, color: teal),
-          const SizedBox(height: 14),
-          Text(
-            'Verify with a live selfie',
-            style: infraHeading(
-              color: navy,
-              fontSize: 22,
-              weight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Look straight at the camera, then blink once. Your selfie will be captured automatically.',
-            style: TextStyle(color: inkSoft, fontSize: 12.5, height: 1.5),
-          ),
-          if (_frameDiagnostic != null) ...[
-            const SizedBox(height: 6),
-            Text(
-              'Debug: $_frameDiagnostic',
-              style: const TextStyle(color: inkSoft, fontSize: 10, height: 1.3),
-            ),
-          ],
-          const SizedBox(height: 12),
-          _LivenessSteps(
-            activeStep: _selfie != null
-                ? _challenges.length + 1
-                : _challengeIndex + 1,
-            challenges: _challenges,
-          ),
-          const SizedBox(height: 12),
-          Container(
-            height: SelfieVerificationPage.previewHeight,
-            width: double.infinity,
-            margin: const EdgeInsets.only(bottom: 2),
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: Container(
+            padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: deepNavy,
-              borderRadius: BorderRadius.circular(32),
-              border: Border.all(color: Colors.white.withValues(alpha: .7)),
+              color: Colors.white.withValues(alpha: .76),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: Colors.white.withValues(alpha: .9)),
+              boxShadow: [
+                BoxShadow(
+                  color: navy.withValues(alpha: .10),
+                  blurRadius: 26,
+                  offset: const Offset(0, 12),
+                ),
+              ],
             ),
-            clipBehavior: Clip.antiAlias,
-            child:
-                _selfie == null &&
-                    _cameraController != null &&
-                    _cameraController!.value.isInitialized
-                ? Stack(
-                    children: [
-                      Positioned.fill(child: CameraPreview(_cameraController!)),
-                      Positioned(
-                        top: 18,
-                        left: 18,
-                        right: 18,
-                        child: Center(
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: .42),
-                              borderRadius: BorderRadius.circular(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const _SignupProgress(activeStep: 3),
+                const SizedBox(height: 20),
+                const _StepIcon(
+                  icon: Icons.face_retouching_natural,
+                  color: teal,
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  'Verify with a live selfie',
+                  style: infraHeading(
+                    color: navy,
+                    fontSize: 22,
+                    weight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Look straight at the camera, then blink once. Your selfie will be captured automatically.',
+                  style: TextStyle(color: inkSoft, fontSize: 12.5, height: 1.5),
+                ),
+                if (_frameDiagnostic != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'Debug: $_frameDiagnostic',
+                    style: const TextStyle(
+                      color: inkSoft,
+                      fontSize: 10,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                _LivenessSteps(
+                  activeStep: _selfie != null
+                      ? _challenges.length + 1
+                      : _challengeIndex + 1,
+                  challenges: _challenges,
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  height: SelfieVerificationPage.previewHeight,
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 2),
+                  decoration: BoxDecoration(
+                    color: deepNavy,
+                    borderRadius: BorderRadius.circular(32),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: .7),
+                    ),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child:
+                      _selfie == null &&
+                          _cameraController != null &&
+                          _cameraController!.value.isInitialized
+                      ? Stack(
+                          children: [
+                            Positioned.fill(
+                              child: CameraPreview(_cameraController!),
                             ),
-                            child: const Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 8,
-                              ),
-                              child: Text(
-                                'Follow the instructions below',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
+                            Positioned(
+                              top: 18,
+                              left: 18,
+                              right: 18,
+                              child: Center(
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: .42),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: const Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 8,
+                                    ),
+                                    child: Text(
+                                      'Follow the instructions below',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
+                            Center(
+                              child: Container(
+                                width: double.infinity,
+                                height: 460,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(220),
+                                  border: Border.all(
+                                    color: Colors.white70,
+                                    width: 4,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      : _selfie == null
+                      ? const _FaceFrame()
+                      : FutureBuilder<Uint8List>(
+                          future: _selfie!.readAsBytes(),
+                          builder: (context, snapshot) => snapshot.hasData
+                              ? Image.memory(snapshot.data!, fit: BoxFit.cover)
+                              : const Center(
+                                  child: CircularProgressIndicator(),
+                                ),
                         ),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _score == null
+                        ? teal.withValues(alpha: .10)
+                        : green.withValues(alpha: .12),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _score == null
+                            ? Icons.info_outline
+                            : Icons.check_circle_outline,
+                        color: _score == null ? teal : green,
                       ),
-                      Center(
-                        child: Container(
-                          width: 360,
-                          height: 460,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(220),
-                            border: Border.all(color: Colors.white70, width: 4),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _status,
+                          style: const TextStyle(
+                            color: ink,
+                            fontSize: 11.5,
+                            height: 1.4,
                           ),
                         ),
                       ),
                     ],
-                  )
-                : _selfie == null
-                ? const _FaceFrame()
-                : FutureBuilder<Uint8List>(
-                    future: _selfie!.readAsBytes(),
-                    builder: (context, snapshot) => snapshot.hasData
-                        ? Image.memory(snapshot.data!, fit: BoxFit.cover)
-                        : const Center(child: CircularProgressIndicator()),
                   ),
-          ),
-          const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: _score == null
-                  ? teal.withValues(alpha: .10)
-                  : green.withValues(alpha: .12),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  _score == null
-                      ? Icons.info_outline
-                      : Icons.check_circle_outline,
-                  color: _score == null ? teal : green,
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    _status,
+                if (_score != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    'Prototype geometry score: ${(_score! * 100).round()}% · final identity matching must be completed securely on a backend.',
                     style: const TextStyle(
-                      color: ink,
-                      fontSize: 11.5,
+                      color: inkSoft,
+                      fontSize: 10.5,
                       height: 1.4,
                     ),
                   ),
-                ),
+                ],
+                const SizedBox(height: 20),
+                if (_selfie != null || _livenessComplete)
+                  SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: FilledButton.icon(
+                      onPressed: _processing ? null : _startLivenessCheck,
+                      icon: const Icon(Icons.refresh),
+                      label: Text(
+                        _processing
+                            ? 'Checking face…'
+                            : _selfie == null
+                            ? 'Try liveness again'
+                            : 'Retake selfie',
+                      ),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: clay,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
-          if (_score != null) ...[
-            const SizedBox(height: 10),
-            Text(
-              'Prototype geometry score: ${(_score! * 100).round()}% · final identity matching must be completed securely on a backend.',
-              style: const TextStyle(
-                color: inkSoft,
-                fontSize: 10.5,
-                height: 1.4,
-              ),
-            ),
-          ],
-          const SizedBox(height: 20),
-          if (_selfie != null || _livenessComplete)
-            SizedBox(
-              width: double.infinity,
-              height: 54,
-              child: FilledButton.icon(
-                onPressed: _processing ? null : _startLivenessCheck,
-                icon: const Icon(Icons.refresh),
-                label: Text(
-                  _processing
-                      ? 'Checking face…'
-                      : _selfie == null
-                      ? 'Try liveness again'
-                      : 'Retake selfie',
-                ),
-                style: FilledButton.styleFrom(
-                  backgroundColor: clay,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-              ),
-            ),
-        ],
+        ),
       ),
     ),
   );
 }
 
 class AccountCreatedDialog extends StatelessWidget {
-  const AccountCreatedDialog({required this.onOk, super.key});
+  const AccountCreatedDialog({
+    required this.onOk,
+    this.emailNotification,
+    super.key,
+  });
 
   final VoidCallback onOk;
+  final Map<String, dynamic>? emailNotification;
 
   @override
   Widget build(BuildContext context) => Dialog(
@@ -1753,6 +1839,46 @@ class AccountCreatedDialog extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(color: inkSoft, fontSize: 13, height: 1.55),
             ),
+            if (emailNotification != null) ...[
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(13),
+                decoration: BoxDecoration(
+                  color: emailNotification?['sent'] == true
+                      ? green.withValues(alpha: .10)
+                      : clay.withValues(alpha: .10),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      emailNotification?['sent'] == true
+                          ? Icons.mark_email_read_outlined
+                          : Icons.mark_email_unread_outlined,
+                      color: emailNotification?['sent'] == true ? green : clay,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        emailNotification?['sent'] == true
+                            ? 'A welcome email was sent.'
+                            : emailNotification?['configured'] == true
+                            ? 'Your account was created, but the welcome email could not be sent. Please contact support.'
+                            : 'Your account was created, but email notifications are not configured.',
+                        style: const TextStyle(
+                          color: ink,
+                          fontSize: 11.5,
+                          height: 1.45,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 20),
             Container(
               width: double.infinity,
@@ -1900,7 +2026,7 @@ class _FaceFrame extends StatelessWidget {
     alignment: Alignment.center,
     children: [
       Container(
-        width: 360,
+        width: double.infinity,
         height: 460,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(220),
@@ -2127,30 +2253,74 @@ class _SignupProgress extends StatelessWidget {
   final int activeStep;
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      const Text(
-        'STEP 1 OF 3 · ACCOUNT',
-        style: TextStyle(
-          color: teal,
-          fontSize: 10.5,
-          letterSpacing: 1,
-          fontWeight: FontWeight.w700,
+  Widget build(BuildContext context) {
+    const steps = ['Account', 'ID check', 'Selfie'];
+    final currentStep = activeStep.clamp(1, steps.length);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'STEP $currentStep OF ${steps.length}',
+              style: const TextStyle(
+                color: teal,
+                fontSize: 10.5,
+                letterSpacing: 1,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              steps[currentStep - 1],
+              style: const TextStyle(
+                color: navy,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ),
-      ),
-      const SizedBox(height: 8),
-      Row(
-        children: [
-          Expanded(child: _ProgressSegment(active: activeStep >= 1)),
-          const SizedBox(width: 6),
-          Expanded(child: _ProgressSegment(active: activeStep >= 2)),
-          const SizedBox(width: 6),
-          Expanded(child: _ProgressSegment(active: activeStep >= 3)),
-        ],
-      ),
-    ],
-  );
+        const SizedBox(height: 10),
+        Semantics(
+          label:
+              'Step $currentStep of ${steps.length}: ${steps[currentStep - 1]}',
+          child: Row(
+            children: [
+              for (var index = 1; index <= steps.length; index++) ...[
+                Expanded(child: _ProgressSegment(active: currentStep >= index)),
+                if (index < steps.length) const SizedBox(width: 6),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 7),
+        Row(
+          children: [
+            for (var index = 0; index < steps.length; index++)
+              Expanded(
+                child: Text(
+                  steps[index],
+                  textAlign: index == 0
+                      ? TextAlign.left
+                      : index == steps.length - 1
+                      ? TextAlign.right
+                      : TextAlign.center,
+                  style: TextStyle(
+                    color: index + 1 == currentStep ? navy : inkSoft,
+                    fontSize: 10,
+                    fontWeight: index + 1 == currentStep
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
 }
 
 class _ProgressSegment extends StatelessWidget {
@@ -2319,6 +2489,9 @@ class _SignupField extends StatelessWidget {
           controller: controller,
           validator: validator,
           keyboardType: keyboardType,
+          textCapitalization: label == 'Full legal name'
+              ? TextCapitalization.words
+              : TextCapitalization.none,
           obscureText: obscureText,
           onChanged: onChanged,
           textInputAction: TextInputAction.next,
@@ -2326,6 +2499,33 @@ class _SignupField extends StatelessWidget {
             hintText: hint,
             prefixIcon: Icon(icon, color: inkSoft),
             suffixIcon: suffixIcon,
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: .78),
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 16,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: line),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(color: navy.withValues(alpha: .12)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: teal, width: 1.6),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: red),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: red, width: 1.6),
+            ),
           ),
         ),
       ],

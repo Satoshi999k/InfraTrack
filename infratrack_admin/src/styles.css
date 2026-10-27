@@ -1719,6 +1719,10 @@ a:focus-visible,
 .action-toast svg {
   flex: 0 0 auto;
 }
+.action-toast[data-tone="error"] {
+  border-color: rgba(179, 58, 58, 0.26);
+  color: #9c3030;
+}
 @keyframes toast-enter {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
