@@ -736,6 +736,7 @@ a:focus-visible,
 }
 .main-content {
   min-width: 0;
+  background: #f2f4f3;
 }
 .topbar {
   height: 78px;
@@ -8945,6 +8946,10 @@ tbody tr:last-child td {
 :root[data-theme="dark"] body {
   background: #101d21;
   color: var(--ink);
+}
+
+:root[data-theme="dark"] .main-content {
+  background: #101d21;
 }
 
 :root[data-theme="dark"] .login-shell {
