@@ -72,7 +72,7 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: Colors.white,
+    backgroundColor: const Color(0xFFEAF4F0),
     appBar: AppBar(
       backgroundColor: Colors.white.withValues(alpha: .36),
       surfaceTintColor: Colors.transparent,
@@ -99,7 +99,7 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
           child: DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Colors.white, const Color(0xFFF7F9FA)],
+                colors: [const Color(0xFFEAF4F0), sand.withValues(alpha: .82)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -601,7 +601,7 @@ class _VerifyIdPageState extends State<VerifyIdPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: Colors.white,
+    backgroundColor: const Color(0xFFEAF4F0),
     appBar: AppBar(
       backgroundColor: Colors.white.withValues(alpha: .36),
       surfaceTintColor: Colors.transparent,
@@ -1535,7 +1535,7 @@ class _SelfieVerificationPageState extends State<SelfieVerificationPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: Colors.white,
+    backgroundColor: const Color(0xFFEAF4F0),
     appBar: AppBar(
       backgroundColor: Colors.white.withValues(alpha: .36),
       surfaceTintColor: Colors.transparent,

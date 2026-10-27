@@ -716,10 +716,8 @@ class _MapFilterChip extends StatelessWidget {
       side: BorderSide(
         color: selected
             ? Theme.of(context).colorScheme.primary
-            : (Theme.of(context).brightness == Brightness.dark
-                  ? const Color(0xFF54757A)
-                  : const Color(0xFFA8B8B9)),
-        width: infraAppearance.value.highContrast ? 2 : 1.25,
+            : color.withValues(alpha: .22),
+        width: infraAppearance.value.highContrast ? 2 : 1,
       ),
     ),
     child: InkWell(

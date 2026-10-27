@@ -106,16 +106,6 @@ void main() {
 
         expect(requestedHomeUpdates, isTrue);
         expect(reportCards, hasLength(7));
-        final roadsFilter = tester.widget<FilterChip>(
-          find
-              .ancestor(
-                of: find.text('Roads').first,
-                matching: find.byType(FilterChip),
-              )
-              .first,
-        );
-        expect(roadsFilter.side?.color, const Color(0xFFA8B8B9));
-        expect(roadsFilter.side?.width, 1.25);
         expect(find.text('Trako'), findsOneWidget);
         expect(
           find.textContaining('Need help with a report or city update?'),

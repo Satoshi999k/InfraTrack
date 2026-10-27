@@ -13,5 +13,5 @@ if not exist "%FLUTTER_BAT%" (
 
 cd /d "%PROJECT_DIR%"
 echo Starting InfraTrack at http://localhost:%PORT%
-start "InfraTrack Flutter Server" powershell -NoExit -ExecutionPolicy Bypass -Command "Set-Location -LiteralPath '%PROJECT_DIR%'; & '%FLUTTER_BAT%' run -d web-server --web-port %PORT% --dart-define=MOBILE_DESIGN_PREVIEW=true"
+start "InfraTrack Flutter Server" powershell -NoExit -ExecutionPolicy Bypass -Command "Set-Location -LiteralPath '%PROJECT_DIR%'; & '%FLUTTER_BAT%' run -d web-server --web-port %PORT%"
 endlocal

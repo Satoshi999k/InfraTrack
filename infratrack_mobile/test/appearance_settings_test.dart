@@ -160,18 +160,6 @@ void main() {
     expect(appearanceFontStyle('system', const TextStyle()).fontFamily, isNull);
   });
 
-  test('light appearance uses clean white app surfaces', () {
-    final theme = buildInfraTheme(
-      const InfraAppearance(),
-      Brightness.light,
-    );
-
-    expect(theme.scaffoldBackgroundColor, Colors.white);
-    expect(theme.cardColor, Colors.white);
-    expect(theme.colorScheme.surface, Colors.white);
-    expect(theme.inputDecorationTheme.fillColor, const Color(0xFFF7F9FA));
-  });
-
   test(
     'appearance themes provide distinct dark palette and selected accent',
     () {
@@ -179,7 +167,6 @@ void main() {
         const InfraAppearance(theme: 'dark', accent: 'violet'),
         Brightness.dark,
       );
-
       final light = buildInfraTheme(
         const InfraAppearance(accent: 'violet'),
         Brightness.light,

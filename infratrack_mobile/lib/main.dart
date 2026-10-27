@@ -33,17 +33,15 @@ part 'screens/notifications_page.dart';
 part 'screens/chatbot_page.dart';
 part 'screens/create_account_page.dart';
 
-const _mobileDesignPreview = bool.fromEnvironment('MOBILE_DESIGN_PREVIEW');
-
 const navy = Color(0xFF0E3A4C);
 const deepNavy = Color(0xFF092732);
 const teal = Color(0xFF1B8A83);
 const clay = Color(0xFFC1592B);
 const brandOrange = Color(0xFFF06423);
-const sand = Colors.white;
+const sand = Color(0xFFF3EFE6);
 const ink = Color(0xFF17231F);
 const inkSoft = Color(0xFF5B6B67);
-const line = Color(0xFFE0E5E7);
+const line = Color(0xFFDDD8CB);
 const amber = Color(0xFFD99A2B);
 const green = Color(0xFF3C8A5F);
 const red = Color(0xFFB33A3A);
@@ -240,7 +238,7 @@ class _InfraTrackAppState extends State<InfraTrackApp> {
                     fit: StackFit.expand,
                     children: [
                       ?child,
-                      if (issue != null && !_mobileDesignPreview)
+                      if (issue != null)
                         _ConnectionUnavailablePage(
                           message: issue,
                           onRetry: ApiService.checkServerConnection,
@@ -2306,8 +2304,7 @@ class _MainShellState extends State<MainShell> {
               border: Border.all(
                 color: Theme.of(context).brightness == Brightness.dark
                     ? const Color(0xFF396170)
-                    : const Color(0xFFC3D0D1),
-                width: infraAppearance.value.highContrast ? 2 : 1.25,
+                    : Colors.white.withValues(alpha: .85),
               ),
               boxShadow: [
                 BoxShadow(

@@ -126,18 +126,18 @@ Future<void> saveInfraAppearance(InfraAppearance appearance) async {
 ThemeData buildInfraTheme(InfraAppearance appearance, Brightness brightness) {
   final dark = brightness == Brightness.dark;
   final accent = appearanceAccentColors[appearance.accent]!;
-  final background = dark ? const Color(0xFF091E29) : Colors.white;
+  final background = dark ? const Color(0xFF091E29) : const Color(0xFFF3EFE6);
   final surface = dark ? const Color(0xFF123643) : Colors.white;
   final elevatedSurface = dark
       ? const Color(0xFF173F4D)
-      : const Color(0xFFF7F9FA);
+      : const Color(0xFFF7F4EE);
   final foreground = dark ? const Color(0xFFEAF6F4) : const Color(0xFF17231F);
   final muted = appearance.highContrast
       ? (dark ? const Color(0xFFE3EEEE) : const Color(0xFF344743))
       : (dark ? const Color(0xFFB2C9CC) : const Color(0xFF5B6B67));
   final border = appearance.highContrast
       ? (dark ? const Color(0xFF789399) : const Color(0xFF667772))
-      : (dark ? const Color(0xFF345A63) : const Color(0xFFE0E5E7));
+      : (dark ? const Color(0xFF345A63) : const Color(0xFFDDD8CB));
   final borderWidth = appearance.highContrast ? 2.0 : 1.0;
   final radius = switch (appearance.corners) {
     'square' => 8.0,

@@ -1,7 +1,7 @@
 @echo off
 setlocal
 set "PROJECT_DIR=%~dp0"
-set "FLUTTER_BAT=D:\flutter\bin\flutter.bat"
+set "FLUTTER_BAT=D:\Download folder\flutter\bin\flutter.bat"
 set "PORT=8080"
 
 if not exist "%FLUTTER_BAT%" (
@@ -14,5 +14,5 @@ if not exist "%FLUTTER_BAT%" (
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$connections = Get-NetTCPConnection -LocalPort %PORT% -State Listen -ErrorAction SilentlyContinue; $connections | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }"
 cd /d "%PROJECT_DIR%"
 echo Restarting InfraTrack at http://localhost:%PORT%
-start "InfraTrack Flutter Server" powershell -NoExit -ExecutionPolicy Bypass -Command "Set-Location -LiteralPath '%PROJECT_DIR%'; & '%FLUTTER_BAT%' run -d web-server --web-port %PORT% --dart-define=MOBILE_DESIGN_PREVIEW=true"
+start "InfraTrack Flutter Server" powershell -NoExit -ExecutionPolicy Bypass -Command "Set-Location -LiteralPath '%PROJECT_DIR%'; & '%FLUTTER_BAT%' run -d web-server --web-port %PORT%"
 endlocal
