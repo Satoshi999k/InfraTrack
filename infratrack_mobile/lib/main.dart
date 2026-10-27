@@ -2146,7 +2146,10 @@ class _MainShellState extends State<MainShell> {
 
   Future<void> _finishGuide() async {
     if (!mounted) return;
-    setState(() => _guideStep = null);
+    setState(() {
+      _guideStep = null;
+      index = 0;
+    });
     try {
       await AppGuidePreferences.markGuideCompleted();
     } catch (error, stackTrace) {
@@ -2521,26 +2524,27 @@ class _InfraTrackGuideOverlay extends StatelessWidget {
                 const Positioned.fill(
                   child: IgnorePointer(child: _GuideConfetti()),
                 ),
-              Positioned(
-                top: MediaQuery.paddingOf(context).top + 10,
-                right: 16,
-                child: TextButton(
-                  onPressed: onSkip,
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    backgroundColor: deepNavy.withValues(alpha: .82),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 15,
-                      vertical: 9,
+              if (!isFinalStep)
+                Positioned(
+                  top: MediaQuery.paddingOf(context).top + 10,
+                  right: 16,
+                  child: TextButton(
+                    onPressed: onSkip,
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      backgroundColor: deepNavy.withValues(alpha: .82),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 15,
+                        vertical: 9,
+                      ),
+                      shape: const StadiumBorder(),
                     ),
-                    shape: const StadiumBorder(),
-                  ),
-                  child: const Text(
-                    'Skip tour',
-                    style: TextStyle(fontWeight: FontWeight.w700),
+                    child: const Text(
+                      'Skip tour',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
                   ),
                 ),
-              ),
               Positioned(
                 top: cardTop,
                 left: 20,
@@ -2653,20 +2657,19 @@ class _InfraTrackGuideOverlay extends StatelessWidget {
                                   )
                                 else
                                   const Spacer(),
-                                FilledButton(
-                                  onPressed: onAdvance,
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: clay,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 18,
-                                      vertical: 11,
+                                if (!isFinalStep)
+                                  FilledButton(
+                                    onPressed: onAdvance,
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: clay,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 18,
+                                        vertical: 11,
+                                      ),
                                     ),
+                                    child: const Text('Next'),
                                   ),
-                                  child: Text(
-                                    isFinalStep ? 'Finish tour' : 'Next',
-                                  ),
-                                ),
                               ],
                             ),
                             const SizedBox(height: 9),
