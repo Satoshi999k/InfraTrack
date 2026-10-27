@@ -2306,7 +2306,8 @@ class _MainShellState extends State<MainShell> {
               border: Border.all(
                 color: Theme.of(context).brightness == Brightness.dark
                     ? const Color(0xFF396170)
-                    : Colors.white.withValues(alpha: .85),
+                    : const Color(0xFFC3D0D1),
+                width: infraAppearance.value.highContrast ? 2 : 1.25,
               ),
               boxShadow: [
                 BoxShadow(

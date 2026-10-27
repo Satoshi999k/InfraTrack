@@ -1473,15 +1473,14 @@ class _SettingsGroup extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
       clipBehavior: Clip.antiAlias,
-      color: isDark ? const Color(0xFF123643) : const Color(0xFFFBF8F1),
+      color: isDark
+          ? const Color(0xFF123643)
+          : Colors.white.withValues(alpha: .78),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(22),
-        side: BorderSide(
-          color: isDark ? const Color(0xFF345A63) : const Color(0xFFE9E1D2),
-        ),
+        side: BorderSide(color: isDark ? const Color(0xFF345A63) : line),
       ),
-      elevation: isDark ? 0 : 2,
-      shadowColor: navy.withValues(alpha: .06),
+      elevation: 0,
       child: Column(
         children: [
           MenuRow(
@@ -1529,41 +1528,43 @@ class _TrustSettingsGroup extends StatelessWidget {
   final VoidCallback onPrivacyTap;
 
   @override
-  Widget build(BuildContext context) => Material(
-    clipBehavior: Clip.antiAlias,
-    color: Theme.of(context).brightness == Brightness.dark
-        ? const Color(0xFF123643)
-        : Colors.white.withValues(alpha: .58),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(22),
-      side: BorderSide(
-        color: Theme.of(context).brightness == Brightness.dark
-            ? const Color(0xFF345A63)
-            : Colors.white.withValues(alpha: .86),
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      clipBehavior: Clip.antiAlias,
+      color: isDark
+          ? const Color(0xFF123643)
+          : Colors.white.withValues(alpha: .78),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(22),
+        side: BorderSide(
+          color: isDark ? const Color(0xFF345A63) : const Color(0xFFC3D0D1),
+          width: infraAppearance.value.highContrast ? 2 : 1.25,
+        ),
       ),
-    ),
-    child: Column(
-      children: [
-        MenuRow(
-          icon: Icons.palette_outlined,
-          title: 'Appearance',
-          subtitle: 'Theme, color, text, and layout',
-          accentColor: teal,
-          inGroup: true,
-          onTap: onAppearanceTap,
-        ),
-        MenuRow(
-          icon: Icons.lock_outline,
-          title: 'Privacy & security',
-          subtitle: 'Password and account access',
-          accentColor: clay,
-          inGroup: true,
-          lastInGroup: true,
-          onTap: onPrivacyTap,
-        ),
-      ],
-    ),
-  );
+      child: Column(
+        children: [
+          MenuRow(
+            icon: Icons.palette_outlined,
+            title: 'Appearance',
+            subtitle: 'Theme, color, text, and layout',
+            accentColor: teal,
+            inGroup: true,
+            onTap: onAppearanceTap,
+          ),
+          MenuRow(
+            icon: Icons.lock_outline,
+            title: 'Privacy & security',
+            subtitle: 'Password and account access',
+            accentColor: clay,
+            inGroup: true,
+            lastInGroup: true,
+            onTap: onPrivacyTap,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class AppearanceSettingsPage extends StatefulWidget {

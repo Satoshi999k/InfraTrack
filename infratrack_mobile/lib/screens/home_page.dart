@@ -828,7 +828,7 @@ class _ReportFilter extends StatelessWidget {
     selected: selected,
     onSelected: (_) => onTap(),
     showCheckmark: false,
-    backgroundColor: Colors.white.withValues(alpha: .56),
+    backgroundColor: Colors.white,
     selectedColor: Theme.of(context).colorScheme.primary,
     labelStyle: TextStyle(
       color: selected
@@ -840,8 +840,10 @@ class _ReportFilter extends StatelessWidget {
     side: BorderSide(
       color: selected
           ? Theme.of(context).colorScheme.primary
-          : Theme.of(context).colorScheme.outline,
-      width: infraAppearance.value.highContrast ? 2 : 1,
+          : (Theme.of(context).brightness == Brightness.dark
+                ? const Color(0xFF54757A)
+                : const Color(0xFFA8B8B9)),
+      width: infraAppearance.value.highContrast ? 2 : 1.25,
     ),
     shape: const StadiumBorder(),
     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
