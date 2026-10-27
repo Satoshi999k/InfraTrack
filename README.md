@@ -237,14 +237,17 @@ The API reads environment variables from `infratrack_admin/.env`. Start from [`i
 | `CLOUDINARY_UPLOAD_PRESET` | Cloudinary upload preset | Optional; configure durable storage for serverless deployments |
 | `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | Server-side signed Cloudinary upload fallback | Optional; keep the secret server-side |
 | `LOGIN_MAX_ATTEMPTS` | Login attempts allowed per IP within the server's rate-limit window | Defaults to `10` |
-| `RESEND_API_KEY` | Resend transactional email API key | Optional; use this HTTPS provider on Render, which blocks outbound SMTP |
+| `EMAILJS_SERVICE_ID` / `EMAILJS_TEMPLATE_ID` | EmailJS Gmail service and email template IDs | Configure when using EmailJS to send from a connected Gmail account |
+| `EMAILJS_PUBLIC_KEY` / `EMAILJS_PRIVATE_KEY` | EmailJS API keys | Required with the service and template IDs; keep the private key server-side |
+| `EMAILJS_FROM_NAME` | Sender display name for EmailJS messages | Defaults to `InfraTrack`; the connected Gmail account is the sender |
+| `RESEND_API_KEY` | Resend transactional email API key | Optional HTTPS provider; the mailer prefers fully configured EmailJS, then Resend |
 | `RESEND_FROM_EMAIL` / `RESEND_FROM_NAME` | Verified sender address and display name for Resend | Required with `RESEND_API_KEY`; verify the sender domain with Resend |
 | `SMTP_HOST` | Authenticated outgoing mail server hostname | Optional; for this mailbox use `mail.bytecore.asia`; SMTP is not available from Render |
 | `SMTP_PORT` | Outgoing mail server port | Defaults to `465` with implicit SSL/TLS |
 | `SMTP_USER` / `SMTP_PASSWORD` | Mailbox username and password | Use the full mailbox address and its account password; keep the password secret |
 | `SMTP_FROM_EMAIL` / `SMTP_FROM_NAME` | Sender address and display name | Sender address defaults to `SMTP_USER`; display name defaults to `InfraTrack` |
 | `EMAIL_LOGO_URL` | Public HTTPS logo URL for email templates | Optional |
-| `PASSWORD_RESET_SECRET` | Secret used to sign password-reset codes | Strongly recommended; if omitted, the configured Resend API key or SMTP password is used |
+| `PASSWORD_RESET_SECRET` | Secret used to sign password-reset codes | Strongly recommended; if omitted, the configured EmailJS private key, Resend API key, or SMTP password is used |
 | `APP_PUBLIC_URL` | Public sign-in URL used in email links | Optional |
 | `GEMINI_API_KEY` | Google AI Studio key for the primary chatbot provider | Optional; configure on the API server |
 | `GEMINI_MODEL` | Gemini model name | Defaults to `gemini-2.5-flash`; provider availability can change |
@@ -307,7 +310,7 @@ npm run build
 - The Create LGU backup action generates a portable SQL dump through the API's existing MySQL connection, so it does not require a system `mysqldump` binary and works on serverless hosting such as Vercel.
 - Deploy the promotional website independently as a static Vite site using `infratrack_website/dist/`.
 - Set `DB_SSL=true` when required by the managed MySQL provider. Configure `TRUST_PROXY=true` only when the API is actually behind a trusted reverse proxy.
-- Configure persistent media storage before using uploads on ephemeral hosting. Configure Resend API variables for transactional email on Render; outbound SMTP is blocked there.
+- Configure persistent media storage before using uploads on ephemeral hosting. Configure EmailJS or Resend API variables for transactional email on Render; outbound SMTP is blocked there.
 - Use HTTPS for deployed services. Android/iOS production builds should be built with the intended API URL and release signing configuration.
 - Deployment providers, secrets, domains, database instances, and account credentials are environment-specific and are not stored in this repository.
 

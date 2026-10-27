@@ -107,6 +107,7 @@ const dbConfig = {
 const pool = mysql.createPool({ ...dbConfig, database: dbName, waitForConnections: true, connectionLimit: 10 });
 const passwordResetSecret =
   process.env.PASSWORD_RESET_SECRET ||
+  process.env.EMAILJS_PRIVATE_KEY ||
   process.env.RESEND_API_KEY ||
   process.env.SMTP_PASSWORD ||
   "";

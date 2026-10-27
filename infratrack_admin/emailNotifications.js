@@ -168,11 +168,18 @@ export function renderBrandedEmail({
 }
 
 export function isEmailNotificationConfigured(env = process.env) {
+  const emailJsConfigured = Boolean(
+    env.EMAILJS_SERVICE_ID &&
+    env.EMAILJS_TEMPLATE_ID &&
+    env.EMAILJS_PUBLIC_KEY &&
+    env.EMAILJS_PRIVATE_KEY,
+  );
   const resendConfigured = Boolean(env.RESEND_API_KEY && env.RESEND_FROM_EMAIL);
   const smtpConfigured = Boolean(
     env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASSWORD,
   );
   return (
+    emailJsConfigured ||
     resendConfigured ||
     smtpConfigured ||
     Boolean(env.EMAIL_NOTIFICATION_WEBHOOK)
@@ -189,6 +196,56 @@ export async function sendEmailNotification(
 ) {
   if (!recipient) {
     return { sent: false, configured: false, reason: "missing_recipient" };
+  }
+
+  if (
+    env.EMAILJS_SERVICE_ID &&
+    env.EMAILJS_TEMPLATE_ID &&
+    env.EMAILJS_PUBLIC_KEY &&
+    env.EMAILJS_PRIVATE_KEY
+  ) {
+    const senderName = env.EMAILJS_FROM_NAME || "InfraTrack";
+    const logoUrl = getPublicLogoUrl(env.EMAIL_LOGO_URL)
+      ? env.EMAIL_LOGO_URL
+      : "";
+    const logoCid = logoUrl ? "" : "infratrack-logo";
+    const htmlContent = renderBrandedEmail({
+      subject,
+      body,
+      senderName,
+      logoUrl,
+      logoCid,
+      ...template,
+    });
+    const response = await fetchImpl(
+      "https://api.emailjs.com/api/v1.0/email/send",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          service_id: env.EMAILJS_SERVICE_ID,
+          template_id: env.EMAILJS_TEMPLATE_ID,
+          user_id: env.EMAILJS_PUBLIC_KEY,
+          accessToken: env.EMAILJS_PRIVATE_KEY,
+          template_params: {
+            to_email: recipient,
+            subject,
+            message: body,
+            html_content: htmlContent,
+            from_name: senderName,
+          },
+        }),
+      },
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `EmailJS email request failed with status ${response.status}: ${errorText.slice(0, 300)}`,
+      );
+    }
+
+    return { sent: true, configured: true, provider: "emailjs" };
   }
 
   if (env.RESEND_API_KEY) {

@@ -6,6 +6,76 @@ import {
   sendEmailNotification,
 } from "./emailNotifications.js";
 
+test("sends a transactional email through the EmailJS server API", async () => {
+  let request;
+  const result = await sendEmailNotification(
+    {
+      recipient: "resident@example.com",
+      subject: "Password reset",
+      body: "Your reset code is 123456.",
+    },
+    {
+      env: {
+        EMAILJS_SERVICE_ID: "service_test",
+        EMAILJS_TEMPLATE_ID: "template_test",
+        EMAILJS_PUBLIC_KEY: "test-public-key",
+        EMAILJS_PRIVATE_KEY: "test-private-key",
+        EMAILJS_FROM_NAME: "InfraTrack",
+        EMAIL_LOGO_URL: "https://example.com/logo.png",
+      },
+      fetchImpl: async (url, options) => {
+        request = { url, options };
+        return { ok: true, status: 200 };
+      },
+    },
+  );
+
+  assert.deepEqual(result, {
+    sent: true,
+    configured: true,
+    provider: "emailjs",
+  });
+  assert.equal(request.url, "https://api.emailjs.com/api/v1.0/email/send");
+  const payload = JSON.parse(request.options.body);
+  assert.equal(payload.service_id, "service_test");
+  assert.equal(payload.template_id, "template_test");
+  assert.equal(payload.user_id, "test-public-key");
+  assert.equal(payload.accessToken, "test-private-key");
+  assert.deepEqual(payload.template_params, {
+    to_email: "resident@example.com",
+    subject: "Password reset",
+    message: "Your reset code is 123456.",
+    html_content: renderBrandedEmail({
+      subject: "Password reset",
+      body: "Your reset code is 123456.",
+      senderName: "InfraTrack",
+      logoUrl: "https://example.com/logo.png",
+      logoCid: "",
+    }),
+    from_name: "InfraTrack",
+  });
+});
+
+test("EmailJS is configured only when all server credentials and template IDs exist", () => {
+  assert.equal(
+    isEmailNotificationConfigured({
+      EMAILJS_SERVICE_ID: "service_test",
+      EMAILJS_TEMPLATE_ID: "template_test",
+      EMAILJS_PUBLIC_KEY: "test-public-key",
+    }),
+    false,
+  );
+  assert.equal(
+    isEmailNotificationConfigured({
+      EMAILJS_SERVICE_ID: "service_test",
+      EMAILJS_TEMPLATE_ID: "template_test",
+      EMAILJS_PUBLIC_KEY: "test-public-key",
+      EMAILJS_PRIVATE_KEY: "test-private-key",
+    }),
+    true,
+  );
+});
+
 test("sends a transactional email through the Resend HTTPS API", async () => {
   let request;
   const result = await sendEmailNotification(
