@@ -5,8 +5,9 @@ import {
   sendEmailNotification,
 } from "./emailNotifications.js";
 
-test("sends a transactional email through Brevo without exposing credentials in the payload", async () => {
-  let request;
+test("sends a transactional email through authenticated SSL/TLS SMTP", async () => {
+  let transportConfig;
+  let message;
   const result = await sendEmailNotification(
     {
       recipient: "staff@example.com",
@@ -21,29 +22,44 @@ test("sends a transactional email through Brevo without exposing credentials in 
     },
     {
       env: {
-        BREVO_API_KEY: "test-api-key",
-        BREVO_SENDER_EMAIL: "no-reply@example.com",
-        BREVO_SENDER_NAME: "InfraTrack",
-        BREVO_LOGO_URL: "https://example.com/infratrack-logo.png",
+        SMTP_HOST: "mail.example.com",
+        SMTP_PORT: "465",
+        SMTP_USER: "no-reply@example.com",
+        SMTP_PASSWORD: "test-password",
+        SMTP_FROM_NAME: "InfraTrack",
+        EMAIL_LOGO_URL: "https://example.com/infratrack-logo.png",
       },
-      fetchImpl: async (url, options) => {
-        request = { url, options };
-        return { ok: true, status: 201 };
+      createTransportImpl: (config) => {
+        transportConfig = config;
+        return {
+          sendMail: async (outgoingMessage) => {
+            message = outgoingMessage;
+            return { messageId: "smtp-message-id" };
+          },
+        };
       },
     },
   );
 
   assert.equal(result.sent, true);
-  assert.equal(result.provider, "brevo");
-  assert.equal(request.url, "https://api.brevo.com/v3/smtp/email");
-  assert.equal(request.options.headers["api-key"], "test-api-key");
-  const payload = JSON.parse(request.options.body);
-  assert.deepEqual(payload, {
-    sender: { name: "InfraTrack", email: "no-reply@example.com" },
-    to: [{ email: "staff@example.com" }],
-    subject: "Password changed",
-    textContent: "Your password was changed.",
-    htmlContent: renderBrandedEmail({
+  assert.equal(result.provider, "smtp");
+  assert.equal(result.messageId, "smtp-message-id");
+  assert.deepEqual(transportConfig, {
+    host: "mail.example.com",
+    port: 465,
+    secure: true,
+    auth: { user: "no-reply@example.com", pass: "test-password" },
+  });
+  assert.deepEqual(message.from, {
+    name: "InfraTrack",
+    address: "no-reply@example.com",
+  });
+  assert.equal(message.to, "staff@example.com");
+  assert.equal(message.subject, "Password changed");
+  assert.equal(message.text, "Your password was changed.");
+  assert.equal(
+    message.html,
+    renderBrandedEmail({
       subject: "Password changed",
       body: "Your password was changed.",
       senderName: "InfraTrack",
@@ -53,35 +69,23 @@ test("sends a transactional email through Brevo without exposing credentials in 
       actionUrl: "https://infratrack.example.com",
       actionLabel: "Sign in to InfraTrack",
     }),
-  });
-  assert.match(payload.htmlContent, /<!doctype html>/i);
-  assert.match(payload.htmlContent, /Your password was changed\./);
-  assert.match(
-    payload.htmlContent,
-    /https:\/\/example\.com\/infratrack-logo\.png/,
   );
-  assert.match(payload.htmlContent, /#0e3a4c/);
-  assert.match(payload.htmlContent, /#1b8a83/);
-  assert.match(payload.htmlContent, /#c1592b/);
-  assert.match(payload.htmlContent, /#f3efe6/);
-  assert.match(payload.htmlContent, /Mati City &middot; Davao Oriental/);
-  assert.match(payload.htmlContent, /INFRASTRUCTURE<br>REPORTING/);
-  assert.match(payload.htmlContent, /font-family:'Archivo Expanded'/);
-  assert.match(
-    payload.htmlContent,
-    /<span style="color:#0e3a4c;">Infra<\/span>/,
-  );
-  assert.match(
-    payload.htmlContent,
-    /<span style="color:#c1592b;">Track<\/span>/,
-  );
-  assert.match(payload.htmlContent, /SECURITY ALERT/);
-  assert.match(
-    payload.htmlContent,
-    /This email does not include your password\./,
-  );
-  assert.match(payload.htmlContent, /Sign in to InfraTrack/);
-  assert.doesNotMatch(payload.htmlContent, /LOCAL GOVERNMENT UNIT/);
+  assert.match(message.html, /<!doctype html>/i);
+  assert.match(message.html, /Your password was changed\./);
+  assert.match(message.html, /https:\/\/example\.com\/infratrack-logo\.png/);
+  assert.match(message.html, /#0e3a4c/);
+  assert.match(message.html, /#1b8a83/);
+  assert.match(message.html, /#c1592b/);
+  assert.match(message.html, /#f3efe6/);
+  assert.match(message.html, /Mati City &middot; Davao Oriental/);
+  assert.match(message.html, /INFRASTRUCTURE<br>REPORTING/);
+  assert.match(message.html, /font-family:'Archivo Expanded'/);
+  assert.match(message.html, /<span style="color:#0e3a4c;">Infra<\/span>/);
+  assert.match(message.html, /<span style="color:#c1592b;">Track<\/span>/);
+  assert.match(message.html, /SECURITY ALERT/);
+  assert.match(message.html, /This email does not include your password\./);
+  assert.match(message.html, /Sign in to InfraTrack/);
+  assert.doesNotMatch(message.html, /LOCAL GOVERNMENT UNIT/);
 });
 
 test("reports when email delivery is not configured", async () => {
@@ -104,8 +108,8 @@ test("reports when email delivery is not configured", async () => {
   });
 });
 
-test("embeds the supplied InfraTrack logo in Brevo emails when no public logo URL is set", async () => {
-  let payload;
+test("embeds the supplied InfraTrack logo in SMTP emails when no public logo URL is set", async () => {
+  let message;
   await sendEmailNotification(
     {
       recipient: "resident@example.com",
@@ -114,25 +118,26 @@ test("embeds the supplied InfraTrack logo in Brevo emails when no public logo UR
     },
     {
       env: {
-        BREVO_API_KEY: "test-api-key",
-        BREVO_SENDER_EMAIL: "no-reply@example.com",
+        SMTP_HOST: "mail.example.com",
+        SMTP_USER: "no-reply@example.com",
+        SMTP_PASSWORD: "test-password",
       },
-      fetchImpl: async (_url, options) => {
-        payload = JSON.parse(options.body);
-        return { ok: true, status: 201 };
-      },
+      createTransportImpl: () => ({
+        sendMail: async (outgoingMessage) => {
+          message = outgoingMessage;
+          return { messageId: "smtp-message-id" };
+        },
+      }),
     },
   );
 
-  assert.equal(payload.attachment[0].name, "infratrack-logo.png");
-  assert.equal(payload.attachment[0].contentId, "infratrack-logo");
-  assert.match(payload.htmlContent, /src="cid:infratrack-logo"/);
-  assert.ok(
-    Buffer.from(payload.attachment[0].content, "base64").byteLength > 0,
-  );
+  assert.equal(message.attachments[0].filename, "infratrack-logo.png");
+  assert.equal(message.attachments[0].cid, "infratrack-logo");
+  assert.match(message.html, /src="cid:infratrack-logo"/);
+  assert.ok(message.attachments[0].content.byteLength > 0);
 });
 
-test("does not report a failed Brevo response as a sent email", async () => {
+test("does not report a failed SMTP delivery as a sent email", async () => {
   await assert.rejects(
     sendEmailNotification(
       {
@@ -142,13 +147,18 @@ test("does not report a failed Brevo response as a sent email", async () => {
       },
       {
         env: {
-          BREVO_API_KEY: "test-api-key",
-          BREVO_SENDER_EMAIL: "no-reply@example.com",
+          SMTP_HOST: "mail.example.com",
+          SMTP_USER: "no-reply@example.com",
+          SMTP_PASSWORD: "test-password",
         },
-        fetchImpl: async () => ({ ok: false, status: 401 }),
+        createTransportImpl: () => ({
+          sendMail: async () => {
+            throw new Error("SMTP connection failed");
+          },
+        }),
       },
     ),
-    /Brevo email request failed with status 401/,
+    /SMTP connection failed/,
   );
 });
 

@@ -71,7 +71,7 @@ flowchart LR
     Portal -->|HTTP JSON API| API
     API --> DB[(MySQL)]
     API --> Media[Local uploads or Cloudinary]
-    API -. optional email .-> Email[Brevo]
+    API -. optional email .-> Email[SMTP mail server]
     Site -. static presentation .-> Visitor
 ```
 
@@ -237,10 +237,13 @@ The API reads environment variables from `infratrack_admin/.env`. Start from [`i
 | `CLOUDINARY_UPLOAD_PRESET` | Cloudinary upload preset | Optional; configure durable storage for serverless deployments |
 | `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | Server-side signed Cloudinary upload fallback | Optional; keep the secret server-side |
 | `LOGIN_MAX_ATTEMPTS` | Login attempts allowed per IP within the server's rate-limit window | Defaults to `10` |
-| `BREVO_API_KEY` | Brevo transactional email API key | Optional |
-| `BREVO_SENDER_EMAIL` / `BREVO_SENDER_NAME` | Verified sender details for email | Optional; verify the sender in Brevo |
+| `SMTP_HOST` | Authenticated outgoing mail server hostname | Optional; for this mailbox use `mail.bytecore.asia` |
+| `SMTP_PORT` | Outgoing mail server port | Defaults to `465` with implicit SSL/TLS |
+| `SMTP_USER` / `SMTP_PASSWORD` | Mailbox username and password | Use the full mailbox address and its account password; keep the password secret |
+| `SMTP_FROM_EMAIL` / `SMTP_FROM_NAME` | Sender address and display name | Sender address defaults to `SMTP_USER`; display name defaults to `InfraTrack` |
+| `EMAIL_LOGO_URL` | Public HTTPS logo URL for email templates | Optional |
+| `PASSWORD_RESET_SECRET` | Secret used to sign password-reset codes | Strongly recommended; if omitted, the SMTP password is used |
 | `APP_PUBLIC_URL` | Public sign-in URL used in email links | Optional |
-| `BREVO_LOGO_URL` | Public HTTPS logo URL for email templates | Optional |
 | `GEMINI_API_KEY` | Google AI Studio key for the primary chatbot provider | Optional; configure on the API server |
 | `GEMINI_MODEL` | Gemini model name | Defaults to `gemini-2.5-flash`; provider availability can change |
 | `GROQ_API_KEY` | Groq key for the backup chatbot provider | Optional; Groq hosts the Llama model used as fallback |
@@ -302,7 +305,7 @@ npm run build
 - The Create LGU backup action generates a portable SQL dump through the API's existing MySQL connection, so it does not require a system `mysqldump` binary and works on serverless hosting such as Vercel.
 - Deploy the promotional website independently as a static Vite site using `infratrack_website/dist/`.
 - Set `DB_SSL=true` when required by the managed MySQL provider. Configure `TRUST_PROXY=true` only when the API is actually behind a trusted reverse proxy.
-- Configure persistent media storage before using uploads on ephemeral hosting. Configure Brevo variables only if transactional email is enabled.
+- Configure persistent media storage before using uploads on ephemeral hosting. Configure authenticated SMTP variables only if transactional email is enabled.
 - Use HTTPS for deployed services. Android/iOS production builds should be built with the intended API URL and release signing configuration.
 - Deployment providers, secrets, domains, database instances, and account credentials are environment-specific and are not stored in this repository.
 

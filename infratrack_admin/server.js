@@ -32,7 +32,10 @@ import {
   getReportScope,
 } from "./advisoryAccess.js";
 import { canManageSystemSettings } from "./permissions.js";
-import { sendEmailNotification } from "./emailNotifications.js";
+import {
+  isEmailNotificationConfigured,
+  sendEmailNotification,
+} from "./emailNotifications.js";
 import {
   sendResidentAccountCreatedEmail,
   sendResidentAccountVerifiedEmail,
@@ -102,12 +105,9 @@ const dbConfig = {
   ssl: dbSsl ? { minVersion: "TLSv1.2" } : undefined,
 };
 const pool = mysql.createPool({ ...dbConfig, database: dbName, waitForConnections: true, connectionLimit: 10 });
-const passwordResetSecret = process.env.PASSWORD_RESET_SECRET || process.env.BREVO_API_KEY || "";
-const passwordResetEmailConfigured = Boolean(
-  process.env.BREVO_API_KEY
-    ? process.env.BREVO_SENDER_EMAIL
-    : process.env.EMAIL_NOTIFICATION_WEBHOOK,
-);
+const passwordResetSecret =
+  process.env.PASSWORD_RESET_SECRET || process.env.SMTP_PASSWORD || "";
+const passwordResetEmailConfigured = isEmailNotificationConfigured();
 const uploadDirectory = path.join(__dirname, "uploads");
 const backupDirectory = path.join(__dirname, "backups");
 fs.mkdirSync(uploadDirectory, { recursive: true });
@@ -583,11 +583,11 @@ async function queueAdvisoryNotifications({
 
 async function dispatchNotification({ channel = "email", recipient, subject, body }) {
   const resolvedChannel = channel || "email";
-  if (resolvedChannel === "email" && process.env.BREVO_API_KEY) {
+  if (resolvedChannel === "email" && isEmailNotificationConfigured()) {
     try {
       return await sendEmailNotification({ recipient, subject, body });
     } catch (error) {
-      console.warn("Brevo notification failed:", error.message);
+      console.warn("Email notification failed:", error.message);
       return { sent: false, configured: true };
     }
   }

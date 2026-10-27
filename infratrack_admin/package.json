@@ -23,6 +23,7 @@
     "lucide-react": "latest",
     "multer": "latest",
     "mysql2": "latest",
+    "nodemailer": "^10.2.1",
     "react": "latest",
     "react-dom": "latest",
     "react-leaflet": "^5.0.0",

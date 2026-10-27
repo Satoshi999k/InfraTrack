@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import nodemailer from "nodemailer";
 
 const escapeHtml = (value) =>
   String(value)
@@ -166,70 +167,79 @@ export function renderBrandedEmail({
 </html>`;
 }
 
+export function isEmailNotificationConfigured(env = process.env) {
+  const smtpConfigured = Boolean(
+    env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASSWORD,
+  );
+  return smtpConfigured || Boolean(env.EMAIL_NOTIFICATION_WEBHOOK);
+}
+
 export async function sendEmailNotification(
   { recipient, subject, body, template = {} },
-  { env = process.env, fetchImpl = fetch } = {},
+  {
+    env = process.env,
+    fetchImpl = fetch,
+    createTransportImpl = nodemailer.createTransport,
+  } = {},
 ) {
   if (!recipient) {
     return { sent: false, configured: false, reason: "missing_recipient" };
   }
 
-  if (env.BREVO_API_KEY) {
-    if (!env.BREVO_SENDER_EMAIL) {
-      return { sent: false, configured: false, reason: "missing_sender" };
+  if (env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASSWORD) {
+    const port = Number(env.SMTP_PORT || 465);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      throw new Error("SMTP_PORT must be a valid TCP port.");
     }
 
-    const senderName = env.BREVO_SENDER_NAME || "InfraTrack";
-    const logoUrl = getPublicLogoUrl(env.BREVO_LOGO_URL)
-      ? env.BREVO_LOGO_URL
+    const senderEmail = env.SMTP_FROM_EMAIL || env.SMTP_USER;
+    const senderName = env.SMTP_FROM_NAME || "InfraTrack";
+    const logoUrl = getPublicLogoUrl(env.EMAIL_LOGO_URL)
+      ? env.EMAIL_LOGO_URL
       : "";
     const logoCid = logoUrl ? "" : "infratrack-logo";
-    const attachment = logoUrl
-      ? undefined
+    const attachments = logoUrl
+      ? []
       : [
           {
-            name: "infratrack-logo.png",
-            content: (
-              await readFile(
-                new URL("./public/infratrack-logo.png", import.meta.url),
-              )
-            ).toString("base64"),
-            contentId: logoCid,
+            filename: "infratrack-logo.png",
+            content: await readFile(
+              new URL("./public/infratrack-logo.png", import.meta.url),
+            ),
+            cid: logoCid,
           },
         ];
-    const response = await fetchImpl("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "api-key": env.BREVO_API_KEY,
+    const transport = createTransportImpl({
+      host: env.SMTP_HOST,
+      port,
+      secure: port === 465,
+      auth: {
+        user: env.SMTP_USER,
+        pass: env.SMTP_PASSWORD,
       },
-      body: JSON.stringify({
-        sender: {
-          name: senderName,
-          email: env.BREVO_SENDER_EMAIL,
-        },
-        to: [{ email: recipient }],
+    });
+    const result = await transport.sendMail({
+      from: { name: senderName, address: senderEmail },
+      to: recipient,
+      subject,
+      text: body,
+      html: renderBrandedEmail({
         subject,
-        textContent: body,
-        htmlContent: renderBrandedEmail({
-          subject,
-          body,
-          senderName,
-          logoUrl,
-          logoCid,
-          ...template,
-        }),
-        ...(attachment ? { attachment } : {}),
+        body,
+        senderName,
+        logoUrl,
+        logoCid,
+        ...template,
       }),
+      attachments,
     });
 
-    if (!response.ok) {
-      throw new Error(
-        `Brevo email request failed with status ${response.status}`,
-      );
-    }
-
-    return { sent: true, configured: true, provider: "brevo" };
+    return {
+      sent: true,
+      configured: true,
+      provider: "smtp",
+      messageId: result.messageId,
+    };
   }
 
   if (env.EMAIL_NOTIFICATION_WEBHOOK) {
@@ -241,11 +251,12 @@ export async function sendEmailNotification(
         recipient,
         subject,
         body,
+        senderName: env.SMTP_FROM_NAME || "InfraTrack",
         htmlContent: renderBrandedEmail({
           subject,
           body,
-          senderName: env.BREVO_SENDER_NAME || "InfraTrack",
-          logoUrl: env.BREVO_LOGO_URL,
+          senderName: env.SMTP_FROM_NAME || "InfraTrack",
+          logoUrl: env.EMAIL_LOGO_URL,
           ...template,
         }),
       }),
