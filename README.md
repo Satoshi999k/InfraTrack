@@ -240,14 +240,13 @@ The API reads environment variables from `infratrack_admin/.env`. Start from [`i
 | `EMAILJS_SERVICE_ID` / `EMAILJS_TEMPLATE_ID` | EmailJS Gmail service and email template IDs | Configure when using EmailJS to send from a connected Gmail account |
 | `EMAILJS_PUBLIC_KEY` / `EMAILJS_PRIVATE_KEY` | EmailJS API keys | Required with the service and template IDs; keep the private key server-side |
 | `EMAILJS_FROM_NAME` | Sender display name for EmailJS messages | Defaults to `InfraTrack`; the connected Gmail account is the sender |
-| `EMAIL_LOGO_URL` | Public HTTPS URL for the InfraTrack logo in transactional email | Optional; use a publicly reachable logo URL, such as `https://infratrack-3a8u.onrender.com/infratrack-logo.png` |
 | `RESEND_API_KEY` | Resend transactional email API key | Optional HTTPS provider; the mailer prefers fully configured EmailJS, then Resend |
 | `RESEND_FROM_EMAIL` / `RESEND_FROM_NAME` | Verified sender address and display name for Resend | Required with `RESEND_API_KEY`; verify the sender domain with Resend |
 | `SMTP_HOST` | Authenticated outgoing mail server hostname | Optional; for this mailbox use `mail.bytecore.asia`; SMTP is not available from Render |
 | `SMTP_PORT` | Outgoing mail server port | Defaults to `465` with implicit SSL/TLS |
 | `SMTP_USER` / `SMTP_PASSWORD` | Mailbox username and password | Use the full mailbox address and its account password; keep the password secret |
 | `SMTP_FROM_EMAIL` / `SMTP_FROM_NAME` | Sender address and display name | Sender address defaults to `SMTP_USER`; display name defaults to `InfraTrack` |
-| `EMAIL_LOGO_URL` | Public HTTPS logo URL for email templates | Optional |
+| `EMAIL_LOGO_URL` | Public HTTPS URL for the InfraTrack logo in transactional email | Optional; use a publicly reachable logo URL, such as `https://infratrack-3a8u.onrender.com/infratrack-logo.png` |
 | `PASSWORD_RESET_SECRET` | Secret used to sign password-reset codes | Strongly recommended; if omitted, the configured EmailJS private key, Resend API key, or SMTP password is used |
 | `APP_PUBLIC_URL` | Public sign-in URL used in email links | Optional |
 | `GEMINI_API_KEY` | Google AI Studio key for the primary chatbot provider | Optional; configure on the API server |

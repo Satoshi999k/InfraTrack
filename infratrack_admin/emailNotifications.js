@@ -57,6 +57,8 @@ export function renderBrandedEmail({
   logoCid = "",
   eyebrow = "",
   note = "",
+  code = "",
+  codeLabel = "VERIFICATION CODE",
   actionUrl = "",
   actionLabel = "",
 }) {
@@ -84,11 +86,17 @@ export function renderBrandedEmail({
   const eyebrowContent = eyebrow
     ? `<div style="margin:0 0 9px;color:#1b8a83;font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:bold;letter-spacing:1.1px;text-transform:uppercase;">${escapeHtml(eyebrow)}</div>`
     : "";
+  const codeContent = code
+    ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:24px 0;border:1px solid #dfe5e7;border-radius:8px;background-color:#f7f9fa;">
+        <tr><td align="center" style="padding:18px 16px 8px;color:#718078;font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:bold;letter-spacing:1.2px;text-transform:uppercase;">${escapeHtml(codeLabel)}</td></tr>
+        <tr><td align="center" style="padding:0 16px 18px;color:#092732;font-family:'Courier New',Courier,monospace;font-size:30px;font-weight:bold;letter-spacing:8px;line-height:1.4;">${escapeHtml(code)}</td></tr>
+      </table>`
+    : "";
   const securityNote = note
-    ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:23px 0 4px;border-left:3px solid #1b8a83;background-color:#f2f7f5;">
-        <tr><td valign="top" width="38" style="padding:15px 0 15px 15px;">
-          <div style="width:20px;height:20px;border-radius:50%;background-color:#dcefe9;color:#0e6863;font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:bold;line-height:20px;text-align:center;">i</div>
-        </td><td style="padding:14px 15px 14px 0;color:#52645f;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;">${escapeHtml(note)}</td></tr>
+    ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:22px 0 4px;border-left:3px solid #c1592b;background-color:#fbf5f1;">
+        <tr><td valign="top" width="38" style="padding:14px 0 14px 14px;">
+          <div style="width:20px;height:20px;border-radius:50%;background-color:#f4e3d9;color:#98431f;font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:bold;line-height:20px;text-align:center;">!</div>
+        </td><td style="padding:13px 15px 13px 0;color:#684638;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;"><strong style="color:#98431f;">Security notice:</strong> ${escapeHtml(note)}</td></tr>
       </table>`
     : "";
   const actionButton =
@@ -148,6 +156,7 @@ export function renderBrandedEmail({
                 ${eyebrowContent}
                 <h1 class="email-title" style="margin:0 0 20px;color:#0e3a4c;font-family:Arial,Helvetica,sans-serif;font-size:29px;font-weight:700;line-height:1.25;letter-spacing:-.45px;">${escapeHtml(subject)}</h1>
                 ${paragraphs}
+                ${codeContent}
                 ${actionButton}
                 ${securityNote}
               </td>
@@ -215,6 +224,9 @@ export async function sendEmailNotification(
       logoUrl,
       ...template,
     });
+    const textContent = template.code
+      ? `${body}\n\n${template.codeLabel || "Verification code"}: ${template.code}`
+      : body;
     const response = await fetchImpl(
       "https://api.emailjs.com/api/v1.0/email/send",
       {
@@ -228,7 +240,7 @@ export async function sendEmailNotification(
           template_params: {
             to_email: recipient,
             subject,
-            message: body,
+            message: textContent,
             html_content: htmlContent,
             from_name: senderName,
           },
@@ -279,7 +291,9 @@ export async function sendEmailNotification(
         from: `${senderName} <${env.RESEND_FROM_EMAIL}>`,
         to: [recipient],
         subject,
-        text: body,
+        text: template.code
+          ? `${body}\n\n${template.codeLabel || "Verification code"}: ${template.code}`
+          : body,
         html: renderBrandedEmail({
           subject,
           body,
@@ -343,7 +357,9 @@ export async function sendEmailNotification(
       from: { name: senderName, address: senderEmail },
       to: recipient,
       subject,
-      text: body,
+      text: template.code
+        ? `${body}\n\n${template.codeLabel || "Verification code"}: ${template.code}`
+        : body,
       html: renderBrandedEmail({
         subject,
         body,

@@ -82,6 +82,31 @@ test("EmailJS is configured only when all server credentials and template IDs ex
   );
 });
 
+test("renders a prominent escaped reset code and security notice in the branded email", () => {
+  const html = renderBrandedEmail({
+    subject: "Your InfraTrack password reset code",
+    body: "Hello Marlo,\n\nEnter the code below to reset your password.\n\nThanks,\nThe InfraTrack Team",
+    eyebrow: "PASSWORD RESET",
+    code: "169270",
+    codeLabel: "PASSWORD RESET CODE",
+    note: "This code expires in 10 minutes.",
+  });
+
+  assert.match(html, /PASSWORD RESET CODE/);
+  assert.match(html, /letter-spacing:8px/);
+  assert.match(html, />169270<\/td>/);
+  assert.match(html, /Security notice:/);
+  assert.match(html, /The InfraTrack Team/);
+
+  const escapedCode = renderBrandedEmail({
+    subject: "Reset",
+    body: "Message",
+    code: "<123456>",
+  });
+  assert.match(escapedCode, /&lt;123456&gt;/);
+  assert.doesNotMatch(escapedCode, /<123456>/);
+});
+
 test("sends a transactional email through the Resend HTTPS API", async () => {
   let request;
   const result = await sendEmailNotification(

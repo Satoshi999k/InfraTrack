@@ -2228,10 +2228,12 @@ app.post("/api/mobile/auth/password-reset/request", async (req, res) => {
   void sendEmailNotification({
     recipient: resetRequest.user.email,
     subject: "Your InfraTrack password reset code",
-    body: `Hello ${resetRequest.user.name || "there"},\n\nYour InfraTrack password reset code is ${resetRequest.code}.\n\nThis code expires in 10 minutes and can only be used once. If you did not request a password reset, you can ignore this email. Never share this code with anyone.`,
+    body: `Hello ${resetRequest.user.name || "there"},\n\nWe received a request to reset the password for your InfraTrack account. Enter the verification code below to continue.\n\nThanks,\nThe InfraTrack Team`,
     template: {
       eyebrow: "PASSWORD RESET",
-      note: "This code expires in 10 minutes and can only be used once. InfraTrack staff will never ask you to share it.",
+      code: resetRequest.code,
+      codeLabel: "PASSWORD RESET CODE",
+      note: "This code expires in 10 minutes and can only be used once. If you did not request it, ignore this email. InfraTrack staff will never ask you to share your code.",
     },
   }).then((result) => {
     if (!result.sent) {
