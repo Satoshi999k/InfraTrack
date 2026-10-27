@@ -54,6 +54,12 @@ test("sends a transactional email through the EmailJS server API", async () => {
     }),
     from_name: "InfraTrack",
   });
+  assert.match(payload.template_params.html_content, /InfraTrack/);
+  assert.match(payload.template_params.html_content, /#0e3a4c/);
+  assert.doesNotMatch(
+    payload.template_params.html_content,
+    /cid:infratrack-logo/,
+  );
 });
 
 test("EmailJS is configured only when all server credentials and template IDs exist", () => {

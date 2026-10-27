@@ -208,13 +208,11 @@ export async function sendEmailNotification(
     const logoUrl = getPublicLogoUrl(env.EMAIL_LOGO_URL)
       ? env.EMAIL_LOGO_URL
       : "";
-    const logoCid = logoUrl ? "" : "infratrack-logo";
     const htmlContent = renderBrandedEmail({
       subject,
       body,
       senderName,
       logoUrl,
-      logoCid,
       ...template,
     });
     const response = await fetchImpl(
