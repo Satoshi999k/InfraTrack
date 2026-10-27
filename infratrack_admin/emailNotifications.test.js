@@ -1,9 +1,64 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  isEmailNotificationConfigured,
   renderBrandedEmail,
   sendEmailNotification,
 } from "./emailNotifications.js";
+
+test("sends a transactional email through the Resend HTTPS API", async () => {
+  let request;
+  const result = await sendEmailNotification(
+    {
+      recipient: "resident@example.com",
+      subject: "Your password reset code",
+      body: "Your reset code is 123456.",
+    },
+    {
+      env: {
+        RESEND_API_KEY: "test-resend-key",
+        RESEND_FROM_EMAIL: "no-reply@example.com",
+        RESEND_FROM_NAME: "InfraTrack",
+        EMAIL_LOGO_URL: "https://example.com/infratrack-logo.png",
+      },
+      fetchImpl: async (url, options) => {
+        request = { url, options };
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ id: "resend-message-id" }),
+        };
+      },
+    },
+  );
+
+  assert.equal(result.sent, true);
+  assert.equal(result.provider, "resend");
+  assert.equal(result.messageId, "resend-message-id");
+  assert.equal(request.url, "https://api.resend.com/emails");
+  assert.equal(request.options.headers.Authorization, "Bearer test-resend-key");
+  const payload = JSON.parse(request.options.body);
+  assert.equal(payload.from, "InfraTrack <no-reply@example.com>");
+  assert.deepEqual(payload.to, ["resident@example.com"]);
+  assert.equal(payload.subject, "Your password reset code");
+  assert.equal(payload.text, "Your reset code is 123456.");
+  assert.match(payload.html, /Your reset code is 123456\./);
+  assert.doesNotMatch(request.options.body, /test-resend-key/);
+});
+
+test("requires a sender address before marking Resend as configured", () => {
+  assert.equal(
+    isEmailNotificationConfigured({ RESEND_API_KEY: "test-resend-key" }),
+    false,
+  );
+  assert.equal(
+    isEmailNotificationConfigured({
+      RESEND_API_KEY: "test-resend-key",
+      RESEND_FROM_EMAIL: "no-reply@example.com",
+    }),
+    true,
+  );
+});
 
 test("sends a transactional email through authenticated SSL/TLS SMTP", async () => {
   let transportConfig;

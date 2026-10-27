@@ -168,10 +168,15 @@ export function renderBrandedEmail({
 }
 
 export function isEmailNotificationConfigured(env = process.env) {
+  const resendConfigured = Boolean(env.RESEND_API_KEY && env.RESEND_FROM_EMAIL);
   const smtpConfigured = Boolean(
     env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASSWORD,
   );
-  return smtpConfigured || Boolean(env.EMAIL_NOTIFICATION_WEBHOOK);
+  return (
+    resendConfigured ||
+    smtpConfigured ||
+    Boolean(env.EMAIL_NOTIFICATION_WEBHOOK)
+  );
 }
 
 export async function sendEmailNotification(
@@ -184,6 +189,67 @@ export async function sendEmailNotification(
 ) {
   if (!recipient) {
     return { sent: false, configured: false, reason: "missing_recipient" };
+  }
+
+  if (env.RESEND_API_KEY) {
+    if (!env.RESEND_FROM_EMAIL) {
+      return { sent: false, configured: false, reason: "missing_sender" };
+    }
+
+    const senderName = env.RESEND_FROM_NAME || "InfraTrack";
+    const logoUrl = getPublicLogoUrl(env.EMAIL_LOGO_URL)
+      ? env.EMAIL_LOGO_URL
+      : "";
+    const logoCid = logoUrl ? "" : "infratrack-logo";
+    const attachments = logoUrl
+      ? []
+      : [
+          {
+            filename: "infratrack-logo.png",
+            content: (
+              await readFile(
+                new URL("./public/infratrack-logo.png", import.meta.url),
+              )
+            ).toString("base64"),
+            content_id: logoCid,
+          },
+        ];
+    const response = await fetchImpl("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: `${senderName} <${env.RESEND_FROM_EMAIL}>`,
+        to: [recipient],
+        subject,
+        text: body,
+        html: renderBrandedEmail({
+          subject,
+          body,
+          senderName,
+          logoUrl,
+          logoCid,
+          ...template,
+        }),
+        ...(attachments.length ? { attachments } : {}),
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Resend email request failed with status ${response.status}`,
+      );
+    }
+
+    const result = await response.json();
+    return {
+      sent: true,
+      configured: true,
+      provider: "resend",
+      messageId: result.id,
+    };
   }
 
   if (env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASSWORD) {

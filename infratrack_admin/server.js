@@ -106,7 +106,10 @@ const dbConfig = {
 };
 const pool = mysql.createPool({ ...dbConfig, database: dbName, waitForConnections: true, connectionLimit: 10 });
 const passwordResetSecret =
-  process.env.PASSWORD_RESET_SECRET || process.env.SMTP_PASSWORD || "";
+  process.env.PASSWORD_RESET_SECRET ||
+  process.env.RESEND_API_KEY ||
+  process.env.SMTP_PASSWORD ||
+  "";
 const passwordResetEmailConfigured = isEmailNotificationConfigured();
 const uploadDirectory = path.join(__dirname, "uploads");
 const backupDirectory = path.join(__dirname, "backups");
