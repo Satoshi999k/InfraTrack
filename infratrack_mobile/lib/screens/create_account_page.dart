@@ -45,6 +45,15 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
     return null;
   }
 
+  String? _mobileValidator(String? value) {
+    final required = _required(value, 'Mobile number');
+    if (required != null) return required;
+    if (!RegExp(r'^\d{11}$').hasMatch(value!.trim())) {
+      return 'Mobile number must contain exactly 11 digits.';
+    }
+    return null;
+  }
+
   Future<void> _continue() async {
     if (!_formKey.currentState!.validate()) return;
     if (!mounted) return;
@@ -215,12 +224,15 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
                                 ),
                                 _SignupField(
                                   label: 'Mobile number',
-                                  hint: '09XX XXX XXXX',
+                                  hint: '09XXXXXXXXX',
                                   icon: Icons.call_outlined,
                                   controller: _mobileController,
                                   keyboardType: TextInputType.phone,
-                                  validator: (value) =>
-                                      _required(value, 'Mobile number'),
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                    LengthLimitingTextInputFormatter(11),
+                                  ],
+                                  validator: _mobileValidator,
                                 ),
                                 const _SignupLabel('Barangay'),
                                 DropdownButtonFormField<String>(
@@ -2467,6 +2479,7 @@ class _SignupField extends StatelessWidget {
     this.obscureText = false,
     this.suffixIcon,
     this.onChanged,
+    this.inputFormatters,
   });
   final String label;
   final String hint;
@@ -2477,6 +2490,7 @@ class _SignupField extends StatelessWidget {
   final bool obscureText;
   final Widget? suffixIcon;
   final ValueChanged<String>? onChanged;
+  final List<TextInputFormatter>? inputFormatters;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -2489,6 +2503,7 @@ class _SignupField extends StatelessWidget {
           controller: controller,
           validator: validator,
           keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
           textCapitalization: label == 'Full legal name'
               ? TextCapitalization.words
               : TextCapitalization.none,

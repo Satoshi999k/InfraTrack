@@ -1494,7 +1494,13 @@ function CategoryCard({ categories }) {
           <b>{item.count}</b>
         </div>
       ))}
-      {!categories.length && <p className="muted">No reports to group yet.</p>}
+      {!categories.length && (
+        <div className="dashboard-empty-state">
+          <CheckCircle2 size={21} />
+          <strong>No reports yet</strong>
+          <span>New reports will appear here.</span>
+        </div>
+      )}
     </article>
   );
 }

@@ -19,6 +19,7 @@ import { filterResidents, paginateResidents } from "../../residentSearch.js";
 const createStaffForm = () => ({
   name: "",
   email: "",
+  mobile: "",
   barangay: "",
   password: "",
   role: "barangay_staff",
@@ -522,6 +523,28 @@ export default function UsersPage({ users, onOpenUser, user }) {
                       required
                       disabled={isCreatingStaff}
                     />
+                  </label>
+                  <label className="staff-form-field" htmlFor="staff-mobile">
+                    <span>Mobile number</span>
+                    <input
+                      id="staff-mobile"
+                      type="tel"
+                      inputMode="numeric"
+                      autoComplete="tel"
+                      placeholder="09XXXXXXXXX"
+                      value={staffForm.mobile}
+                      onChange={(event) =>
+                        setStaffForm({
+                          ...staffForm,
+                          mobile: event.target.value.replace(/\D/g, "").slice(0, 11),
+                        })
+                      }
+                      pattern="[0-9]{11}"
+                      maxLength={11}
+                      required
+                      disabled={isCreatingStaff}
+                    />
+                    <small>Enter exactly 11 digits.</small>
                   </label>
                   <label className="staff-form-field" htmlFor="staff-barangay">
                     <span>

@@ -78,6 +78,10 @@ import {
   matchesPasswordResetCode,
   normalizeResetEmail,
 } from "./passwordResetSecurity.js";
+import {
+  findDuplicateAccount,
+  normalizeMobileNumber,
+} from "./accountValidation.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -2444,15 +2448,29 @@ app.get("/api/admin/export/:type", async (req, res) => {
 });
 app.post("/api/auth/register", async (req, res) => {
   const { name, email, mobile, barangay, password } = req.body ?? {};
-  if (!name || !email || !password) return res.status(400).json({ error: "Name, email, and password are required" });
+  const normalizedName = typeof name === "string" ? name.trim() : "";
+  const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+  const normalizedMobile = normalizeMobileNumber(mobile);
+  if (!normalizedName || !normalizedEmail || !password) return res.status(400).json({ error: "Name, email, and password are required" });
+  if (!normalizedMobile) return res.status(400).json({ error: "Mobile number must contain exactly 11 digits" });
   const connection = await pool.getConnection();
   let transactionStarted = false;
   try {
     await connection.beginTransaction();
     transactionStarted = true;
+    const duplicate = await findDuplicateAccount(connection, {
+      name: normalizedName,
+      email: normalizedEmail,
+      mobile: normalizedMobile,
+    });
+    if (duplicate) {
+      await connection.rollback();
+      transactionStarted = false;
+      return res.status(409).json({ error: "An account with this name, email, or mobile number already exists" });
+    }
     const [result] = await connection.query(
       "INSERT INTO users (name, email, mobile, barangay, password_hash) VALUES (?, ?, ?, ?, ?)",
-      [name.trim(), email.trim().toLowerCase(), mobile ?? "", barangay ?? "Mati City", hashPassword(password)],
+      [normalizedName, normalizedEmail, normalizedMobile, barangay ?? "Mati City", hashPassword(password)],
     );
     const sessionToken = createSessionToken();
     await connection.query(
@@ -2462,9 +2480,9 @@ app.post("/api/auth/register", async (req, res) => {
     await connection.commit();
     const user = {
       id: result.insertId,
-      name: name.trim(),
-      email: email.trim().toLowerCase(),
-      mobile: mobile ?? "",
+      name: normalizedName,
+      email: normalizedEmail,
+      mobile: normalizedMobile,
       barangay: barangay ?? "Mati City",
       role: "resident",
     };
@@ -2478,7 +2496,7 @@ app.post("/api/auth/register", async (req, res) => {
     });
   } catch (error) {
     if (transactionStarted) await connection.rollback();
-    if (error.code === "ER_DUP_ENTRY") return res.status(409).json({ error: "An account with this email already exists" });
+    if (error.code === "ER_DUP_ENTRY") return res.status(409).json({ error: "An account with this name, email, or mobile number already exists" });
     res.status(500).json({ error: "Could not create account" });
   } finally {
     connection.release();
@@ -2749,17 +2767,27 @@ app.get("/api/staff", async (req, res) => {
 });
 app.post("/api/staff", async (req, res) => {
   if (!["lgu", "admin"].includes(req.auth.role)) return res.status(403).json({ error: "LGU administrator access required" });
-  const { name, email, barangay, password, role = "barangay_staff" } = req.body ?? {};
-  if (!name?.trim() || !email?.trim() || !barangay?.trim() || !password || password.length < 8) return res.status(400).json({ error: "Name, email, barangay, and an 8-character password are required" });
+  const { name, email, mobile, barangay, password, role = "barangay_staff" } = req.body ?? {};
+  const normalizedName = typeof name === "string" ? name.trim() : "";
+  const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+  const normalizedMobile = normalizeMobileNumber(mobile);
+  if (!normalizedName || !normalizedEmail || !barangay?.trim() || !password || password.length < 8) return res.status(400).json({ error: "Name, email, barangay, and an 8-character password are required" });
+  if (!normalizedMobile) return res.status(400).json({ error: "Mobile number must contain exactly 11 digits" });
   if (!["barangay_staff", "lgu"].includes(role)) return res.status(400).json({ error: "Invalid staff role" });
   try {
-    const [result] = await pool.query("INSERT INTO users (name, email, barangay, password_hash, role, standing, verification) VALUES (?, ?, ?, ?, ?, 'Active', 'Verified')", [name.trim(), email.trim().toLowerCase(), barangay.trim(), hashPassword(password), role]);
-    await writeAuditLog(req, { actorId: req.auth.id, action: "staff_created", resourceType: "user", resourceId: result.insertId, details: { email: email.trim().toLowerCase(), barangay: barangay.trim(), role } });
-    const staff = { id: result.insertId, name: name.trim(), email: email.trim().toLowerCase(), barangay: barangay.trim(), role, standing: "Active" };
+    const duplicate = await findDuplicateAccount(pool, {
+      name: normalizedName,
+      email: normalizedEmail,
+      mobile: normalizedMobile,
+    });
+    if (duplicate) return res.status(409).json({ error: "An account with this name, email, or mobile number already exists" });
+    const [result] = await pool.query("INSERT INTO users (name, email, mobile, barangay, password_hash, role, standing, verification) VALUES (?, ?, ?, ?, ?, ?, 'Active', 'Verified')", [normalizedName, normalizedEmail, normalizedMobile, barangay.trim(), hashPassword(password), role]);
+    await writeAuditLog(req, { actorId: req.auth.id, action: "staff_created", resourceType: "user", resourceId: result.insertId, details: { email: normalizedEmail, barangay: barangay.trim(), role } });
+    const staff = { id: result.insertId, name: normalizedName, email: normalizedEmail, mobile: normalizedMobile, barangay: barangay.trim(), role, standing: "Active" };
     const emailNotification = await notifyStaffAccountReady(staff);
     res.status(201).json({ staff, emailNotification });
   } catch (error) {
-    if (error.code === "ER_DUP_ENTRY") return res.status(409).json({ error: "An account with this email already exists" });
+    if (error.code === "ER_DUP_ENTRY") return res.status(409).json({ error: "An account with this name, email, or mobile number already exists" });
     res.status(500).json({ error: "Could not create staff account" });
   }
 });
