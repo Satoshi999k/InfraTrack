@@ -7924,7 +7924,7 @@ tbody tr:last-child td {
 }
 
 .overview-map-calendar-row {
-  grid-template-columns: minmax(0, 1.35fr) minmax(245px, 1fr);
+  grid-template-columns: minmax(0, 1.65fr) minmax(245px, 1fr);
   align-items: stretch;
 }
 
