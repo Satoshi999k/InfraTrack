@@ -1,7 +1,9 @@
 part of '../main.dart';
 
 class ProfilePage extends StatefulWidget {
-  const ProfilePage({super.key});
+  const ProfilePage({super.key, this.onStartGuide});
+
+  final VoidCallback? onStartGuide;
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -814,6 +816,16 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
               MaterialPageRoute(builder: (_) => const PrivacySecurityPage()),
             ),
           ),
+          if (widget.onStartGuide != null) ...[
+            const SizedBox(height: 20),
+            const _ProfileSectionTitle(title: 'APP GUIDE'),
+            MenuRow(
+              icon: Icons.explore_outlined,
+              title: 'Take a tour',
+              subtitle: 'See the main features of InfraTrack',
+              onTap: widget.onStartGuide,
+            ),
+          ],
           const SizedBox(height: 20),
           const _ProfileSectionTitle(title: 'SESSION'),
           MenuRow(

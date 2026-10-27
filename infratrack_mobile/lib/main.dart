@@ -13,6 +13,7 @@ import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
 
 import 'api_service.dart';
@@ -47,6 +48,20 @@ const red = Color(0xFFB33A3A);
 
 Color infraMutedTextColor(BuildContext context) =>
     Theme.of(context).inputDecorationTheme.hintStyle?.color ?? inkSoft;
+
+class AppGuidePreferences {
+  static const _completedKey = 'infratrack_app_guide_completed';
+
+  static Future<bool> shouldShowFirstLaunchGuide() async {
+    final preferences = await SharedPreferences.getInstance();
+    return preferences.getBool(_completedKey) != true;
+  }
+
+  static Future<void> markGuideCompleted() async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setBool(_completedKey, true);
+  }
+}
 
 TextStyle infraHeading({double? fontSize, Color? color, FontWeight? weight}) =>
     appearanceFontStyle(
@@ -2026,9 +2041,43 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
+  static const _guideSteps = <_GuideStep>[
+    _GuideStep(
+      title: 'Your city at a glance',
+      description: 'Home brings together community updates, recent reports, and important city information.',
+      destination: 0,
+    ),
+    _GuideStep(
+      title: 'Explore the infrastructure map',
+      description: 'Browse reported issues around Mati City and open a marker to see report details.',
+      destination: 1,
+    ),
+    _GuideStep(
+      title: 'Report an issue',
+      description: 'Use this button to report damaged roads, facilities, drainage, and other infrastructure concerns.',
+      destination: 2,
+      isReportAction: true,
+    ),
+    _GuideStep(
+      title: 'Stay informed',
+      description:
+          'Check city advisories and community updates in the News section.',
+      destination: 3,
+    ),
+    _GuideStep(
+      title: 'Your account and reports',
+      description: 'Manage your profile, check verification status, and keep track of your submitted reports.',
+      destination: 4,
+    ),
+  ];
+
   int index = 0;
+  int? _guideStep;
   bool _handlingExpiredSession = false;
   bool _handlingAccountBan = false;
+  final _shellKey = GlobalKey();
+  final _guideReportKey = GlobalKey();
+  final _guideDestinationKeys = List<GlobalKey>.generate(5, (_) => GlobalKey());
   final _homeKey = GlobalKey<_HomePageState>();
   final _mapKey = GlobalKey<_MapPageState>();
   final _reportKey = GlobalKey<_ReportPageState>();
@@ -2040,7 +2089,7 @@ class _MainShellState extends State<MainShell> {
     MapPage(key: _mapKey),
     ReportPage(key: _reportKey),
     NewsPage(key: _newsKey),
-    ProfilePage(key: _profileKey),
+    ProfilePage(key: _profileKey, onStartGuide: _startGuide),
   ];
 
   @override
@@ -2050,11 +2099,81 @@ class _MainShellState extends State<MainShell> {
     ApiService.accountBanned.addListener(_handleAccountBanned);
     ApiService.connectionRestored.addListener(_handleConnectionRestored);
     PushNotifications.instance.onNotificationTap = _handlePushNotification;
+    unawaited(_showFirstLaunchGuide());
     unawaited(
       PushNotifications.instance.initialize(
         authenticated: ApiService.isSignedIn,
       ),
     );
+  }
+
+  Future<void> _showFirstLaunchGuide() async {
+    try {
+      if (!await AppGuidePreferences.shouldShowFirstLaunchGuide() || !mounted) {
+        return;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 700));
+      if (mounted) _startGuide();
+    } catch (error, stackTrace) {
+      debugPrint('Could not check first-launch guide preference: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+  }
+
+  void _startGuide() {
+    if (!mounted) return;
+    setState(() {
+      index = 0;
+      _guideStep = 0;
+    });
+  }
+
+  void _advanceGuide() {
+    final step = _guideStep;
+    if (step == null) return;
+    if (step < _guideSteps.length) {
+      final nextStep = step + 1;
+      setState(() {
+        _guideStep = nextStep;
+        if (nextStep < _guideSteps.length) {
+          index = _guideSteps[nextStep].destination;
+        }
+      });
+      return;
+    }
+    unawaited(_finishGuide());
+  }
+
+  Future<void> _finishGuide() async {
+    if (!mounted) return;
+    setState(() => _guideStep = null);
+    try {
+      await AppGuidePreferences.markGuideCompleted();
+    } catch (error, stackTrace) {
+      debugPrint('Could not save guide completion preference: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+  }
+
+  Rect? _guideTargetRect() {
+    final step = _guideStep;
+    if (step == null || step >= _guideSteps.length) return null;
+    final guideStep = _guideSteps[step];
+    final targetKey = guideStep.isReportAction
+        ? _guideReportKey
+        : _guideDestinationKeys[guideStep.destination];
+    final targetBox =
+        targetKey.currentContext?.findRenderObject() as RenderBox?;
+    final shellBox = _shellKey.currentContext?.findRenderObject() as RenderBox?;
+    if (targetBox == null ||
+        shellBox == null ||
+        !targetBox.hasSize ||
+        !shellBox.hasSize) {
+      return null;
+    }
+    final globalRect = targetBox.localToGlobal(Offset.zero) & targetBox.size;
+    final shellOrigin = shellBox.localToGlobal(Offset.zero);
+    return globalRect.shift(-shellOrigin);
   }
 
   void _handleConnectionRestored() {
@@ -2164,154 +2283,529 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: IndexedStack(index: index, children: pages),
-      ),
-      bottomNavigationBar: Container(
-        margin: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-        decoration: BoxDecoration(
-          color: Theme.of(context).brightness == Brightness.dark
-              ? const Color(0xFF102C38)
-              : Colors.white.withValues(alpha: .72),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: Theme.of(context).brightness == Brightness.dark
-                ? const Color(0xFF396170)
-                : Colors.white.withValues(alpha: .85),
+    final activeGuideStep = _guideStep;
+    return Stack(
+      key: _shellKey,
+      children: [
+        Scaffold(
+          body: SafeArea(
+            child: IndexedStack(index: index, children: pages),
           ),
-          boxShadow: [
-            BoxShadow(
-              color:
-                  (Theme.of(context).brightness == Brightness.dark
-                          ? const Color(0xFF081D29)
-                          : navy)
-                      .withValues(alpha: .14),
-              blurRadius: 26,
-              spreadRadius: 1,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            ClipRRect(
+          bottomNavigationBar: Container(
+            margin: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+            decoration: BoxDecoration(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFF102C38)
+                  : Colors.white.withValues(alpha: .72),
               borderRadius: BorderRadius.circular(24),
-              child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                child: NavigationBarTheme(
-                  data: NavigationBarThemeData(
-                    height: 70,
-                    backgroundColor: Colors.transparent,
-                    surfaceTintColor: Colors.transparent,
-                    elevation: 0,
-                    indicatorColor: Theme.of(context).colorScheme.primary
-                        .withValues(
-                          alpha: Theme.of(context).brightness == Brightness.dark
-                              ? 0.18
-                              : 0.20,
+              border: Border.all(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? const Color(0xFF396170)
+                    : Colors.white.withValues(alpha: .85),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color:
+                      (Theme.of(context).brightness == Brightness.dark
+                              ? const Color(0xFF081D29)
+                              : navy)
+                          .withValues(alpha: .14),
+                  blurRadius: 26,
+                  spreadRadius: 1,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: BackdropFilter(
+                    filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                    child: NavigationBarTheme(
+                      data: NavigationBarThemeData(
+                        height: 70,
+                        backgroundColor: Colors.transparent,
+                        surfaceTintColor: Colors.transparent,
+                        elevation: 0,
+                        indicatorColor: Theme.of(context).colorScheme.primary
+                            .withValues(
+                              alpha:
+                                  Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? 0.18
+                                  : 0.20,
+                            ),
+                        indicatorShape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
                         ),
-                    indicatorShape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    labelTextStyle: WidgetStateProperty.resolveWith(
-                      (states) => TextStyle(
-                        color: states.contains(WidgetState.selected)
-                            ? (infraAppearance.value.highContrast
-                                  ? Theme.of(context).colorScheme.onSurface
-                                  : Theme.of(context).colorScheme.primary)
-                            : (Theme.of(context).brightness == Brightness.dark
-                                  ? const Color(0xFFB7CDD0)
-                                  : inkSoft),
-                        fontSize: 10,
-                        fontWeight: states.contains(WidgetState.selected)
-                            ? FontWeight.w800
-                            : FontWeight.w600,
+                        labelTextStyle: WidgetStateProperty.resolveWith(
+                          (states) => TextStyle(
+                            color: states.contains(WidgetState.selected)
+                                ? (infraAppearance.value.highContrast
+                                      ? Theme.of(context).colorScheme.onSurface
+                                      : Theme.of(context).colorScheme.primary)
+                                : (Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? const Color(0xFFB7CDD0)
+                                      : inkSoft),
+                            fontSize: 10,
+                            fontWeight: states.contains(WidgetState.selected)
+                                ? FontWeight.w800
+                                : FontWeight.w600,
+                          ),
+                        ),
+                        iconTheme: WidgetStateProperty.resolveWith(
+                          (states) => IconThemeData(
+                            color: states.contains(WidgetState.selected)
+                                ? (infraAppearance.value.highContrast
+                                      ? Theme.of(context).colorScheme.onSurface
+                                      : Theme.of(context).colorScheme.primary)
+                                : (Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? const Color(0xFFB7CDD0)
+                                      : inkSoft),
+                            size: 22,
+                          ),
+                        ),
                       ),
-                    ),
-                    iconTheme: WidgetStateProperty.resolveWith(
-                      (states) => IconThemeData(
-                        color: states.contains(WidgetState.selected)
-                            ? (infraAppearance.value.highContrast
-                                  ? Theme.of(context).colorScheme.onSurface
-                                  : Theme.of(context).colorScheme.primary)
-                            : (Theme.of(context).brightness == Brightness.dark
-                                  ? const Color(0xFFB7CDD0)
-                                  : inkSoft),
-                        size: 22,
+                      child: NavigationBar(
+                        labelBehavior:
+                            NavigationDestinationLabelBehavior.alwaysShow,
+                        selectedIndex: index,
+                        onDestinationSelected: (value) {
+                          if (value == index) {
+                            unawaited(_refreshPage(value));
+                            return;
+                          }
+                          setState(() => index = value);
+                          if (value == 3) unawaited(_refreshPage(value));
+                        },
+                        destinations: [
+                          NavigationDestination(
+                            key: _guideDestinationKeys[0],
+                            icon: Icon(Icons.home_outlined),
+                            selectedIcon: Icon(Icons.home),
+                            label: 'Home',
+                          ),
+                          NavigationDestination(
+                            key: _guideDestinationKeys[1],
+                            icon: Icon(Icons.map_outlined),
+                            selectedIcon: Icon(Icons.map),
+                            label: 'Map',
+                          ),
+                          NavigationDestination(
+                            key: _guideDestinationKeys[2],
+                            icon: SizedBox(width: 24, height: 24),
+                            selectedIcon: SizedBox(width: 24, height: 24),
+                            label: 'Report',
+                          ),
+                          NavigationDestination(
+                            key: _guideDestinationKeys[3],
+                            icon: Icon(Icons.newspaper_outlined),
+                            selectedIcon: Icon(Icons.newspaper),
+                            label: 'News',
+                          ),
+                          NavigationDestination(
+                            key: _guideDestinationKeys[4],
+                            icon: Icon(Icons.person_outline),
+                            selectedIcon: Icon(Icons.person),
+                            label: 'Profile',
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                  child: NavigationBar(
-                    labelBehavior:
-                        NavigationDestinationLabelBehavior.alwaysShow,
-                    selectedIndex: index,
-                    onDestinationSelected: (value) {
-                      if (value == index) {
-                        unawaited(_refreshPage(value));
-                        return;
-                      }
-                      setState(() => index = value);
-                      if (value == 3) unawaited(_refreshPage(value));
-                    },
-                    destinations: const [
-                      NavigationDestination(
-                        icon: Icon(Icons.home_outlined),
-                        selectedIcon: Icon(Icons.home),
-                        label: 'Home',
-                      ),
-                      NavigationDestination(
-                        icon: Icon(Icons.map_outlined),
-                        selectedIcon: Icon(Icons.map),
-                        label: 'Map',
-                      ),
-                      NavigationDestination(
-                        icon: SizedBox(width: 24, height: 24),
-                        selectedIcon: SizedBox(width: 24, height: 24),
-                        label: 'Report',
-                      ),
-                      NavigationDestination(
-                        icon: Icon(Icons.newspaper_outlined),
-                        selectedIcon: Icon(Icons.newspaper),
-                        label: 'News',
-                      ),
-                      NavigationDestination(
-                        icon: Icon(Icons.person_outline),
-                        selectedIcon: Icon(Icons.person),
-                        label: 'Profile',
-                      ),
-                    ],
+                ),
+                Positioned(
+                  top: -18,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: _FloatingReportButton(
+                      key: _guideReportKey,
+                      selected: index == 2,
+                      onPressed: () {
+                        if (index == 2) {
+                          unawaited(_refreshPage(2));
+                        } else {
+                          setState(() => index = 2);
+                        }
+                      },
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
-            Positioned(
-              top: -18,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: _FloatingReportButton(
-                  selected: index == 2,
-                  onPressed: () {
-                    if (index == 2) {
-                      unawaited(_refreshPage(2));
-                    } else {
-                      setState(() => index = 2);
-                    }
-                  },
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
+        if (activeGuideStep != null)
+          Positioned.fill(
+            child: _InfraTrackGuideOverlay(
+              stepIndex: activeGuideStep,
+              steps: _guideSteps,
+              targetRect: _guideTargetRect(),
+              onAdvance: _advanceGuide,
+              onSkip: _finishGuide,
+            ),
+          ),
+      ],
     );
   }
 }
 
+class _GuideStep {
+  const _GuideStep({
+    required this.title,
+    required this.description,
+    required this.destination,
+    this.isReportAction = false,
+  });
+
+  final String title;
+  final String description;
+  final int destination;
+  final bool isReportAction;
+}
+
+class _InfraTrackGuideOverlay extends StatelessWidget {
+  const _InfraTrackGuideOverlay({
+    required this.stepIndex,
+    required this.steps,
+    required this.targetRect,
+    required this.onAdvance,
+    required this.onSkip,
+  });
+
+  final int stepIndex;
+  final List<_GuideStep> steps;
+  final Rect? targetRect;
+  final VoidCallback onAdvance;
+  final VoidCallback onSkip;
+
+  @override
+  Widget build(BuildContext context) {
+    final isFinalStep = stepIndex >= steps.length;
+    final totalSteps = steps.length + 1;
+    final guideStep = isFinalStep ? null : steps[stepIndex];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardHeight = isFinalStep ? 220.0 : 242.0;
+        final cardTop = isFinalStep
+            ? (constraints.maxHeight - cardHeight) / 2
+            : ((targetRect?.top ?? constraints.maxHeight * .74) -
+                      cardHeight -
+                      28)
+                  .clamp(
+                    MediaQuery.paddingOf(context).top + 68,
+                    constraints.maxHeight - cardHeight - 90,
+                  )
+                  .toDouble();
+
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onAdvance,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: _GuideDimmerPainter(
+                    targetRect: isFinalStep ? null : targetRect,
+                  ),
+                  child: const SizedBox.expand(),
+                ),
+              ),
+              if (isFinalStep)
+                const Positioned.fill(
+                  child: IgnorePointer(child: _GuideConfetti()),
+                ),
+              Positioned(
+                top: MediaQuery.paddingOf(context).top + 10,
+                right: 16,
+                child: TextButton(
+                  onPressed: onSkip,
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    backgroundColor: deepNavy.withValues(alpha: .82),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 15,
+                      vertical: 9,
+                    ),
+                    shape: const StadiumBorder(),
+                  ),
+                  child: const Text(
+                    'Skip tour',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: cardTop,
+                left: 20,
+                right: 20,
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 460),
+                    child: Material(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? const Color(0xFF102C38)
+                          : sand,
+                      elevation: 18,
+                      shadowColor: Colors.black.withValues(alpha: .35),
+                      borderRadius: BorderRadius.circular(26),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(21, 20, 21, 16),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (isFinalStep) ...[
+                              const Center(
+                                child: Icon(
+                                  Icons.celebration_rounded,
+                                  color: clay,
+                                  size: 38,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                            ] else
+                              Text(
+                                'STEP ${stepIndex + 1} OF $totalSteps',
+                                style: const TextStyle(
+                                  color: teal,
+                                  fontSize: 10,
+                                  letterSpacing: 1.1,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            Center(
+                              child: Text(
+                                isFinalStep
+                                    ? 'You’re all set!'
+                                    : guideStep!.title,
+                                textAlign: isFinalStep
+                                    ? TextAlign.center
+                                    : TextAlign.start,
+                                style: infraHeading(
+                                  color:
+                                      Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? Colors.white
+                                      : navy,
+                                  fontSize: 21,
+                                  weight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 9),
+                            Center(
+                              child: Text(
+                                isFinalStep
+                                    ? 'You’re ready to help make Mati City better. You can replay this guide anytime from your profile.'
+                                    : guideStep!.description,
+                                textAlign: isFinalStep
+                                    ? TextAlign.center
+                                    : TextAlign.start,
+                                style: TextStyle(
+                                  color:
+                                      Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? const Color(0xFFC1D3D5)
+                                      : inkSoft,
+                                  fontSize: 14,
+                                  height: 1.5,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 15),
+                            Row(
+                              children: [
+                                if (!isFinalStep)
+                                  Expanded(
+                                    child: Row(
+                                      children: [
+                                        for (
+                                          var dot = 0;
+                                          dot < totalSteps;
+                                          dot++
+                                        ) ...[
+                                          AnimatedContainer(
+                                            duration: const Duration(
+                                              milliseconds: 180,
+                                            ),
+                                            width: dot == stepIndex ? 18 : 6,
+                                            height: 6,
+                                            decoration: BoxDecoration(
+                                              color: dot == stepIndex
+                                                  ? teal
+                                                  : line,
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                          ),
+                                          if (dot < totalSteps - 1)
+                                            const SizedBox(width: 5),
+                                        ],
+                                      ],
+                                    ),
+                                  )
+                                else
+                                  const Spacer(),
+                                FilledButton(
+                                  onPressed: onAdvance,
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: clay,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 18,
+                                      vertical: 11,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    isFinalStep ? 'Finish tour' : 'Next',
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 9),
+                            Center(
+                              child: Text(
+                                isFinalStep
+                                    ? 'Tap anywhere to finish'
+                                    : 'Tap anywhere to continue',
+                                style: TextStyle(
+                                  color:
+                                      Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? const Color(0xFFB7CDD0)
+                                      : inkSoft,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _GuideDimmerPainter extends CustomPainter {
+  const _GuideDimmerPainter({required this.targetRect});
+
+  final Rect? targetRect;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final overlayPath = ui.Path()..addRect(Offset.zero & size);
+    final target = targetRect?.inflate(9);
+    if (target != null) {
+      overlayPath.addRRect(
+        RRect.fromRectAndRadius(target, const Radius.circular(18)),
+      );
+      overlayPath.fillType = ui.PathFillType.evenOdd;
+    }
+
+    canvas.drawPath(overlayPath, Paint()..color = const Color(0xE6000000));
+    if (target != null) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(target, const Radius.circular(18)),
+        Paint()
+          ..color = const Color(0xFF75D5CF)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_GuideDimmerPainter oldDelegate) =>
+      oldDelegate.targetRect != targetRect;
+}
+
+class _GuideConfetti extends StatefulWidget {
+  const _GuideConfetti();
+
+  @override
+  State<_GuideConfetti> createState() => _GuideConfettiState();
+}
+
+class _GuideConfettiState extends State<_GuideConfetti>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2200),
+  )..forward();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: _controller,
+    builder: (context, child) => CustomPaint(
+      painter: _GuideConfettiPainter(_controller.value),
+      child: const SizedBox.expand(),
+    ),
+  );
+}
+
+class _GuideConfettiPainter extends CustomPainter {
+  const _GuideConfettiPainter(this.progress);
+
+  final double progress;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const colors = [teal, clay, amber, Color(0xFF75D5CF), Color(0xFFFFD978)];
+    for (var index = 0; index < 58; index++) {
+      final seed = (index * 47 + 13) % 101;
+      final phase = (progress + (index % 17) / 17) % 1;
+      final x =
+          size.width * seed / 101 + math.sin(phase * math.pi * 4 + index) * 18;
+      final y = phase * (size.height + 70) - 35;
+      final width = 5.0 + index % 5;
+      final height = 8.0 + index % 7;
+      final paint = Paint()
+        ..color = colors[index % colors.length].withValues(
+          alpha: (1 - phase * .42).clamp(0, 1),
+        );
+      canvas.save();
+      canvas.translate(x, y);
+      canvas.rotate(phase * math.pi * 3 + index);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: Offset.zero, width: width, height: height),
+          const Radius.circular(1.5),
+        ),
+        paint,
+      );
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(_GuideConfettiPainter oldDelegate) =>
+      oldDelegate.progress != progress;
+}
+
 class _FloatingReportButton extends StatelessWidget {
   const _FloatingReportButton({
+    super.key,
     required this.selected,
     required this.onPressed,
   });
