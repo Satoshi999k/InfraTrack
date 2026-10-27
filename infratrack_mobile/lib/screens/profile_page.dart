@@ -1469,55 +1469,54 @@ class _SettingsGroup extends StatelessWidget {
   final int openReportCount;
   final int unreadNotificationCount;
   @override
-  Widget build(BuildContext context) => Material(
-    clipBehavior: Clip.antiAlias,
-    color: Theme.of(context).brightness == Brightness.dark
-        ? const Color(0xFF123643)
-        : Colors.white.withValues(alpha: .58),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(22),
-      side: BorderSide(
-        color: Theme.of(context).brightness == Brightness.dark
-            ? const Color(0xFF345A63)
-            : Colors.white.withValues(alpha: .86),
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      clipBehavior: Clip.antiAlias,
+      color: isDark ? const Color(0xFF123643) : const Color(0xFFFBF8F1),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(22),
+        side: BorderSide(
+          color: isDark ? const Color(0xFF345A63) : const Color(0xFFE9E1D2),
+        ),
       ),
-    ),
-    child: Column(
-      children: [
-        MenuRow(
-          icon: Icons.description_outlined,
-          title: 'My reports',
-          subtitle:
-              '$openReportCount open · ${reportCount - openReportCount} resolved',
-          badge: '$reportCount',
-          accentColor: teal,
-          inGroup: true,
-          onTap: onMyReportsTap,
-        ),
-        MenuRow(
-          icon: Icons.notifications_none,
-          title: 'Notifications',
-          subtitle: '$unreadNotificationCount unread',
-          badge: '$unreadNotificationCount',
-          accentColor: amber,
-          inGroup: true,
-          onTap: onNotificationsTap,
-        ),
-        MenuRow(
-          icon: Icons.chat_outlined,
-          title: 'Chatbot assistant',
-          subtitle: 'Ask about reports and city updates',
-          badge: 'Chat',
-          accentColor: Theme.of(context).brightness == Brightness.dark
-              ? const Color(0xFF75D5CF)
-              : navy,
-          inGroup: true,
-          lastInGroup: true,
-          onTap: onChatbotTap,
-        ),
-      ],
-    ),
-  );
+      elevation: isDark ? 0 : 2,
+      shadowColor: navy.withValues(alpha: .06),
+      child: Column(
+        children: [
+          MenuRow(
+            icon: Icons.description_outlined,
+            title: 'My reports',
+            subtitle:
+                '$openReportCount open · ${reportCount - openReportCount} resolved',
+            badge: '$reportCount',
+            accentColor: teal,
+            inGroup: true,
+            onTap: onMyReportsTap,
+          ),
+          MenuRow(
+            icon: Icons.notifications_none,
+            title: 'Notifications',
+            subtitle: '$unreadNotificationCount unread',
+            badge: '$unreadNotificationCount',
+            accentColor: amber,
+            inGroup: true,
+            onTap: onNotificationsTap,
+          ),
+          MenuRow(
+            icon: Icons.chat_outlined,
+            title: 'Chatbot assistant',
+            subtitle: 'Ask about reports and city updates',
+            badge: 'Chat',
+            accentColor: isDark ? const Color(0xFF75D5CF) : navy,
+            inGroup: true,
+            lastInGroup: true,
+            onTap: onChatbotTap,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _TrustSettingsGroup extends StatelessWidget {
