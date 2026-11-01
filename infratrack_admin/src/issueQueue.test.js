@@ -68,6 +68,15 @@ test("queue status counts use the currently selected non-status filters", () => 
   });
 });
 
+test("pending queue count excludes in-progress and resolved reports", () => {
+  assert.deepEqual(countIssueQueueStatuses(issues), {
+    all: 4,
+    pending: 1,
+    "In progress": 1,
+    Resolved: 1,
+  });
+});
+
 test("queue barangay choices are unique and based on available reports", () => {
   assert.deepEqual(getAvailableIssueBarangays(issues), [
     { value: "central", label: "Brgy. Central" },

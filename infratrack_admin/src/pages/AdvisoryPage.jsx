@@ -454,9 +454,14 @@ export default function AdvisoryPage({
             ))}
           </div>
         ) : !displayedAdvisories.length ? (
-          <p className="advisory-empty" role={error ? "alert" : undefined}>
-            {error || "No published advisories yet."}
-          </p>
+          error ? (
+            <p className="advisory-empty" role="alert">{error}</p>
+          ) : (
+            <div className="advisory-empty-state" role="status">
+              <Megaphone size={24} aria-hidden="true" />
+              <span>No published advisories yet.</span>
+            </div>
+          )
         ) : displayedAdvisories.map((advisory) => {
           const [label, AdvisoryIcon] = typeMeta[advisory.type];
           return (

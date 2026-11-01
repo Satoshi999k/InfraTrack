@@ -48,6 +48,7 @@ import AdvisoryPage from "./pages/AdvisoryPage";
 import SettingsPage from "./pages/SettingsPage";
 import Login from "./Login";
 import { API_BASE, apiFetch } from "./api";
+import { countIssueQueueStatuses } from "./issueQueue";
 import {
   clearAuthSession,
   getStoredAuthSession,
@@ -313,6 +314,10 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
       ),
     [issues, query],
   );
+  const pendingIssueCount = useMemo(
+    () => countIssueQueueStatuses(issues).pending,
+    [issues],
+  );
 
   const notifications = useMemo(
     () =>
@@ -519,7 +524,7 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
               >
                 <Icon icon={navIcons[id]} />
                 <span>{label}</span>
-                {id === "queue" && <b>{filteredIssues.length}</b>}
+                {id === "queue" && <b>{pendingIssueCount}</b>}
               </button>
             ))}
           </div>

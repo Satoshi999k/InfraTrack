@@ -1639,6 +1639,21 @@ a:focus-visible,
   font-size: calc((12px) * var(--appearance-text-scale, 1));
   text-align: center;
 }
+.advisory-empty-state {
+  display: grid;
+  grid-column: 1 / -1;
+  justify-items: center;
+  align-content: center;
+  gap: 9px;
+  min-height: 100px;
+  padding: 20px 14px;
+  color: var(--muted);
+  font-size: calc((12px) * var(--appearance-text-scale, 1));
+  text-align: center;
+}
+.advisory-empty-state svg {
+  color: var(--teal);
+}
 .skeleton-line,
 .skeleton-block,
 .skeleton-value {
@@ -5263,6 +5278,12 @@ tbody tr:last-child td {
   margin: 0;
   font-size: calc((20px) * var(--appearance-text-scale, 1));
   line-height: 1.2;
+}
+.help-tour-title-brand {
+  color: var(--navy);
+  font-family: "Archivo", system-ui, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.04em;
 }
 .help-tour-modal p {
   min-height: 42px;

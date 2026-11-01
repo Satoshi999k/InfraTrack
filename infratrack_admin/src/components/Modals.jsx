@@ -710,7 +710,19 @@ function HelpModal({ onClose }) {
               <StepIcon size={20} />
             )}
           </div>
-          <h2 id="help-tour-title">{currentStep.title}</h2>
+          <h2 id="help-tour-title">
+            {step === 0 ? (
+              <>
+                Welcome to{" "}
+                <span className="help-tour-title-brand">
+                  <span>Infra</span>
+                  <span className="help-tour-brand-accent">Track</span>
+                </span>
+              </>
+            ) : (
+              currentStep.title
+            )}
+          </h2>
           <p>{currentStep.description}</p>
         </div>
         <div className="help-tour-footer">
