@@ -161,6 +161,7 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
   const [modal, setModal] = useState(null);
   const [issues, setIssues] = useState([]);
   const [advisoryActivity, setAdvisoryActivity] = useState([]);
+  const [applicationNotifications, setApplicationNotifications] = useState([]);
   const [users, setUsers] = useState([]);
   const [teams, setTeams] = useState([]);
   const [overviewData, setOverviewData] = useState(null);
@@ -254,6 +255,29 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
       }
     };
 
+    const refreshApplicationNotifications = async () => {
+      try {
+        const response = await apiFetch("/mobile/notifications");
+        if (!response.ok) {
+          throw new Error(
+            `Notification refresh failed (${response.status})`,
+          );
+        }
+        const data = await response.json();
+        if (active) {
+          setApplicationNotifications(data.notifications ?? []);
+        }
+      } catch (error) {
+        if (active) {
+          setApiError(
+            error instanceof Error
+              ? error.message
+              : "Could not refresh application notifications",
+          );
+        }
+      }
+    };
+
     const stopPolling = startVisiblePolling(refreshDashboard, {
       documentRef: document,
       intervalMs: 30_000,
@@ -262,10 +286,18 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
       documentRef: document,
       intervalMs: 5_000,
     });
+    const stopNotificationPolling = startVisiblePolling(
+      refreshApplicationNotifications,
+      {
+        documentRef: document,
+        intervalMs: 15_000,
+      },
+    );
     return () => {
       active = false;
       stopPolling();
       stopIssuePolling();
+      stopNotificationPolling();
     };
   }, [isBarangayStaff, user.id]);
 
@@ -319,38 +351,60 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
     [issues],
   );
 
-  const notifications = useMemo(
-    () =>
-      [
-        ...issues.map((issue) => ({
+  const notifications = useMemo(() => {
+    const alertNotifications = applicationNotifications
+      .filter((notification) =>
+        ["new_report", "duplicate_issue", "priority_escalation"].includes(
+          notification.type,
+        ),
+      )
+      .map((notification) => ({
+        ...notification,
+        activity_type: "application",
+        notification_id: `application:${notification.id}`,
+        database_notification_id: notification.id,
+        notification_title: notification.title,
+        notification_message: notification.message,
+      }));
+    const alertReportIds = new Set(
+      alertNotifications
+        .map((notification) => Number(notification.report_id))
+        .filter(Number.isSafeInteger),
+    );
+
+    return [
+      ...issues
+        .filter((issue) => !alertReportIds.has(Number(issue.id)))
+        .map((issue) => ({
           ...issue,
           activity_type: "issue",
           notification_id: issue.public_id,
           notification_title: issue.title,
           notification_message: `${issue.status} · ${issue.location}`,
         })),
-        ...advisoryActivity.map((activity) => ({
-          ...activity,
-          notification_id: activity.id,
-          notification_title:
-            activity.activity_type === "comment"
-              ? `${activity.actor_name} commented`
-              : `${activity.actor_name} liked an advisory`,
-          notification_message:
-            activity.activity_type === "comment"
-              ? `${activity.advisory_title} · ${activity.body}`
-              : activity.advisory_title,
-        })),
-      ]
-        .sort(
-          (a, b) =>
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-        )
-        .slice(0, 8),
-    [advisoryActivity, issues],
-  );
+      ...alertNotifications,
+      ...advisoryActivity.map((activity) => ({
+        ...activity,
+        notification_id: activity.id,
+        notification_title:
+          activity.activity_type === "comment"
+            ? `${activity.actor_name} commented`
+            : `${activity.actor_name} liked an advisory`,
+        notification_message:
+          activity.activity_type === "comment"
+            ? `${activity.advisory_title} · ${activity.body}`
+            : activity.advisory_title,
+      })),
+    ]
+      .sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      )
+      .slice(0, 8);
+  }, [advisoryActivity, applicationNotifications, issues]);
   const unreadNotificationCount = notifications.filter(
     (notification) =>
+      !notification.read_at &&
       !readNotificationIds.includes(notification.notification_id),
   ).length;
 
@@ -387,10 +441,47 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
     };
   }, []);
 
-  const markNotificationsRead = () => {
+  const markNotificationsRead = async () => {
     const ids = notifications.map(
       (notification) => notification.notification_id,
     );
+    const persistedNotifications = notifications.filter(
+      (notification) => notification.database_notification_id,
+    );
+    try {
+      const responses = await Promise.all(
+        persistedNotifications.map((notification) =>
+          apiFetch(
+            `/mobile/notifications/${notification.database_notification_id}/read`,
+            { method: "PATCH" },
+          ),
+        ),
+      );
+      const failedResponse = responses.find((response) => !response.ok);
+      if (failedResponse) {
+        throw new Error(
+          `Could not mark notifications as read (${failedResponse.status})`,
+        );
+      }
+      const readAt = new Date().toISOString();
+      setApplicationNotifications((current) =>
+        current.map((notification) =>
+          persistedNotifications.some(
+            (item) =>
+              Number(item.database_notification_id) === Number(notification.id),
+          )
+            ? { ...notification, read_at: readAt }
+            : notification,
+        ),
+      );
+    } catch (error) {
+      setApiError(
+        error instanceof Error
+          ? error.message
+          : "Could not mark notifications as read",
+      );
+      return;
+    }
     setReadNotificationIds((current) => {
       const next = [...new Set([...current, ...ids])];
       localStorage.setItem(
@@ -401,7 +492,36 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
     });
   };
 
-  const markNotificationRead = (notificationId) => {
+  const markNotificationRead = async (notification) => {
+    if (notification.database_notification_id && !notification.read_at) {
+      try {
+        const response = await apiFetch(
+          `/mobile/notifications/${notification.database_notification_id}/read`,
+          { method: "PATCH" },
+        );
+        if (!response.ok) {
+          throw new Error(
+            `Could not mark notification as read (${response.status})`,
+          );
+        }
+        setApplicationNotifications((current) =>
+          current.map((item) =>
+            Number(item.id) ===
+            Number(notification.database_notification_id)
+              ? { ...item, read_at: new Date().toISOString() }
+              : item,
+          ),
+        );
+      } catch (error) {
+        setApiError(
+          error instanceof Error
+            ? error.message
+            : "Could not mark notification as read",
+        );
+        return;
+      }
+    }
+    const notificationId = notification.notification_id;
     setReadNotificationIds((current) => {
       if (current.includes(notificationId)) return current;
       const next = [...current, notificationId];
@@ -623,18 +743,30 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
                   </div>
                   <div className="notification-list">
                     {notifications.map((notification) => {
-                      const unread = !readNotificationIds.includes(
-                        notification.notification_id,
-                      );
+                      const unread =
+                        !notification.read_at &&
+                        !readNotificationIds.includes(
+                          notification.notification_id,
+                        );
                       return (
                         <button
                           className={`notification-item ${unread ? "unread" : ""}`}
                           type="button"
                           key={`${notification.activity_type}:${notification.notification_id}`}
-                          onClick={() => {
-                            markNotificationRead(notification.notification_id);
+                          onClick={async () => {
+                            await markNotificationRead(notification);
                             if (notification.activity_type === "issue") {
                               setModal({ type: "issue", ...notification });
+                            } else if (
+                              notification.activity_type === "application"
+                            ) {
+                              const issue = issues.find(
+                                (item) =>
+                                  Number(item.id) ===
+                                  Number(notification.report_id),
+                              );
+                              if (issue) setModal({ type: "issue", ...issue });
+                              else navigate("queue");
                             } else {
                               setModal({
                                 type: "advisory-engagement",
@@ -661,7 +793,7 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
                     })}
                     {!notifications.length && (
                       <p className="notification-empty">
-                        No new reports or advisory activity.
+                        No new reports, app alerts, or advisory activity.
                       </p>
                     )}
                   </div>

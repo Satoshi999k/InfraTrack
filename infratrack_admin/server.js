@@ -500,26 +500,40 @@ async function deliverNotificationPush(notification) {
   }
 }
 
-async function queueNotification({ userId, reportId = null, advisoryId = null, type, title, message, channel = "push" }) {
+async function queueNotification({
+  userId,
+  reportId = null,
+  advisoryId = null,
+  type,
+  title,
+  message,
+  channel = "push",
+  sendPush = true,
+  respectUserPreference = true,
+}) {
   if (!userId || !title || !message) return null;
-  const [[preferences]] = await pool.query(
-    "SELECT allow_notifications FROM user_preferences WHERE user_id = ?",
-    [Number(userId)],
-  );
-  if (preferences && Number(preferences.allow_notifications) === 0) return null;
+  if (respectUserPreference) {
+    const [[preferences]] = await pool.query(
+      "SELECT allow_notifications FROM user_preferences WHERE user_id = ?",
+      [Number(userId)],
+    );
+    if (preferences && Number(preferences.allow_notifications) === 0) return null;
+  }
   const [result] = await pool.query(
     "INSERT INTO notifications (user_id, report_id, advisory_id, type, title, message, channel) VALUES (?, ?, ?, ?, ?, ?, ?)",
     [Number(userId), reportId ?? null, advisoryId ?? null, type || "system", title, message, channel],
   );
-  await deliverNotificationPush({
-    id: result.insertId,
-    user_id: Number(userId),
-    report_id: reportId ?? null,
-    advisory_id: advisoryId ?? null,
-    type: type || "system",
-    title,
-    message,
-  });
+  if (sendPush) {
+    await deliverNotificationPush({
+      id: result.insertId,
+      user_id: Number(userId),
+      report_id: reportId ?? null,
+      advisory_id: advisoryId ?? null,
+      type: type || "system",
+      title,
+      message,
+    });
+  }
   return { ok: true };
 }
 
@@ -669,7 +683,7 @@ async function notifyIssueStakeholders(report, eventType = "report") {
   }[eventType];
   if (!settingKey) throw new Error(`Unsupported issue notification event: ${eventType}`);
   if (settings[settingKey] === false) return;
-  const [admins] = await pool.query("SELECT id, email, mobile, name FROM users WHERE role IN ('lgu', 'admin') ORDER BY id");
+  const [admins] = await pool.query("SELECT id FROM users WHERE role IN ('lgu', 'admin') ORDER BY id");
   const subject = eventType === "duplicate"
     ? `Duplicate issue detected: ${report.public_id || report.id}`
     : eventType === "newReport"
@@ -692,11 +706,10 @@ async function notifyIssueStakeholders(report, eventType = "report") {
           : "priority_escalation",
       title: subject,
       message: body,
-      channel: "push",
+      channel: "in_app",
+      sendPush: false,
+      respectUserPreference: false,
     });
-
-    if (admin.email) await dispatchNotification({ channel: "email", recipient: admin.email, subject, body });
-    if (admin.mobile) await dispatchNotification({ channel: "sms", recipient: admin.mobile, subject: subject.slice(0, 100), body });
   }
 }
 
@@ -1625,8 +1638,9 @@ app.post("/api/mobile/advisories/:id/reaction", async (req, res) => {
 });
 app.get("/api/mobile/reports", async (req, res) => {
   const [reports] = await pool.query(`SELECT r.*, u.name AS reporter,
-    (SELECT m.file_path FROM media m WHERE m.report_id = r.id ORDER BY m.id ASC LIMIT 1) AS media_url,
-    (SELECT m.media_type FROM media m WHERE m.report_id = r.id ORDER BY m.id ASC LIMIT 1) AS media_kind
+    (SELECT m.file_path FROM media m WHERE m.report_id = r.id AND m.media_type <> 'resolution_photo' ORDER BY m.id ASC LIMIT 1) AS media_url,
+    (SELECT m.media_type FROM media m WHERE m.report_id = r.id AND m.media_type <> 'resolution_photo' ORDER BY m.id ASC LIMIT 1) AS media_kind,
+    (SELECT m.file_path FROM media m WHERE m.report_id = r.id AND m.media_type = 'resolution_photo' ORDER BY m.id DESC LIMIT 1) AS resolution_media_url
     FROM reports r LEFT JOIN users u ON u.id = r.reporter_id
     WHERE r.reporter_id = ? ORDER BY r.created_at DESC`, [req.auth.id]);
   let progressEvents = [];
@@ -1647,6 +1661,7 @@ app.get("/api/mobile/reports", async (req, res) => {
   res.json({ reports: reportsWithProgress.map((report) => ({
     ...report,
     media_url: publicMediaUrl(req, report.media_url),
+    resolution_media_url: publicMediaUrl(req, report.resolution_media_url),
   })) });
 });
 app.post("/api/mobile/reports/severity", (req, res) => {
