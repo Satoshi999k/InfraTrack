@@ -12,11 +12,13 @@ void main() {
   testWidgets('expired restored session shows a persistent sign-in notice', (
     WidgetTester tester,
   ) async {
+    ApiService.sessionTokenStore = _MemorySessionTokenStore(
+      'expired-session-test-token',
+    );
     final lastOpened = DateTime.now()
         .subtract(const Duration(hours: 9))
         .millisecondsSinceEpoch;
     SharedPreferences.setMockInitialValues({
-      'session_token': 'expired-session-test-token',
       'session_user': jsonEncode({'id': 42, 'name': 'Test Resident'}),
       'session_last_opened': lastOpened,
     });
@@ -47,4 +49,23 @@ void main() {
       await ApiService.signOutForExpiredSession();
     }
   });
+}
+
+class _MemorySessionTokenStore implements ApiSessionTokenStore {
+  _MemorySessionTokenStore(this.token);
+
+  String? token;
+
+  @override
+  Future<String?> read() async => token;
+
+  @override
+  Future<void> write(String value) async {
+    token = value;
+  }
+
+  @override
+  Future<void> delete() async {
+    token = null;
+  }
 }

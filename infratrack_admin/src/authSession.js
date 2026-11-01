@@ -1,52 +1,54 @@
 export const STORAGE_KEYS = {
-  token: 'infratrack.adminToken',
-  user: 'infratrack.adminUser',
-  rememberMe: 'infratrack.adminRememberMe',
-  rememberedEmail: 'infratrack.adminRememberedEmail',
+  token: "infratrack.adminToken",
+  user: "infratrack.adminUser",
+  rememberMe: "infratrack.adminRememberMe",
+  rememberedEmail: "infratrack.adminRememberedEmail",
 };
 
 export function getRememberedEmail() {
-  if (!globalThis.localStorage) return '';
-  return globalThis.localStorage.getItem(STORAGE_KEYS.rememberedEmail) || '';
+  if (!globalThis.localStorage) return "";
+  return globalThis.localStorage.getItem(STORAGE_KEYS.rememberedEmail) || "";
 }
 
-export function saveAuthSession({ token, user, rememberMe, email }) {
+export function saveAuthSession({ user, rememberMe, email }) {
   if (!globalThis.localStorage || !globalThis.sessionStorage) {
     return;
   }
 
-  const safeUser = typeof user === 'string' ? user : JSON.stringify(user ?? null);
-
-  if (rememberMe) {
-    globalThis.localStorage.setItem(STORAGE_KEYS.token, token);
-    globalThis.localStorage.setItem(STORAGE_KEYS.user, safeUser);
-    globalThis.localStorage.setItem(STORAGE_KEYS.rememberMe, 'true');
-    if (email) {
-      globalThis.localStorage.setItem(STORAGE_KEYS.rememberedEmail, email.trim());
-    }
-
-    globalThis.sessionStorage.removeItem(STORAGE_KEYS.token);
-    globalThis.sessionStorage.removeItem(STORAGE_KEYS.user);
-    globalThis.sessionStorage.removeItem(STORAGE_KEYS.rememberMe);
-    return;
-  }
-
-  globalThis.sessionStorage.setItem(STORAGE_KEYS.token, token);
-  globalThis.sessionStorage.setItem(STORAGE_KEYS.user, safeUser);
-  globalThis.localStorage.setItem(STORAGE_KEYS.rememberMe, 'false');
+  const safeUser =
+    typeof user === "string" ? user : JSON.stringify(user ?? null);
   globalThis.localStorage.removeItem(STORAGE_KEYS.token);
+  globalThis.sessionStorage.removeItem(STORAGE_KEYS.token);
   globalThis.localStorage.removeItem(STORAGE_KEYS.user);
-  globalThis.localStorage.removeItem(STORAGE_KEYS.rememberedEmail);
-  globalThis.sessionStorage.removeItem(STORAGE_KEYS.rememberMe);
+  globalThis.sessionStorage.removeItem(STORAGE_KEYS.user);
+  if (rememberMe) {
+    globalThis.localStorage.setItem(STORAGE_KEYS.user, safeUser);
+    globalThis.localStorage.setItem(STORAGE_KEYS.rememberMe, "true");
+    if (email) {
+      globalThis.localStorage.setItem(
+        STORAGE_KEYS.rememberedEmail,
+        email.trim(),
+      );
+    }
+  } else {
+    globalThis.sessionStorage.setItem(STORAGE_KEYS.user, safeUser);
+    globalThis.localStorage.setItem(STORAGE_KEYS.rememberMe, "false");
+    globalThis.localStorage.removeItem(STORAGE_KEYS.rememberedEmail);
+  }
 }
 
 export function getStoredAuthSession() {
   if (!globalThis.localStorage || !globalThis.sessionStorage) {
-    return { token: '', user: null, rememberMe: false };
+    return { token: "", user: null, rememberMe: false };
   }
 
-  const token = globalThis.localStorage.getItem(STORAGE_KEYS.token) || globalThis.sessionStorage.getItem(STORAGE_KEYS.token) || '';
-  const rawUser = globalThis.localStorage.getItem(STORAGE_KEYS.user) || globalThis.sessionStorage.getItem(STORAGE_KEYS.user);
+  const token =
+    globalThis.localStorage.getItem(STORAGE_KEYS.token) ||
+    globalThis.sessionStorage.getItem(STORAGE_KEYS.token) ||
+    "";
+  const rawUser =
+    globalThis.localStorage.getItem(STORAGE_KEYS.user) ||
+    globalThis.sessionStorage.getItem(STORAGE_KEYS.user);
 
   let user = null;
   if (rawUser) {
@@ -60,7 +62,8 @@ export function getStoredAuthSession() {
   return {
     token,
     user,
-    rememberMe: globalThis.localStorage.getItem(STORAGE_KEYS.rememberMe) === 'true',
+    rememberMe:
+      globalThis.localStorage.getItem(STORAGE_KEYS.rememberMe) === "true",
   };
 }
 
@@ -69,12 +72,12 @@ export function updateStoredAuthUser(user) {
     return false;
   }
 
-  if (globalThis.localStorage.getItem(STORAGE_KEYS.token)) {
+  if (globalThis.localStorage.getItem(STORAGE_KEYS.rememberMe) === "true") {
     globalThis.localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(user));
     return true;
   }
 
-  if (globalThis.sessionStorage.getItem(STORAGE_KEYS.token)) {
+  if (globalThis.sessionStorage.getItem(STORAGE_KEYS.user)) {
     globalThis.sessionStorage.setItem(STORAGE_KEYS.user, JSON.stringify(user));
     return true;
   }
@@ -87,8 +90,10 @@ export function clearAuthSession() {
     return;
   }
 
-  [STORAGE_KEYS.token, STORAGE_KEYS.user, STORAGE_KEYS.rememberMe].forEach((key) => {
-    globalThis.localStorage.removeItem(key);
-    globalThis.sessionStorage.removeItem(key);
-  });
+  [STORAGE_KEYS.token, STORAGE_KEYS.user, STORAGE_KEYS.rememberMe].forEach(
+    (key) => {
+      globalThis.localStorage.removeItem(key);
+      globalThis.sessionStorage.removeItem(key);
+    },
+  );
 }

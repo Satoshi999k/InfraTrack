@@ -76,8 +76,9 @@ export default function Login({ onLogin }) {
       const recaptchaToken = await getRecaptchaToken();
       const response = await fetch(`${API_BASE}/auth/login`, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, recaptchaToken }),
+        body: JSON.stringify({ email, password, recaptchaToken, rememberMe }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "invalid credentials");
@@ -85,7 +86,7 @@ export default function Login({ onLogin }) {
         setError("This account is a resident account. Please use the InfraTrack mobile app.");
         return;
       }
-      saveAuthSession({ token: data.token, user: data.user, rememberMe, email });
+      saveAuthSession({ user: data.user, rememberMe, email });
       onLogin(data.user);
     } catch (loginError) {
       setError(loginError.message || "We couldn’t sign you in with those details.");

@@ -130,7 +130,7 @@ Copy-Item .env.example .env
 npm install
 ```
 
-Edit `infratrack_admin/.env` and set the local database credentials for your MySQL server. For a default local XAMPP installation, the values in `.env.example` are a starting point; set a password if your MySQL account requires one.
+Edit `infratrack_admin/.env` and set the local database credentials for your MySQL server. For a default local XAMPP installation, the values in `.env.example` are a starting point; set a password if your MySQL account requires one. To populate a development database with demonstration accounts and sample content, set `SEED_DEMO_DATA=true`; it is disabled by default and rejected in production.
 
 Start both the API and the Vite development server:
 
@@ -166,7 +166,7 @@ For durable profile-photo uploads on hosts with ephemeral filesystems such as
 Render, configure `CLOUDINARY_CLOUD_NAME` and `CLOUDINARY_UPLOAD_PRESET` in the
 API service environment. Local uploads may be lost when the service restarts.
 
-The first API startup creates the configured database and tables and may insert demonstration users, reports, teams, and advisories when the database is empty. This demo seed behavior is intended for development; read [Security and operational considerations](#security-and-operational-considerations) before exposing a fresh instance.
+The first API startup creates the configured database and tables. Demonstration accounts, reports, and advisories are not inserted unless `SEED_DEMO_DATA=true` is explicitly set in a non-production environment. Production startup rejects that setting.
 
 To run only one part:
 
@@ -232,11 +232,17 @@ The API reads environment variables from `infratrack_admin/.env`. Start from [`i
 | `DB_PASSWORD` | MySQL password | Empty in the template; configure for your environment |
 | `DB_NAME` | Application database name | `infratrack` |
 | `DB_SSL` | Enable TLS for the MySQL connection | `false` locally; enable for a managed database when required |
+| `NODE_ENV` | Runtime environment | Set to `production` for deployments; HTTPS is enforced automatically |
+| `SEED_DEMO_DATA` | Insert development demo accounts and content on an empty database | Defaults to `false`; cannot be enabled in production |
+| `FORCE_HTTPS` | Redirect HTTP requests to HTTPS | Defaults to `false` locally; production always enforces HTTPS |
+| `TRUST_PROXY` | Trust forwarded client IP and HTTPS headers from a reverse proxy | Enable only behind a trusted proxy |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated browser origins allowed to call the API | Local Vite origins are allowed in development; production cross-origin deployments must set the admin origin |
+| `LOGIN_MAX_ATTEMPTS` | Login attempts allowed per IP within the server's rate-limit window | Defaults to `10`; login and password-reset limits are stored in MySQL |
+| `INITIAL_ADMIN_NAME`, `INITIAL_ADMIN_EMAIL`, `INITIAL_ADMIN_PASSWORD` | One-time first LGU administrator provisioning | Provide temporarily through a secret manager or protected shell when running `npm run provision-admin`; never commit or leave the password configured |
 | `VITE_API_URL` | Optional admin frontend API URL | Development defaults to `http://localhost:3001/api`; production defaults to same-origin `/api` |
 | `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name for durable advisory media | Optional |
 | `CLOUDINARY_UPLOAD_PRESET` | Cloudinary upload preset | Optional; configure durable storage for serverless deployments |
 | `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | Server-side signed Cloudinary upload fallback | Optional; keep the secret server-side |
-| `LOGIN_MAX_ATTEMPTS` | Login attempts allowed per IP within the server's rate-limit window | Defaults to `10` |
 | `EMAILJS_SERVICE_ID` / `EMAILJS_TEMPLATE_ID` | EmailJS Gmail service and email template IDs | Configure when using EmailJS to send from a connected Gmail account |
 | `EMAILJS_PUBLIC_KEY` / `EMAILJS_PRIVATE_KEY` | EmailJS API keys | Required with the service and template IDs; keep the private key server-side |
 | `EMAILJS_FROM_NAME` | Sender display name for EmailJS messages | Defaults to `InfraTrack`; the connected Gmail account is the sender |
@@ -302,8 +308,11 @@ The Android APK is generated under `infratrack_mobile/build/app/outputs/flutter-
 
 ```powershell
 Set-Location .\infratrack_website
+npm test
 npm run build
 ```
+
+The website's Node test runner validates the HTML sections and accessibility hooks consumed by its React shell.
 
 ## Deployment notes
 
@@ -319,10 +328,13 @@ npm run build
 
 ## Security and operational considerations
 
-- **Do not deploy the development seed accounts.** The API source contains shared demo credentials for seed accounts; on an empty database, demo users may be created automatically. Replace/remove those accounts and their credentials before making any instance accessible outside a controlled development environment. Do not publish their credentials.
+- **Keep demo seeding disabled in production.** It is off by default, and production startup refuses `SEED_DEMO_DATA=true`. If demo data was created in a development database, do not reuse that database for production.
+- Provision the first real LGU administrator with `npm run provision-admin` after the API has initialized the database schema and before opening the admin portal. Supply its one-time values through a protected environment, then remove `INITIAL_ADMIN_PASSWORD`; the command refuses to run if an LGU/admin account already exists.
 - Use unique, strong credentials for database and provider accounts. Keep `.env`, API tokens, signing keys, and Cloudinary secrets out of Git and client-side bundles.
-- Identity documents and selfie verification media are sensitive personal data. Restrict access, use HTTPS, protect storage and backups, and apply the retention and deletion practices required by your organization.
-- Configure appropriate authentication, authorization, CORS/origin restrictions, rate limits, database permissions, and persistent backups for the production environment.
+- Identity documents and selfie verification media are sensitive personal data. They are stored outside the public uploads directory and served through authenticated, barangay-scoped admin routes. Persist and back up `infratrack_admin/private_uploads/` on a private volume with restricted filesystem access; serverless deployments return an explicit error for verification uploads until durable private storage is configured. Existing public Cloudinary verification objects must be migrated to private storage and revoked at the provider.
+- The admin portal uses an HTTP-only session cookie. Keep it same-origin (or same-site behind a reverse proxy), configure `CORS_ALLOWED_ORIGINS` for any cross-origin development setup, and do not allow untrusted origins. Mobile release builds require HTTPS and store session tokens with platform-secure storage; cleartext traffic is enabled only in Android debug builds.
+- Login and password-reset rate limits are stored in MySQL and shared across API instances. Configure trusted proxy handling carefully so client IP limits cannot be spoofed.
+- Use least-privilege database credentials and persistent, access-controlled backups for production.
 - Map tiles are provided by OpenStreetMap and require internet access. Follow the [OpenStreetMap tile usage policy](https://operations.osmfoundation.org/policies/tiles/).
 
 ## Troubleshooting
