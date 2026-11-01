@@ -1,5 +1,5 @@
 import { createPortal } from "react-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CircleMarker, MapContainer, TileLayer } from "react-leaflet";
 import {
   Check,
@@ -40,12 +40,14 @@ export default function SettingsPage({ user, logsOnly = false }) {
   const isBarangayStaff = user?.role === "barangay_staff";
   const canManageSettings = canManageSystemSettings(user?.role);
   const [settings, setSettings] = useState(defaultSettings);
-  const [saved, setSaved] = useState(false);
   const [settingsDirty, setSettingsDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [saveStatus, setSaveStatus] = useState("");
   const [notificationSaveStatus, setNotificationSaveStatus] = useState("");
   const [settingsError, setSettingsError] = useState("");
+  const saveStatusTimeout = useRef(null);
   const [appearance, setAppearance] = useState(readAppearance);
   const [passwords, setPasswords] = useState({ current: "", next: "", confirm: "" });
   const [passwordMessage, setPasswordMessage] = useState("");
@@ -60,6 +62,32 @@ export default function SettingsPage({ user, logsOnly = false }) {
   const [auditLoading, setAuditLoading] = useState(false);
   const [logsError, setLogsError] = useState("");
   const [auditFilters, setAuditFilters] = useState({ user: "", action: "", barangay: "", from: "", to: "" });
+
+  const clearSaveStatus = () => {
+    if (saveStatusTimeout.current !== null) {
+      window.clearTimeout(saveStatusTimeout.current);
+      saveStatusTimeout.current = null;
+    }
+    setSaveStatus("");
+  };
+
+  const showSaveStatus = (message) => {
+    clearSaveStatus();
+    setSaveStatus(message);
+    saveStatusTimeout.current = window.setTimeout(() => {
+      saveStatusTimeout.current = null;
+      setSaveStatus("");
+    }, 2500);
+  };
+
+  useEffect(
+    () => () => {
+      if (saveStatusTimeout.current !== null) {
+        window.clearTimeout(saveStatusTimeout.current);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!user?.id || logsOnly || !canManageSettings) return;
@@ -185,6 +213,7 @@ export default function SettingsPage({ user, logsOnly = false }) {
     const nextValue = !previousValue;
     setSettings((current) => ({ ...current, [key]: nextValue }));
     setSaving(true);
+    clearSaveStatus();
     setSettingsError("");
     setNotificationSaveStatus("Saving notification preferences…");
     try {
@@ -202,6 +231,7 @@ export default function SettingsPage({ user, logsOnly = false }) {
         [key]: data.settings?.[key] ?? nextValue,
       }));
       setNotificationSaveStatus("Notification preferences saved.");
+      showSaveStatus("Notification preferences saved.");
     } catch (error) {
       setSettings((current) => ({ ...current, [key]: previousValue }));
       setSettingsError(error.message);
@@ -216,7 +246,7 @@ export default function SettingsPage({ user, logsOnly = false }) {
       ...current,
       [key]: value === "" ? "" : Number(value),
     }));
-    setSaved(false);
+    clearSaveStatus();
     setSettingsDirty(true);
     setSettingsError("");
   };
@@ -232,6 +262,7 @@ export default function SettingsPage({ user, logsOnly = false }) {
       transitionOrigin,
     );
     setAppearance(next);
+    showSaveStatus("Appearance saved.");
   };
 
   const resetAppearance = () => {
@@ -243,11 +274,14 @@ export default function SettingsPage({ user, logsOnly = false }) {
       true,
     );
     setAppearance(next);
+    showSaveStatus("Appearance saved.");
   };
 
   const saveSettings = async () => {
     if (!canManageSettings) return;
     setSaving(true);
+    setSavingSettings(true);
+    clearSaveStatus();
     setSettingsError("");
     try {
       const response = await apiFetch(`/settings`, {
@@ -258,12 +292,13 @@ export default function SettingsPage({ user, logsOnly = false }) {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not save system settings");
       setSettings((current) => ({ ...current, ...data.settings }));
-      setSaved(true);
       setSettingsDirty(false);
+      showSaveStatus("Settings saved.");
     } catch (error) {
       setSettingsError(error.message);
     } finally {
       setSaving(false);
+      setSavingSettings(false);
     }
   };
 
@@ -353,9 +388,13 @@ export default function SettingsPage({ user, logsOnly = false }) {
           <h2>{isBarangayStaff ? "Account settings" : "System settings"}</h2>
           <p>{isBarangayStaff ? "Review your assigned barangay and secure your account." : "Manage dashboard behavior and notification preferences."}</p>
         </div>
-        {canManageSettings && <button type="button" className="primary-button settings-save-button" onClick={saveSettings} disabled={saving || !settingsLoaded || !settingsDirty}>
-          {saving ? "Saving…" : saved ? "Saved" : settingsDirty ? "Save changes" : "Settings saved"}
-        </button>}
+        {canManageSettings && (settingsDirty || savingSettings ? (
+          <button type="button" className="primary-button settings-save-button" onClick={saveSettings} disabled={saving || !settingsLoaded || !settingsDirty}>
+            {savingSettings ? "Saving…" : "Save changes"}
+          </button>
+        ) : saveStatus ? (
+          <span className="settings-save-status" role="status">{saveStatus}</span>
+        ) : null)}
       </div>}
 
       {settingsError && !logsOnly && canManageSettings && <p className="settings-error" role="alert">{settingsError}</p>}

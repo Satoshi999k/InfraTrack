@@ -2466,6 +2466,11 @@ tbody tr:last-child td {
   justify-content: center;
   white-space: nowrap;
 }
+.settings-save-status {
+  color: #46766e;
+  font-size: calc((12px) * var(--appearance-text-scale, 1));
+  font-weight: 700;
+}
 .settings-save-button:disabled {
   border-color: transparent;
   background: transparent;
