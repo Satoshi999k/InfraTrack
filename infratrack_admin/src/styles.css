@@ -5236,6 +5236,15 @@ tbody tr:last-child td {
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
+.help-tour-brand-wordmark {
+  color: var(--navy);
+  font: 800 calc(11px * var(--appearance-text-scale, 1)) "Archivo", system-ui, sans-serif;
+  letter-spacing: -0.04em;
+  text-transform: none;
+}
+.help-tour-brand-accent {
+  color: var(--clay);
+}
 .help-tour-count {
   color: var(--muted);
   font: 600 calc(10px * var(--appearance-text-scale, 1)) "IBM Plex Mono";

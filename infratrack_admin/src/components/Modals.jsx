@@ -680,7 +680,23 @@ function HelpModal({ onClose }) {
           key={step}
         >
           <div className="help-tour-topline">
-            <span className="help-tour-eyebrow">{currentStep.eyebrow}</span>
+            <span
+              className={`help-tour-eyebrow ${
+                currentStep.eyebrow === "InfraTrack guide"
+                  ? "help-tour-brand-wordmark"
+                  : ""
+              }`}
+            >
+              {currentStep.eyebrow === "InfraTrack guide" ? (
+                <>
+                  <span>Infra</span>
+                  <span className="help-tour-brand-accent">Track</span>
+                  {" "}Guide
+                </>
+              ) : (
+                currentStep.eyebrow
+              )}
+            </span>
             <span className="help-tour-count">
               {step + 1} / {guideSteps.length}
             </span>
