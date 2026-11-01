@@ -1,7 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { normalizeIssueText, computeDuplicateMatch, escalateIssueSeverity } from './automation.js';
-import { getBarangayForCoordinates, validateBarangayCoordinates } from './barangay-boundaries.js';
+import {
+  getBarangayForCoordinates,
+  resolveReportLocation,
+  validateBarangayCoordinates,
+} from './barangay-boundaries.js';
 
 test('duplicate detection catches same-issue reports in the same barangay', () => {
   const existing = {
@@ -81,6 +85,32 @@ test('barangay validation recognizes a report inside a valid subdivision', () =>
   assert.equal(getBarangayForCoordinates(6.9632, 126.2103), 'Brgy. Central');
   assert.equal(validateBarangayCoordinates({ latitude: 6.9632, longitude: 126.2103, location: 'Brgy. Central' }).valid, true);
   assert.equal(validateBarangayCoordinates({ latitude: 6.9632, longitude: 126.2103, location: 'Brgy. Dawan' }).valid, false);
+});
+
+test('report coordinates override the generic Mati City location for routing', () => {
+  assert.equal(
+    resolveReportLocation({
+      latitude: 6.9450796,
+      longitude: 126.2323952,
+      location: 'Mati City',
+    }),
+    'Brgy. Matiao',
+  );
+});
+
+test('unmapped or private report coordinates are not routed by reporter barangay', () => {
+  assert.equal(
+    resolveReportLocation({
+      latitude: 6.95321,
+      longitude: 126.21202,
+      location: 'Mati City',
+    }),
+    'Mati City (barangay unverified)',
+  );
+  assert.equal(
+    resolveReportLocation({ location: 'Mati City' }),
+    'Mati City (barangay unverified)',
+  );
 });
 
 test('city fallback accepts Mati locations not covered by a barangay polygon', () => {

@@ -24,7 +24,10 @@ import {
   normalizeSystemSettings,
   validateSystemSettingsUpdate,
 } from "./systemSettings.js";
-import { validateBarangayCoordinates } from "./barangay-boundaries.js";
+import {
+  resolveReportLocation,
+  validateBarangayCoordinates,
+} from "./barangay-boundaries.js";
 import {
   getAdvisoryReadScope,
   getAdvisoryScope,
@@ -1772,12 +1775,11 @@ app.post("/api/mobile/reports", async (req, res) => {
   if (mediaUrl != null && !["photo", "video", "gif"].includes(mediaType)) {
     return res.status(400).json({ error: "Invalid report media type" });
   }
-  const resolvedLocation = !shareLocation
-    ? "Mati City"
-    : location ||
-      (parsedLat != null
-      ? validateBarangayCoordinates({ latitude: parsedLat, longitude: parsedLng, location }).matchedBarangay || "Mati City"
-      : "Mati City");
+  const resolvedLocation = resolveReportLocation({
+    latitude: parsedLat,
+    longitude: parsedLng,
+    location: shareLocation ? location : null,
+  });
   const connection = await pool.getConnection();
   let report;
   try {
@@ -3459,7 +3461,11 @@ app.post("/api/reports", async (req, res) => {
     }
   }
 
-  const resolvedLocation = location || (Number.isFinite(parsedLat) && Number.isFinite(parsedLng) ? validateBarangayCoordinates({ latitude: parsedLat, longitude: parsedLng, location }).matchedBarangay || "Mati City" : "Mati City");
+  const resolvedLocation = resolveReportLocation({
+    latitude: parsedLat,
+    longitude: parsedLng,
+    location,
+  });
   const id = publicId();
   const [result] = await pool.query("INSERT INTO reports (public_id, title, description, category, location, latitude, longitude, severity, reporter_id, due_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 3 DAY))", [id, title, description, normalizedCategory, resolvedLocation, parsedLat ?? null, parsedLng ?? null, severity, reporterId ?? null]);
   await pool.query("INSERT INTO report_events (report_id, status, note) VALUES (?, 'Reported', ?)", [result.insertId, "Report submitted by resident"]);

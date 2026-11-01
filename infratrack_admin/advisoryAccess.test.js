@@ -138,4 +138,14 @@ test("report matching uses reporter barangay only for generic city locations", (
     }),
     false,
   );
+  assert.equal(
+    scope.allows({
+      location: "Mati City",
+      latitude: 6.9450796,
+      longitude: 126.2323952,
+      reporter_barangay: "Barangay Central",
+    }),
+    false,
+  );
+  assert.match(scope.sql, /r\.latitude IS NULL/);
 });

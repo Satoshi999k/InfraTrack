@@ -84,6 +84,21 @@ test("queue barangay choices are unique and based on available reports", () => {
   ]);
 });
 
+test("queue barangay choices do not infer a report location from a reporter with GPS", () => {
+  assert.deepEqual(
+    getAvailableIssueBarangays([
+      {
+        location: "Mati City",
+        latitude: 6.9450796,
+        longitude: 126.2323952,
+        reporter_barangay: "Central",
+      },
+      { location: "Mati City (barangay unverified)" },
+    ]),
+    [],
+  );
+});
+
 test("queue pagination returns accurate ranges and clamps stale pages", () => {
   const reports = Array.from({ length: 23 }, (_, index) => ({ id: index + 1 }));
 

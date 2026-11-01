@@ -98,6 +98,19 @@ export function getBarangayForCoordinates(latitude, longitude) {
   return match ? match[0] : null;
 }
 
+export function resolveReportLocation({ latitude, longitude, location, barangay }) {
+  const detectedBarangay = getBarangayForCoordinates(latitude, longitude);
+  if (detectedBarangay) return detectedBarangay;
+
+  const providedLocation = String(location || barangay || "").trim();
+  const isGenericCityLocation =
+    !providedLocation || /^(?:mati(?:\s+city)?|mati city)$/i.test(providedLocation);
+
+  return isGenericCityLocation
+    ? "Mati City (barangay unverified)"
+    : providedLocation;
+}
+
 export function validateBarangayCoordinates({ latitude, longitude, location, barangay }) {
   const lat = Number(latitude);
   const lng = Number(longitude);

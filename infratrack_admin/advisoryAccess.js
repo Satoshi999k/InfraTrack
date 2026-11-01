@@ -44,7 +44,13 @@ function isGenericCityLocation(value) {
 export function reportMatchesBarangay(report, barangay) {
   if (!normalizeBarangayName(barangay)) return false;
   const location = normalizeBarangayName(report?.location);
-  const reportBarangay = isGenericCityLocation(report?.location)
+  const hasCoordinates =
+    report?.latitude != null &&
+    report?.latitude !== "" &&
+    report?.longitude != null &&
+    report?.longitude !== "";
+  const reportBarangay =
+    isGenericCityLocation(report?.location) && !hasCoordinates
     ? report?.reporter_barangay
     : location;
   return normalizeBarangayName(reportBarangay) === normalizeBarangayName(barangay);
@@ -75,6 +81,8 @@ export function getReportScope(user, tableAlias = "r") {
       ${normalizedBarangaySql(`${tableAlias}.location`)} = ${normalizedBarangaySql("?")}
       OR (
         LOWER(TRIM(${tableAlias}.location)) IN ('', 'mati', 'mati city')
+        AND ${tableAlias}.latitude IS NULL
+        AND ${tableAlias}.longitude IS NULL
         AND EXISTS (
           SELECT 1 FROM users report_owner
           WHERE report_owner.id = ${tableAlias}.reporter_id

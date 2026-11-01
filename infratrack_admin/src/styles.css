@@ -5425,6 +5425,81 @@ tbody tr:last-child td {
   height: 100%;
   object-fit: cover;
 }
+.issue-modal-view-image {
+  position: absolute;
+  z-index: 2;
+  right: 16px;
+  bottom: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  border-radius: 999px;
+  background: rgba(9, 39, 50, 0.84);
+  color: #fff;
+  font: 600 calc(11px * var(--appearance-text-scale, 1)) Inter, sans-serif;
+  cursor: pointer;
+  transition: background 0.16s ease, transform 0.16s ease;
+}
+.issue-modal-view-image:hover {
+  background: rgba(9, 39, 50, 0.98);
+  transform: translateY(-1px);
+}
+.issue-modal-view-image:focus-visible,
+.issue-photo-viewer-close:focus-visible {
+  outline: 3px solid #e5a029;
+  outline-offset: 3px;
+}
+.issue-photo-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  background: rgba(3, 15, 19, 0.94);
+  animation: backdrop-enter 0.16s ease-out both;
+}
+.issue-photo-viewer-content {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  width: min(100%, 1500px);
+  max-height: 100%;
+}
+.issue-photo-viewer-content img {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100dvh - 100px);
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 20px 70px rgba(0, 0, 0, 0.42);
+}
+.issue-photo-viewer-content p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: calc(12px * var(--appearance-text-scale, 1));
+  text-align: center;
+}
+.issue-photo-viewer-close {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  background: rgba(9, 39, 50, 0.8);
+  color: #fff;
+  cursor: pointer;
+}
 .issue-modal-hero.roads,
 .issue-modal-hero.road { background-image: url("https://picsum.photos/seed/infratrack-road/900/360"); }
 .issue-modal-hero.water { background-image: url("https://picsum.photos/seed/infratrack-water/900/360"); }
@@ -9249,6 +9324,20 @@ tbody tr:last-child td {
   overflow-wrap: anywhere;
 }
 
+.cross-barangay-report-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 4px 8px;
+  border: 1px solid #e8c99a;
+  border-radius: 999px;
+  background: #fff4df;
+  color: #825918;
+  font-size: calc((10px) * var(--appearance-text-scale, 1));
+  font-weight: 700;
+  line-height: 1.3;
+}
+
 .issue-modal-metadata-item.sla {
   border-color: #edd9b5;
   background: #fff9ed;
@@ -10158,6 +10247,19 @@ tbody tr:last-child td {
 }
 
 @media (max-width: 480px) {
+  .issue-photo-viewer {
+    padding: 16px;
+  }
+
+  .issue-photo-viewer-content img {
+    max-height: calc(100dvh - 88px);
+  }
+
+  .issue-photo-viewer-close {
+    top: 12px;
+    right: 12px;
+  }
+
   .walkin-modal-backdrop {
     align-items: center;
     padding: 10px;

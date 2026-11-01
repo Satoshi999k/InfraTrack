@@ -14,9 +14,17 @@ export function getAvailableIssueBarangays(issues) {
     const location = normalizeBarangayName(issue.location);
     const isGenericCityLocation =
       !location || location === "mati" || location === "mati city";
-    const source = isGenericCityLocation
+    const hasCoordinates =
+      issue.latitude != null &&
+      issue.latitude !== "" &&
+      issue.longitude != null &&
+      issue.longitude !== "";
+    if (location === "mati city (barangay unverified)") continue;
+    const source = isGenericCityLocation && !hasCoordinates
       ? issue.reporter_barangay
-      : issue.location;
+      : isGenericCityLocation
+        ? ""
+        : issue.location;
     const key = normalizeBarangayName(source);
     if (!key || barangays.has(key)) continue;
 

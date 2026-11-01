@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   AlertTriangle,
   Ban,
@@ -39,6 +40,7 @@ import {
   X,
 } from "lucide-react";
 import { apiFetch } from "../api";
+import { normalizeBarangayName } from "../barangayMap.js";
 import { BrandMark } from "./BrandMark";
 import { progressUpdateError } from "../../progressWorkflow.js";
 import {
@@ -956,6 +958,14 @@ function WalkInModal({ onClose, onSave }) {
 }
 
 export function IssueModal({ data, onClose, onSave }) {
+  const reportBarangay = normalizeBarangayName(data.location);
+  const reporterBarangay = normalizeBarangayName(data.reporter_barangay);
+  const hasCrossBarangayReporter =
+    Boolean(reportBarangay && reporterBarangay) &&
+    !["mati", "mati city", "mati city (barangay unverified)"].includes(
+      reportBarangay,
+    ) &&
+    reportBarangay !== reporterBarangay;
   const latitude = Number(data.latitude);
   const longitude = Number(data.longitude);
   const coordinates =
@@ -1007,8 +1017,27 @@ export function IssueModal({ data, onClose, onSave }) {
   const [isUploadingBeforePhoto, setIsUploadingBeforePhoto] = useState(false);
   const [isUploadingAfterPhoto, setIsUploadingAfterPhoto] = useState(false);
   const [mediaError, setMediaError] = useState(false);
+  const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
   const beforePhotoInput = useRef(null);
   const afterPhotoInput = useRef(null);
+  const imagePreviewTriggerRef = useRef(null);
+  const imagePreviewCloseRef = useRef(null);
+
+  useEffect(() => {
+    if (!imagePreviewOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setImagePreviewOpen(false);
+    };
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", handleKeyDown);
+    imagePreviewCloseRef.current?.focus();
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+      imagePreviewTriggerRef.current?.focus();
+    };
+  }, [imagePreviewOpen]);
 
   useEffect(() => {
     if (!data.id) return undefined;
@@ -1257,6 +1286,17 @@ export function IssueModal({ data, onClose, onSave }) {
               <span>No report photo provided</span>
             </div>
           )}
+          {data.media_url && !mediaError && (
+            <button
+              ref={imagePreviewTriggerRef}
+              type="button"
+              className="issue-modal-view-image"
+              onClick={() => setImagePreviewOpen(true)}
+            >
+              <ScanEye size={15} />
+              View full image
+            </button>
+          )}
           <div className="issue-modal-hero-badges">
             <span className={`issue-modal-status ${severity.toLowerCase()}`}>
               <AlertTriangle size={13} /> Priority {severity}
@@ -1296,6 +1336,16 @@ export function IssueModal({ data, onClose, onSave }) {
               <span className="issue-modal-metadata-detail">
                 by {data.reporter || "walk-in resident"}
               </span>
+              {data.reporter_barangay && (
+                <span className="issue-modal-metadata-detail">
+                  Home barangay: {data.reporter_barangay}
+                </span>
+              )}
+              {hasCrossBarangayReporter && (
+                <span className="cross-barangay-report-badge">
+                  Cross-barangay report
+                </span>
+              )}
             </div>
             {data.due_at && (
               <div
@@ -1845,6 +1895,42 @@ export function IssueModal({ data, onClose, onSave }) {
           </div>
         </div>
       </div>
+      {imagePreviewOpen &&
+        createPortal(
+          <div
+            className="issue-photo-viewer"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Submitted report photo"
+            onClick={(event) => {
+              event.stopPropagation();
+              setImagePreviewOpen(false);
+            }}
+          >
+            <div
+              className="issue-photo-viewer-content"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <button
+                ref={imagePreviewCloseRef}
+                type="button"
+                className="issue-photo-viewer-close"
+                onClick={() => setImagePreviewOpen(false)}
+                aria-label="Close full image"
+              >
+                <X size={20} />
+              </button>
+              <img
+                src={data.media_url}
+                alt={`Full submitted photo for ${data.title}`}
+              />
+              <p>
+                Submitted photo · Report #{data.id}
+              </p>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
