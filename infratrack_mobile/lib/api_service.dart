@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
@@ -36,15 +35,9 @@ const _configuredApiBaseUrl = String.fromEnvironment('API_BASE_URL');
 const _productionApiBaseUrl = 'https://infratrack-3a8u.onrender.com/api';
 
 String get apiBaseUrl {
-  if (_configuredApiBaseUrl.isNotEmpty) {
-    final configuredUri = Uri.tryParse(_configuredApiBaseUrl);
-    if (!kDebugMode && configuredUri?.scheme != 'https') {
-      throw StateError('Release builds require an HTTPS API_BASE_URL.');
-    }
-    return _configuredApiBaseUrl;
-  }
+  if (_configuredApiBaseUrl.isNotEmpty) return _configuredApiBaseUrl;
   // Web preview uses the host machine's localhost.
-  if (kIsWeb && kDebugMode) return 'http://localhost:3001/api';
+  if (kIsWeb) return 'http://localhost:3001/api';
   return _productionApiBaseUrl;
 }
 
@@ -59,35 +52,10 @@ String? publicMediaUrl(String? value) {
   return mediaUri.replace(host: apiUri.host, port: apiUri.port).toString();
 }
 
-abstract interface class ApiSessionTokenStore {
-  Future<String?> read();
-  Future<void> write(String token);
-  Future<void> delete();
-}
-
-class _FlutterSecureSessionTokenStore implements ApiSessionTokenStore {
-  const _FlutterSecureSessionTokenStore(this._storage);
-
-  final FlutterSecureStorage _storage;
-
-  @override
-  Future<String?> read() => _storage.read(key: 'session_token');
-
-  @override
-  Future<void> write(String token) =>
-      _storage.write(key: 'session_token', value: token);
-
-  @override
-  Future<void> delete() => _storage.delete(key: 'session_token');
-}
-
 class ApiService {
-  static const _legacySessionTokenKey = 'session_token';
+  static const _sessionTokenKey = 'session_token';
   static const _sessionUserKey = 'session_user';
   static const _lastOpenedKey = 'session_last_opened';
-  @visibleForTesting
-  static ApiSessionTokenStore sessionTokenStore =
-      const _FlutterSecureSessionTokenStore(FlutterSecureStorage());
   // Keep the local restore window aligned with the server session lifetime.
   static const _sessionLifetime = Duration(hours: 8);
 
@@ -130,19 +98,9 @@ class ApiService {
 
   static Future<void> restoreSession() async {
     final preferences = await SharedPreferences.getInstance();
-    var token = await sessionTokenStore.read();
-    final legacyToken = preferences.getString(_legacySessionTokenKey);
-    if (token == null && legacyToken != null) {
-      await sessionTokenStore.write(legacyToken);
-      await preferences.remove(_legacySessionTokenKey);
-      token = legacyToken;
-    }
+    final token = preferences.getString(_sessionTokenKey);
     final lastOpenedMilliseconds = preferences.getInt(_lastOpenedKey);
-    if (token == null) return;
-    if (lastOpenedMilliseconds == null) {
-      await _clearStoredSession(preferences);
-      return;
-    }
+    if (token == null || lastOpenedMilliseconds == null) return;
 
     final lastOpened = DateTime.fromMillisecondsSinceEpoch(
       lastOpenedMilliseconds,
@@ -173,8 +131,7 @@ class ApiService {
 
   static Future<void> _persistSession() async {
     final preferences = await SharedPreferences.getInstance();
-    await sessionTokenStore.write(_sessionToken!);
-    await preferences.remove(_legacySessionTokenKey);
+    await preferences.setString(_sessionTokenKey, _sessionToken!);
     await preferences.setString(_sessionUserKey, jsonEncode(currentUser));
     await preferences.setInt(
       _lastOpenedKey,
@@ -183,8 +140,7 @@ class ApiService {
   }
 
   static Future<void> _clearStoredSession(SharedPreferences preferences) async {
-    await sessionTokenStore.delete();
-    await preferences.remove(_legacySessionTokenKey);
+    await preferences.remove(_sessionTokenKey);
     await preferences.remove(_sessionUserKey);
     await preferences.remove(_lastOpenedKey);
   }

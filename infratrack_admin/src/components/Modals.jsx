@@ -2344,11 +2344,7 @@ function VerificationImage({ label, src, empty }) {
       <div className="verification-image-frame">
         {src ? (
           <a href={src} target="_blank" rel="noreferrer">
-            <img
-              src={src}
-              crossOrigin="use-credentials"
-              alt={`${label} submitted for verification`}
-            />
+            <img src={src} alt={`${label} submitted for verification`} />
           </a>
         ) : (
           <span>{empty}</span>

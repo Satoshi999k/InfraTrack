@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "leaflet/dist/leaflet.css";
 import {
   Activity,
@@ -51,7 +51,6 @@ import { API_BASE, apiFetch } from "./api";
 import {
   clearAuthSession,
   getStoredAuthSession,
-  saveAuthSession,
   updateStoredAuthUser,
 } from "./authSession";
 import { canAccessAdminPage, getNavigationGroups } from "./roleNavigation";
@@ -90,70 +89,17 @@ function Icon({ icon: IconComponent, size = 18 }) {
 export default function App() {
   useEffect(() => initializeAppearance(), []);
 
-  const [savedSession] = useState(getStoredAuthSession);
-  const [currentUser, setCurrentUser] = useState(savedSession.user);
-  const [sessionStatus, setSessionStatus] = useState(
-    savedSession.user ? "checking" : "ready",
-  );
-  const [sessionError, setSessionError] = useState("");
-  const [sessionRetry, setSessionRetry] = useState(0);
-
-  useEffect(() => {
-    if (!savedSession.user) return undefined;
-    let active = true;
-    setSessionStatus("checking");
-    setSessionError("");
-
-    apiFetch("/auth/session")
-      .then(async (response) => {
-        if (response.status === 401 || response.status === 403) {
-          clearAuthSession();
-          if (active) {
-            setCurrentUser(null);
-            setSessionStatus("ready");
-          }
-          return;
-        }
-        if (!response.ok) {
-          throw new Error(
-            `Could not verify the saved session (HTTP ${response.status}).`,
-          );
-        }
-        const { user } = await response.json();
-        if (!user) {
-          throw new Error("The session service returned no user.");
-        }
-        saveAuthSession({
-          user,
-          rememberMe: savedSession.rememberMe,
-        });
-        if (active) {
-          setCurrentUser(user);
-          setSessionStatus("ready");
-        }
-      })
-      .catch((error) => {
-        if (active) {
-          setSessionError(error.message || "Could not verify the saved session.");
-          setSessionStatus("error");
-        }
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [savedSession, sessionRetry]);
+  const [currentUser, setCurrentUser] = useState(() => {
+    const { user } = getStoredAuthSession();
+    return user;
+  });
 
   const handleLogin = (user) => {
-    setSessionError("");
-    setSessionStatus("ready");
     setCurrentUser(user);
   };
 
   const handleLogout = () => {
-    apiFetch("/auth/logout", { method: "POST" }).catch((error) => {
-      console.error("Unable to revoke the admin session:", error);
-    });
+    apiFetch("/auth/logout", { method: "POST" }).catch(() => {});
     clearAuthSession();
     setCurrentUser(null);
   };
@@ -163,30 +109,6 @@ export default function App() {
     setCurrentUser(user);
   };
 
-  if (sessionStatus === "checking") {
-    return <DashboardLoading message="Verifying your session..." />;
-  }
-  if (sessionStatus === "error") {
-    return (
-      <main className="dashboard-loading">
-        <p role="alert">{sessionError}</p>
-        <button type="button" onClick={() => setSessionRetry((value) => value + 1)}>
-          Retry
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            clearAuthSession();
-            setCurrentUser(null);
-            setSessionError("");
-            setSessionStatus("ready");
-          }}
-        >
-          Return to sign in
-        </button>
-      </main>
-    );
-  }
   if (!currentUser) {
     return <Login onLogin={handleLogin} />;
   }

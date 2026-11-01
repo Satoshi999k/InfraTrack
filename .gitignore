@@ -16,7 +16,6 @@
 /infratrack_admin/backups/
 /infratrack_admin/data/
 /infratrack_admin/uploads/
-/infratrack_admin/private_uploads/
 
 # Flutter/Dart generated files
 **/.dart_tool/

@@ -82,40 +82,15 @@ import {
   findDuplicateAccount,
   normalizeMobileNumber,
 } from "./accountValidation.js";
-import {
-  clearPersistentRateLimit,
-  consumePersistentRateLimit,
-} from "./persistentRateLimit.js";
-import { hashPassword } from "./passwordHash.js";
-import { shouldSeedDemoData } from "./seedPolicy.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.set("trust proxy", process.env.TRUST_PROXY === "true");
 const port = Number(process.env.PORT || 3001);
-const isProduction = process.env.NODE_ENV === "production";
-const forceHttps =
-  isProduction ||
-  String(process.env.FORCE_HTTPS || "false").toLowerCase() === "true";
-const seedDemoData = shouldSeedDemoData(process.env);
-const allowedBrowserOrigins = new Set(
-  String(
-    process.env.CORS_ALLOWED_ORIGINS ||
-      (isProduction
-        ? ""
-        : "http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173"),
-  )
-    .split(",")
-    .map((origin) => {
-      try {
-        return new URL(origin.trim()).origin;
-      } catch {
-        return "";
-      }
-    })
-    .filter((origin) => origin && origin !== "null"),
-);
+const forceHttps = String(process.env.FORCE_HTTPS || "false").toLowerCase() === "true";
 const recaptchaSecret = process.env.RECAPTCHA_SECRET_KEY || "";
+const loginAttempts = new Map();
+const passwordResetRequestAttempts = new Map();
 const chatbotRequests = new Map();
 let firebaseMessaging = null;
 let firebaseConfigurationWarningLogged = false;
@@ -142,15 +117,11 @@ const passwordResetSecret =
   "";
 const passwordResetEmailConfigured = isEmailNotificationConfigured();
 const uploadDirectory = path.join(__dirname, "uploads");
-const privateVerificationDirectory = path.join(__dirname, "private_uploads");
 const backupDirectory = path.join(__dirname, "backups");
 fs.mkdirSync(uploadDirectory, { recursive: true });
-if (!process.env.VERCEL) {
-  fs.mkdirSync(privateVerificationDirectory, { recursive: true });
-}
 fs.mkdirSync(backupDirectory, { recursive: true });
-const createUploadStorage = (directory) => multer.diskStorage({
-  destination: (_req, _file, callback) => callback(null, directory),
+const uploadStorage = multer.diskStorage({
+  destination: (_req, _file, callback) => callback(null, uploadDirectory),
   filename: (_req, file, callback) => {
     const extensionByMimeType = {
       "image/gif": ".gif",
@@ -168,39 +139,15 @@ const createUploadStorage = (directory) => multer.diskStorage({
     callback(null, `${crypto.randomBytes(16).toString("hex")}${extension}`);
   },
 });
-const uploadStorage = createUploadStorage(uploadDirectory);
-const privateVerificationStorage = createUploadStorage(
-  privateVerificationDirectory,
-);
-const mediaFileFilter = (_req, file, callback) => {
-  if (
-    [
-      "image/gif",
-      "image/jpeg",
-      "image/png",
-      "image/webp",
-      "video/mp4",
-      "video/quicktime",
-      "video/webm",
-    ].includes(file.mimetype)
-  ) {
-    return callback(null, true);
-  }
-  callback(new Error("Unsupported file type. Please upload an image or video."));
-};
 const upload = multer({
   storage: uploadStorage,
   limits: { fileSize: 100 * 1024 * 1024 },
-  fileFilter: mediaFileFilter,
-});
-const verificationUpload = multer({
-  storage: privateVerificationStorage,
-  limits: { fileSize: 12 * 1024 * 1024 },
   fileFilter: (_req, file, callback) => {
-    if (/^image\/(jpeg|png|webp)$/.test(file.mimetype)) {
-      return callback(null, true);
-    }
-    callback(new Error("Verification documents must be JPG, PNG, or WebP images."));
+    const isImage = /^image\//.test(file.mimetype);
+    const isVideo = /^video\//.test(file.mimetype);
+    const isGif = file.mimetype === "image/gif";
+    if (isImage || isVideo || isGif) return callback(null, true);
+    callback(new Error("Unsupported file type. Please upload an image or video."));
   },
 });
 const profilePhotoUpload = multer({
@@ -307,6 +254,11 @@ function convertVideoFileToGif(sourcePath, outputPath) {
 }
 
 const legacyHashPassword = (password) => crypto.createHash("sha256").update(password).digest("hex");
+const hashPassword = (password) => {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const derived = crypto.scryptSync(String(password), salt, 64).toString("hex");
+  return `scrypt$${salt}$${derived}`;
+};
 const verifyPassword = (password, storedHash) => {
   if (!storedHash) return false;
   if (!storedHash.startsWith("scrypt$")) return storedHash === legacyHashPassword(password);
@@ -332,59 +284,6 @@ const publicMediaUrl = (req, filePath) => {
     return filePath;
   }
 };
-const privateVerificationMediaUrl = (req, filePath) =>
-  filePath
-    ? `${req.protocol}://${req.get("host")}/api/admin/verification-media/${Buffer.from(String(filePath)).toString("base64url")}`
-    : filePath;
-const adminSessionCookieName = isProduction
-  ? "__Host-infratrack-admin"
-  : "infratrack_admin_session";
-function readCookie(req, name) {
-  const prefix = `${name}=`;
-  const value = String(req.headers.cookie || "")
-    .split(";")
-    .map((part) => part.trim())
-    .find((part) => part.startsWith(prefix));
-  return value ? value.slice(prefix.length) : "";
-}
-function setAdminSessionCookie(res, token, rememberMe = false) {
-  const attributes = [
-    `${adminSessionCookieName}=${token}`,
-    "Path=/",
-    "HttpOnly",
-    "SameSite=Lax",
-  ];
-  if (isProduction) attributes.push("Secure");
-  if (rememberMe) attributes.push("Max-Age=28800");
-  res.setHeader("Set-Cookie", attributes.join("; "));
-}
-function clearAdminSessionCookie(res) {
-  const attributes = [
-    `${adminSessionCookieName}=`,
-    "Path=/",
-    "HttpOnly",
-    "SameSite=Lax",
-    "Max-Age=0",
-    "Expires=Thu, 01 Jan 1970 00:00:00 GMT",
-  ];
-  if (isProduction) attributes.push("Secure");
-  res.setHeader("Set-Cookie", attributes.join("; "));
-}
-function isAllowedBrowserOrigin(origin, req) {
-  try {
-    const parsedOrigin = new URL(origin);
-    const requestProtocol = req.secure ? "https:" : "http:";
-    if (
-      parsedOrigin.protocol === requestProtocol &&
-      parsedOrigin.host.toLowerCase() === String(req.headers.host || "").toLowerCase()
-    ) {
-      return true;
-    }
-    return allowedBrowserOrigins.has(parsedOrigin.origin);
-  } catch {
-    return false;
-  }
-}
 const isDurableMediaUrl = (value) => {
   try {
     const parsed = new URL(String(value));
@@ -1022,10 +921,6 @@ async function initializeDatabase() {
     reviewed_at TIMESTAMP NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT verification_user_fk FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     CONSTRAINT verification_reviewer_fk FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL
   ) ENGINE=InnoDB`);
-  await pool.query(`CREATE TABLE IF NOT EXISTS private_media_paths (
-    file_path VARCHAR(500) PRIMARY KEY,
-    retired_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-  ) ENGINE=InnoDB`);
   await pool.query("ALTER TABLE verification_documents ADD COLUMN IF NOT EXISTS document_side VARCHAR(20) NULL AFTER document_type");
   await pool.query(`CREATE TABLE IF NOT EXISTS moderation_actions (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, user_id INT UNSIGNED NOT NULL, admin_id INT UNSIGNED NULL,
@@ -1068,12 +963,6 @@ async function initializeDatabase() {
     INDEX sessions_expiry_idx (expires_at),
     CONSTRAINT sessions_user_fk FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   ) ENGINE=InnoDB`);
-  await pool.query(`CREATE TABLE IF NOT EXISTS api_rate_limits (
-    bucket_key CHAR(64) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY,
-    attempt_count INT UNSIGNED NOT NULL,
-    window_started_at TIMESTAMP NOT NULL,
-    INDEX rate_limit_window_idx (window_started_at)
-  ) ENGINE=InnoDB`);
   await pool.query(`CREATE TABLE IF NOT EXISTS password_reset_codes (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id INT UNSIGNED NOT NULL,
@@ -1098,7 +987,6 @@ async function initializeDatabase() {
   await pool.query("UPDATE reports SET latitude = 6.8993278, longitude = 126.1510600 WHERE location = 'Brgy. Dawan'");
   await pool.query("UPDATE reports SET due_at = DATE_ADD(created_at, INTERVAL 3 DAY) WHERE due_at IS NULL");
 
-  if (!seedDemoData) return;
   const [[count]] = await pool.query("SELECT COUNT(*) AS count FROM users");
   if (Number(count.count) > 0) return;
   const insertUser = "INSERT INTO users (name, email, mobile, barangay, password_hash, role, verification) VALUES (?, ?, ?, ?, ?, ?, ?)";
@@ -1135,7 +1023,6 @@ async function seedAdvisories() {
 }
 
 async function ensureDefaultStaffAccount() {
-  if (!seedDemoData) return;
   const staffAccounts = [
     ["Barangay Central Staff", "staff.central@infratrack.test", "Brgy. Central"],
     ["Barangay Dawan Staff", "staff.dawan@infratrack.test", "Brgy. Dawan"],
@@ -1164,32 +1051,20 @@ async function ensureDefaultTeams() {
 
 app.use(express.json());
 app.use((req, res, next) => {
+  const forwardedProto = String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim().toLowerCase();
   const host = String(req.headers.host || "");
-  const isSecure = req.secure;
+  const isSecure = req.secure || forwardedProto === "https";
   const isLocalhost = /^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i.test(host) || req.hostname === "localhost";
   if (forceHttps && !isLocalhost && !isSecure) {
     return res.redirect(301, `https://${host}${req.originalUrl}`);
   }
-  if (isSecure) {
-    res.header("Strict-Transport-Security", "max-age=31536000");
-  }
-  res.header("X-Content-Type-Options", "nosniff");
-  res.header("Referrer-Policy", "strict-origin-when-cross-origin");
   if (req.path.startsWith("/api/")) {
     res.header("Cache-Control", "no-store, no-cache, must-revalidate, private");
   } else if (req.path.startsWith("/uploads/")) {
     res.header("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
   }
-  res.vary("Origin");
-  const origin = req.get("Origin");
-  if (origin && !isAllowedBrowserOrigin(origin, req)) {
-    return res.status(403).json({ error: "This browser origin is not allowed." });
-  }
-  if (origin) {
-    res.header("Access-Control-Allow-Origin", origin);
-    res.header("Access-Control-Allow-Credentials", "true");
-  }
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-CSRF-Token");
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
   res.header("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
@@ -1245,22 +1120,12 @@ app.use(async (req, res, next) => {
     req.path === "/api/mobile/auth/password-reset/complete" ||
     req.path === "/api/auth/register"
   ) return next();
-  const authorizationToken = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
-  const cookieToken = readCookie(req, adminSessionCookieName);
-  const token = authorizationToken || cookieToken;
-  if (
-    cookieToken &&
-    !authorizationToken &&
-    !["GET", "HEAD", "OPTIONS"].includes(req.method) &&
-    (!req.get("Origin") || !isAllowedBrowserOrigin(req.get("Origin"), req))
-  ) {
-    return res.status(403).json({ error: "A trusted browser origin is required." });
-  }
+  const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
   if (!token) return res.status(401).json({ error: "Authentication required" });
   let user;
   try {
     [[user]] = await pool.query(
-      "SELECT u.id, u.name, u.email, u.mobile, u.barangay, u.role, u.standing, u.suspended_until, u.verification, u.avatar_url, u.created_at FROM admin_sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > CURRENT_TIMESTAMP",
+      "SELECT u.id, u.name, u.email, u.mobile, u.barangay, u.role, u.standing, u.suspended_until, u.verification, u.created_at FROM admin_sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > CURRENT_TIMESTAMP",
       [hashSessionToken(token)],
     );
   } catch (error) {
@@ -1315,24 +1180,12 @@ app.use(async (req, res, next) => {
   }
   req.auth = user;
   req.authToken = token;
-  req.authFromCookie = !authorizationToken && Boolean(cookieToken);
   next();
 });
 app.get("/uploads/:filename", async (req, res, next) => {
   const filename = path.basename(req.params.filename);
   const filePath = path.join(uploadDirectory, filename);
   if (!fs.existsSync(filePath)) return next();
-  const [verificationFiles] = await pool.query(
-    `SELECT 1 FROM verification_documents WHERE file_path LIKE ?
-     UNION ALL
-     SELECT 1 FROM private_media_paths WHERE file_path LIKE ?
-     LIMIT 1`,
-    [`%/${filename}`, `%/${filename}`],
-  );
-  if (verificationFiles.length) {
-    res.setHeader("Cache-Control", "no-store, private");
-    return res.sendStatus(404);
-  }
 
   const extension = path.extname(filename).toLowerCase();
   const contentTypes = {
@@ -1372,77 +1225,6 @@ app.get("/uploads/:filename", async (req, res, next) => {
   return res.sendFile(filePath);
 });
 app.use("/uploads", express.static(uploadDirectory, { maxAge: "1h", etag: true }));
-app.get("/api/admin/verification-media/:key", async (req, res) => {
-  if (!["lgu", "admin", "barangay_staff"].includes(req.auth.role)) {
-    return res.status(403).json({ error: "Administrator access required." });
-  }
-  const encodedPath = req.params.key;
-  const filePath = Buffer.from(encodedPath, "base64url").toString("utf8");
-  if (
-    !filePath ||
-    Buffer.from(filePath).toString("base64url") !== encodedPath
-  ) {
-    return res.sendStatus(404);
-  }
-  const residentScope = getResidentScope(req.auth, "u.barangay");
-  const [documents] = await pool.query(
-    `SELECT vd.file_path
-     FROM verification_documents vd
-     JOIN users u ON u.id = vd.user_id
-     WHERE u.role = 'resident'
-       AND vd.file_path = ?
-       ${residentScope.sql}
-     LIMIT 1`,
-    [filePath, ...residentScope.params],
-  );
-  if (!documents.length) return res.sendStatus(404);
-
-  if (/^https:\/\//i.test(filePath)) {
-    const remoteUrl = new URL(filePath);
-    if (
-      remoteUrl.hostname !== "res.cloudinary.com" ||
-      !cloudinaryCloudName ||
-      !remoteUrl.pathname.startsWith(`/${cloudinaryCloudName}/`)
-    ) {
-      return res.sendStatus(404);
-    }
-    const response = await fetch(remoteUrl, {
-      redirect: "error",
-      signal: AbortSignal.timeout(15_000),
-    });
-    if (!response.ok) return res.sendStatus(404);
-    const mediaType = response.headers.get("content-type")?.split(";")[0];
-    if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(mediaType)) {
-      return res.status(415).json({ error: "Unsupported verification media type." });
-    }
-    const contentLength = Number(response.headers.get("content-length"));
-    if (Number.isFinite(contentLength) && contentLength > 12 * 1024 * 1024) {
-      return res.status(413).json({ error: "Verification media is too large." });
-    }
-    const media = Buffer.from(await response.arrayBuffer());
-    if (media.byteLength > 12 * 1024 * 1024) {
-      return res.status(413).json({ error: "Verification media is too large." });
-    }
-    res.type(mediaType);
-    res.setHeader("X-Content-Type-Options", "nosniff");
-    return res.send(media);
-  }
-
-  const normalizedPath = filePath.replace(/\\/g, "/");
-  const directory = normalizedPath.startsWith("/private_uploads/") ||
-    normalizedPath.startsWith("private_uploads/")
-    ? privateVerificationDirectory
-    : normalizedPath.startsWith("/uploads/") ||
-        normalizedPath.startsWith("uploads/")
-      ? uploadDirectory
-      : null;
-  if (!directory) return res.sendStatus(404);
-  const localPath = path.join(directory, path.basename(normalizedPath));
-  if (!fs.existsSync(localPath)) return res.sendStatus(404);
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("Cache-Control", "no-store, private");
-  return res.sendFile(localPath);
-});
 async function findDiscussionReport(identifier) {
   const parsedId = /^\d+$/.test(identifier) ? Number(identifier) : -1;
   const numericId = Number.isSafeInteger(parsedId) ? parsedId : -1;
@@ -2310,47 +2092,34 @@ app.patch("/api/mobile/profile/password", async (req, res) => {
   });
   res.json({ ok: true });
 });
-async function handleLogin(
-  req,
-  res,
-  { requireRecaptcha, auditAction, cookieSession = false },
-) {
+async function handleLogin(req, res, { requireRecaptcha, auditAction }) {
   const { email, password, recaptchaToken } = req.body ?? {};
   const ip = clientIp(req);
-  const rateLimitKey = `login:${ip}`;
-  const automatedUserAgent = isAutomatedUserAgent(req);
-  const allowedAttempt =
-    !automatedUserAgent &&
-    (await consumePersistentRateLimit(pool, rateLimitKey, {
-      limit: loginMaxAttempts,
-      windowSeconds: 15 * 60,
-    }));
-  if (!allowedAttempt) {
+  const now = Date.now();
+  const attempt = loginAttempts.get(ip) || { count: 0, resetAt: now + 15 * 60 * 1000 };
+  if (now > attempt.resetAt) { attempt.count = 0; attempt.resetAt = now + 15 * 60 * 1000; }
+  if (attempt.count >= loginMaxAttempts || isAutomatedUserAgent(req)) {
     await writeAuditLog(req, { action: "login_blocked", resourceType: "authentication", details: { reason: isAutomatedUserAgent(req) ? "automated_user_agent" : "rate_limit", email: String(email ?? "").trim() } });
     return res.status(429).json({ error: "Too many or automated login attempts. Please try again later." });
   }
   if (requireRecaptcha) {
     const captcha = await verifyRecaptcha(recaptchaToken, ip);
     if (!captcha.ok) {
+      attempt.count += 1;
+      loginAttempts.set(ip, attempt);
       await writeAuditLog(req, { action: "login_blocked", resourceType: "authentication", details: { reason: "recaptcha_failed", email: String(email ?? "").trim() } });
       return res.status(403).json({ error: "Security verification failed. Please try again." });
     }
   }
+  attempt.count += 1;
+  loginAttempts.set(ip, attempt);
   const [rows] = await pool.query("SELECT * FROM users WHERE email = ?", [String(email ?? "").trim()]);
   const user = rows[0];
   if (!user || !verifyPassword(String(password ?? ""), user.password_hash)) {
     await writeAuditLog(req, { action: "login_failed", resourceType: "authentication", details: { email: String(email ?? "").trim() }, actor: user ? { ...user, role: user.role } : { email: String(email ?? "").trim() } });
     return res.status(401).json({ error: "Invalid email or password" });
   }
-  if (
-    cookieSession &&
-    !["lgu", "admin", "barangay_staff"].includes(user.role)
-  ) {
-    return res.status(403).json({
-      error: "Resident accounts must sign in through the InfraTrack mobile app.",
-    });
-  }
-  await clearPersistentRateLimit(pool, rateLimitKey);
+  loginAttempts.delete(ip);
   await restoreExpiredSuspension(user);
   if (user.role === "resident" && user.standing === "Banned") {
     await writeAuditLog(req, {
@@ -2370,43 +2139,37 @@ async function handleLogin(
   const sessionToken = createSessionToken();
   await pool.query("INSERT INTO admin_sessions (token_hash, user_id, expires_at) VALUES (?, ?, DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 8 HOUR))", [hashSessionToken(sessionToken), user.id]);
   await writeAuditLog(req, { action: auditAction, resourceType: "authentication", actor: user });
-  const safeUser = serializeAdminAuthUser(
-    user,
-    publicMediaUrl(req, user.avatar_url),
-  );
-  if (cookieSession) {
-    setAdminSessionCookie(
-      res,
-      sessionToken,
-      req.body?.rememberMe === true,
-    );
-    return res.json({ user: safeUser });
-  }
-  return res.json({ token: sessionToken, user: safeUser });
+  res.json({ token: sessionToken, user: serializeAdminAuthUser(user, publicMediaUrl(req, user.avatar_url)) });
 }
-app.post("/api/auth/login", (req, res) =>
-  handleLogin(req, res, {
-    requireRecaptcha: true,
-    auditAction: "login",
-    cookieSession: true,
-  }),
-);
+app.post("/api/auth/login", (req, res) => handleLogin(req, res, { requireRecaptcha: true, auditAction: "login" }));
 app.post("/api/mobile/auth/login", (req, res) => handleLogin(req, res, { requireRecaptcha: false, auditAction: "mobile_login" }));
 const passwordResetResponse = {
   message: "If an eligible account matches that email, a reset code will be sent shortly.",
 };
+
+function consumePasswordResetRequestSlot(ip) {
+  const now = Date.now();
+  if (passwordResetRequestAttempts.size > 10_000) {
+    for (const [requestIp, attempt] of passwordResetRequestAttempts) {
+      if (now >= attempt.resetAt) passwordResetRequestAttempts.delete(requestIp);
+    }
+  }
+  const attempt = passwordResetRequestAttempts.get(ip);
+  if (!attempt || now >= attempt.resetAt) {
+    passwordResetRequestAttempts.set(ip, { count: 1, resetAt: now + 15 * 60 * 1000 });
+    return true;
+  }
+  if (attempt.count >= 5) return false;
+  attempt.count += 1;
+  return true;
+}
 
 app.post("/api/mobile/auth/password-reset/request", async (req, res) => {
   const email = normalizeResetEmail(req.body?.email);
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 255) {
     return res.status(400).json({ error: "Enter a valid email address." });
   }
-  const allowedResetRequest = await consumePersistentRateLimit(
-    pool,
-    `password-reset:${clientIp(req)}`,
-    { limit: 5, windowSeconds: 15 * 60 },
-  );
-  if (!allowedResetRequest) {
+  if (!consumePasswordResetRequestSlot(clientIp(req))) {
     return res.status(429).json({ error: "Too many password reset requests. Please try again later." });
   }
   if (!passwordResetSecret || !passwordResetEmailConfigured) {
@@ -2565,24 +2328,9 @@ app.post("/api/mobile/auth/password-reset/complete", async (req, res) => {
   });
 });
 
-app.get("/api/auth/session", (req, res) => {
-  if (!req.authFromCookie) {
-    setAdminSessionCookie(res, req.authToken);
-  }
-  res.json({
-    user: serializeAdminAuthUser(
-      req.auth,
-      publicMediaUrl(req, req.auth.avatar_url),
-    ),
-  });
-});
 app.post("/api/auth/logout", async (req, res) => {
-  if (req.authToken) {
-    await pool.query("DELETE FROM admin_sessions WHERE token_hash = ?", [
-      hashSessionToken(req.authToken),
-    ]);
-  }
-  clearAdminSessionCookie(res);
+  const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+  if (token) await pool.query("DELETE FROM admin_sessions WHERE token_hash = ?", [hashSessionToken(token)]);
   res.status(204).end();
 });
 app.patch("/api/account/password", async (req, res) => {
@@ -2905,12 +2653,9 @@ app.get("/api/users", async (req, res) => {
     WHERE u.role = 'resident'${residentScope.sql}
     GROUP BY u.id ORDER BY u.created_at DESC`, residentScope.params);
   for (const user of users) {
-    user.selfie_url = privateVerificationMediaUrl(req, user.selfie_path);
-    user.id_front_url = privateVerificationMediaUrl(
-      req,
-      user.id_front_path || user.legacy_id_path,
-    );
-    user.id_back_url = privateVerificationMediaUrl(req, user.id_back_path);
+    user.selfie_url = publicMediaUrl(req, user.selfie_path);
+    user.id_front_url = publicMediaUrl(req, user.id_front_path || user.legacy_id_path);
+    user.id_back_url = publicMediaUrl(req, user.id_back_path);
     delete user.selfie_path;
     delete user.id_front_path;
     delete user.id_back_path;
@@ -2942,13 +2687,7 @@ app.get("/api/users/:id/reports", async (req, res) => {
 });
 
 app.post("/api/mobile/verification-documents", (req, res, next) => {
-  if (process.env.VERCEL) {
-    return res.status(503).json({
-      error:
-        "Private verification storage is not configured for this deployment. Configure durable private media storage before accepting ID documents.",
-    });
-  }
-  verificationUpload.fields([
+  upload.fields([
     { name: "idFrontImage", maxCount: 1 },
     { name: "idBackImage", maxCount: 1 },
     { name: "selfieImage", maxCount: 1 },
@@ -2961,25 +2700,27 @@ app.post("/api/mobile/verification-documents", (req, res, next) => {
       const idBackFile = req.files?.idBackImage?.[0];
       const selfieFile = req.files?.selfieImage?.[0];
       if (!idFrontFile || !idBackFile || !selfieFile) {
-        await Promise.all(
-          [idFrontFile, idBackFile, selfieFile].map(removeTemporaryUpload),
-        );
         return res.status(400).json({ error: "Both sides of the government ID and the live selfie are required." });
       }
-      const storedIdFrontUrl = `/private_uploads/${idFrontFile.filename}`;
-      const storedIdBackUrl = `/private_uploads/${idBackFile.filename}`;
-      const storedSelfieUrl = `/private_uploads/${selfieFile.filename}`;
+      if (process.env.VERCEL && !hasCloudinaryStorage && !hasSignedCloudinaryStorage) {
+        return res.status(503).json({
+          error: "Media storage is not configured. Set Cloudinary storage variables before submitting verification documents.",
+        });
+      }
+      const idFrontUrl = await uploadToCloudinary(idFrontFile);
+      const idBackUrl = await uploadToCloudinary(idBackFile);
+      const selfieUrl = await uploadToCloudinary(selfieFile);
+      if (idFrontUrl) await removeTemporaryUpload(idFrontFile);
+      if (idBackUrl) await removeTemporaryUpload(idBackFile);
+      if (selfieUrl) await removeTemporaryUpload(selfieFile);
+      const storedIdFrontUrl = idFrontUrl || `/uploads/${idFrontFile.filename}`;
+      const storedIdBackUrl = idBackUrl || `/uploads/${idBackFile.filename}`;
+      const storedSelfieUrl = selfieUrl || `/uploads/${selfieFile.filename}`;
       const documentType = String(req.body?.documentType || "identity_document").trim().slice(0, 60);
       const verification = "Pending ID match";
       const connection = await pool.getConnection();
       try {
         await connection.beginTransaction();
-        await connection.query(
-          `INSERT IGNORE INTO private_media_paths (file_path)
-           SELECT file_path FROM verification_documents
-           WHERE user_id = ? AND file_path IS NOT NULL`,
-          [req.auth.id],
-        );
         await connection.query(
           "DELETE FROM verification_documents WHERE user_id = ?",
           [req.auth.id],
@@ -2999,19 +2740,8 @@ app.post("/api/mobile/verification-documents", (req, res, next) => {
       } finally {
         connection.release();
       }
-      await Promise.all(
-        [idFrontFile, idBackFile, selfieFile].map(async (file) => {
-          if (file?.path && !file.path.startsWith(privateVerificationDirectory)) {
-            await removeTemporaryUpload(file);
-          }
-        }),
-      );
       res.status(201).json({ ok: true, verification });
     } catch (routeError) {
-      await Promise.all(
-        [req.files?.idFrontImage?.[0], req.files?.idBackImage?.[0], req.files?.selfieImage?.[0]]
-          .map(removeTemporaryUpload),
-      );
       next(routeError);
     }
   });
@@ -3829,20 +3559,11 @@ app.use((_req, res) => res.sendFile(path.join(__dirname, "dist", "index.html")))
 initializeDatabase()
   .then(ensureDefaultStaffAccount)
   .then(ensureDefaultTeams)
-  .then(() => (seedDemoData ? seedAdvisories() : undefined))
+  .then(seedAdvisories)
   .then(() => {
     setInterval(() => {
       sweepEscalations().catch((error) => console.error("Escalation sweep failed:", error.message));
     }, 5 * 60 * 1000);
-    setInterval(() => {
-      pool
-        .query(
-          "DELETE FROM api_rate_limits WHERE window_started_at < DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 1 DAY)",
-        )
-        .catch((error) =>
-          console.error("Rate-limit cleanup failed:", error.message),
-        );
-    }, 15 * 60 * 1000);
     return app.listen(port, () => {
       scheduleDatabaseBackups();
       startAdminReportSummaryScheduler({ pool });

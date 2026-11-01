@@ -1,168 +1,123 @@
-import test from "node:test";
-import assert from "node:assert/strict";
+import test from 'node:test';
+import assert from 'node:assert/strict';
 import {
   saveAuthSession,
   clearAuthSession,
   getStoredAuthSession,
   updateStoredAuthUser,
-} from "./authSession.js";
+} from './authSession.js';
 
 function createStorage() {
   const store = new Map();
   return {
-    getItem(key) {
-      return store.has(key) ? store.get(key) : null;
-    },
-    setItem(key, value) {
-      store.set(key, String(value));
-    },
-    removeItem(key) {
-      store.delete(key);
-    },
-    clear() {
-      store.clear();
-    },
+    getItem(key) { return store.has(key) ? store.get(key) : null; },
+    setItem(key, value) { store.set(key, String(value)); },
+    removeItem(key) { store.delete(key); },
+    clear() { store.clear(); },
   };
 }
 
-test("remember me persists user details but never stores the bearer token", () => {
+test('remember me stores the session in localStorage', () => {
   globalThis.localStorage = createStorage();
   globalThis.sessionStorage = createStorage();
 
   saveAuthSession({
-    token: "remembered-token",
-    user: { id: 7, name: "Admin User", role: "admin" },
+    token: 'remembered-token',
+    user: { id: 7, name: 'Admin User', role: 'admin' },
     rememberMe: true,
-    email: "admin@infratrack.test",
+    email: 'admin@infratrack.test',
   });
 
-  assert.equal(globalThis.localStorage.getItem("infratrack.adminToken"), null);
-  assert.equal(
-    globalThis.localStorage.getItem("infratrack.adminUser"),
-    JSON.stringify({ id: 7, name: "Admin User", role: "admin" }),
-  );
-  assert.equal(
-    globalThis.sessionStorage.getItem("infratrack.adminToken"),
-    null,
-  );
-  assert.equal(
-    globalThis.localStorage.getItem("infratrack.adminRememberMe"),
-    "true",
-  );
-  assert.equal(
-    globalThis.localStorage.getItem("infratrack.adminRememberedEmail"),
-    "admin@infratrack.test",
-  );
+  assert.equal(globalThis.localStorage.getItem('infratrack.adminToken'), 'remembered-token');
+  assert.equal(globalThis.sessionStorage.getItem('infratrack.adminToken'), null);
+  assert.equal(globalThis.localStorage.getItem('infratrack.adminRememberMe'), 'true');
+  assert.equal(globalThis.localStorage.getItem('infratrack.adminRememberedEmail'), 'admin@infratrack.test');
 });
 
-test("non-remembered logins keep user details only in session storage", () => {
+test('non-remembered logins stay in session storage and are not restored automatically', () => {
   globalThis.localStorage = createStorage();
   globalThis.sessionStorage = createStorage();
 
   saveAuthSession({
-    token: "session-token",
-    user: { id: 9, name: "Staff User", role: "barangay_staff" },
+    token: 'session-token',
+    user: { id: 9, name: 'Staff User', role: 'barangay_staff' },
     rememberMe: false,
-    email: "staff@infratrack.test",
+    email: 'staff@infratrack.test',
   });
 
-  assert.equal(
-    globalThis.sessionStorage.getItem("infratrack.adminToken"),
-    null,
-  );
-  assert.equal(
-    globalThis.sessionStorage.getItem("infratrack.adminUser"),
-    JSON.stringify({ id: 9, name: "Staff User", role: "barangay_staff" }),
-  );
-  assert.equal(globalThis.localStorage.getItem("infratrack.adminToken"), null);
-  assert.equal(
-    globalThis.localStorage.getItem("infratrack.adminRememberMe"),
-    "false",
-  );
-  assert.equal(
-    globalThis.localStorage.getItem("infratrack.adminRememberedEmail"),
-    null,
-  );
-  assert.equal(getStoredAuthSession().token, "");
+  assert.equal(globalThis.sessionStorage.getItem('infratrack.adminToken'), 'session-token');
+  assert.equal(globalThis.localStorage.getItem('infratrack.adminToken'), null);
+  assert.equal(globalThis.localStorage.getItem('infratrack.adminRememberMe'), 'false');
+  assert.equal(globalThis.localStorage.getItem('infratrack.adminRememberedEmail'), null);
+  assert.equal(getStoredAuthSession().token, 'session-token');
 
   clearAuthSession();
-  assert.equal(globalThis.sessionStorage.getItem("infratrack.adminUser"), null);
-  assert.equal(globalThis.localStorage.getItem("infratrack.adminToken"), null);
+  assert.equal(globalThis.sessionStorage.getItem('infratrack.adminToken'), null);
+  assert.equal(globalThis.localStorage.getItem('infratrack.adminToken'), null);
 });
 
-test("profile updates persist with remembered sessions so they survive a page refresh", () => {
+test('profile updates persist with remembered sessions so they survive a page refresh', () => {
   globalThis.localStorage = createStorage();
   globalThis.sessionStorage = createStorage();
   saveAuthSession({
-    token: "remembered-token",
-    user: { id: 7, name: "Admin User", role: "admin" },
+    token: 'remembered-token',
+    user: { id: 7, name: 'Admin User', role: 'admin' },
     rememberMe: true,
   });
 
   assert.equal(
     updateStoredAuthUser({
       id: 7,
-      name: "Admin User",
-      role: "admin",
-      avatar_url: "/uploads/profile-photo.jpg",
+      name: 'Admin User',
+      role: 'admin',
+      avatar_url: '/uploads/profile-photo.jpg',
     }),
     true,
   );
 
   assert.equal(
     getStoredAuthSession().user.avatar_url,
-    "/uploads/profile-photo.jpg",
+    '/uploads/profile-photo.jpg',
   );
-  assert.equal(
-    globalThis.localStorage.getItem("infratrack.adminUser") !== null,
-    true,
-  );
+  assert.equal(globalThis.sessionStorage.getItem('infratrack.adminUser'), null);
 });
 
-test("profile updates persist with session-only logins", () => {
+test('profile updates persist with session-only logins', () => {
   globalThis.localStorage = createStorage();
   globalThis.sessionStorage = createStorage();
   saveAuthSession({
-    user: { id: 9, name: "Staff User", role: "barangay_staff" },
+    token: 'session-token',
+    user: { id: 9, name: 'Staff User', role: 'barangay_staff' },
     rememberMe: false,
   });
 
   updateStoredAuthUser({
     id: 9,
-    name: "Staff User",
-    role: "barangay_staff",
-    avatar_url: "/uploads/staff-photo.jpg",
+    name: 'Staff User',
+    role: 'barangay_staff',
+    avatar_url: '/uploads/staff-photo.jpg',
   });
 
   assert.equal(
     getStoredAuthSession().user.avatar_url,
-    "/uploads/staff-photo.jpg",
+    '/uploads/staff-photo.jpg',
   );
-  assert.equal(globalThis.localStorage.getItem("infratrack.adminUser"), null);
+  assert.equal(globalThis.localStorage.getItem('infratrack.adminUser'), null);
 });
 
-test("legacy saved tokens are sent only for the one-time cookie migration", async () => {
+test('api requests include the session token when the user did not choose remember me', async () => {
   globalThis.localStorage = createStorage();
   globalThis.sessionStorage = createStorage();
-  globalThis.sessionStorage.setItem(
-    "infratrack.adminToken",
-    "session-token-123",
-  );
+  globalThis.sessionStorage.setItem('infratrack.adminToken', 'session-token-123');
 
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url, options = {}) => {
-    const auth = options.headers?.get?.("Authorization");
-    assert.equal(auth, "Bearer session-token-123");
-    assert.equal(options.credentials, "include");
-    return new Response(JSON.stringify({ ok: true }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    const auth = options.headers?.get?.('Authorization');
+    assert.equal(auth, 'Bearer session-token-123');
+    return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   };
 
-  const { ok } = await import("./api.js").then(({ apiFetch }) =>
-    apiFetch("/issues"),
-  );
+  const { ok } = await import('./api.js').then(({ apiFetch }) => apiFetch('/issues'));
   assert.equal(ok, true);
 
   globalThis.fetch = originalFetch;
