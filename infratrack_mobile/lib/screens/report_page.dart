@@ -106,6 +106,9 @@ class _ReportPageState extends State<ReportPage> with WidgetsBindingObserver {
         aiSeverity = assessment.severity;
         aiAnalysis = assessment.analysis;
       } catch (error) {
+        if (error is ApiException && error.code == 'VIDEO_TOO_LARGE') {
+          rethrow;
+        }
         debugPrint('Report AI assessment unavailable: $error');
         aiAssessmentUnavailable = true;
       }

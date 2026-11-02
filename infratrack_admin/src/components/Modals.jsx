@@ -1299,7 +1299,11 @@ export function IssueModal({ data, onClose, onSave }) {
               aria-label="No report media available"
             >
               {isVideoMedia ? <Video size={24} /> : <ImageIcon size={24} />}
-              <span>No report media provided</span>
+              <span>
+                {mediaError
+                  ? "Report media could not be loaded"
+                  : "No report media provided"}
+              </span>
             </div>
           )}
           {data.media_url && !mediaError && (
@@ -1932,7 +1936,7 @@ export function IssueModal({ data, onClose, onSave }) {
                 type="button"
                 className="issue-photo-viewer-close"
                 onClick={() => setImagePreviewOpen(false)}
-                aria-label="Close full image"
+                aria-label={`Close full ${isVideoMedia ? "video" : "image"}`}
               >
                 <X size={20} />
               </button>

@@ -952,7 +952,10 @@ class ApiService {
   }) async {
     if (!isVideo || file == null) return;
     if (await file.length() > _maxReportVideoSizeBytes) {
-      throw Exception('Videos must be 30 MB or smaller.');
+      throw const ApiException(
+        'Videos must be 30 MB or smaller.',
+        code: 'VIDEO_TOO_LARGE',
+      );
     }
   }
 }
