@@ -19,6 +19,7 @@ import 'package:video_player/video_player.dart';
 import 'api_service.dart';
 import 'appearance_preferences.dart';
 import 'biometric_sign_in.dart';
+import 'category_icon.dart';
 import 'push_notifications.dart';
 import 'report_categories.dart';
 
@@ -3097,6 +3098,7 @@ class ReportCard extends StatelessWidget {
     required this.status,
     required this.color,
     required this.icon,
+    required this.category,
     required this.onTap,
   });
   final String title;
@@ -3104,6 +3106,7 @@ class ReportCard extends StatelessWidget {
   final String status;
   final Color color;
   final IconData icon;
+  final String category;
   final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) => Card(
@@ -3126,7 +3129,12 @@ class ReportCard extends StatelessWidget {
           color: color.withValues(alpha: .13),
           borderRadius: BorderRadius.circular(14),
         ),
-        child: Icon(icon, color: color),
+        child: CategoryIcon(
+          category: category,
+          size: 24,
+          fallbackIcon: icon,
+          color: color,
+        ),
       ),
       title: Row(
         children: [

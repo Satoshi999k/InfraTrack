@@ -210,14 +210,14 @@ class _HomePageState extends State<HomePage> {
                         const SizedBox(width: 8),
                         _ReportFilter(
                           label: 'Roads',
-                          icon: Icons.add_road_rounded,
+                          category: 'Roads',
                           selected: _activeFilter == 'Roads',
                           onTap: () => setState(() => _activeFilter = 'Roads'),
                         ),
                         const SizedBox(width: 8),
                         _ReportFilter(
                           label: 'Public Buildings',
-                          icon: Icons.apartment_rounded,
+                          category: 'Public Buildings',
                           selected: _activeFilter == 'Public Buildings',
                           onTap: () => setState(
                             () => _activeFilter = 'Public Buildings',
@@ -226,7 +226,7 @@ class _HomePageState extends State<HomePage> {
                         const SizedBox(width: 8),
                         _ReportFilter(
                           label: 'Drainage',
-                          icon: Icons.water_damage_outlined,
+                          category: 'Drainage',
                           selected: _activeFilter == 'Drainage',
                           onTap: () =>
                               setState(() => _activeFilter = 'Drainage'),
@@ -234,7 +234,7 @@ class _HomePageState extends State<HomePage> {
                         const SizedBox(width: 8),
                         _ReportFilter(
                           label: 'Streetlights',
-                          icon: Icons.lightbulb_outline_rounded,
+                          category: 'Streetlights',
                           selected: _activeFilter == 'Streetlights',
                           onTap: () =>
                               setState(() => _activeFilter = 'Streetlights'),
@@ -242,7 +242,7 @@ class _HomePageState extends State<HomePage> {
                         const SizedBox(width: 8),
                         _ReportFilter(
                           label: 'Electric Poles',
-                          icon: Icons.electric_bolt_rounded,
+                          category: 'Electric Poles',
                           selected: _activeFilter == 'Electric Poles',
                           onTap: () =>
                               setState(() => _activeFilter = 'Electric Poles'),
@@ -268,6 +268,7 @@ class _HomePageState extends State<HomePage> {
                         status: report['status'] as String? ?? 'Reported',
                         color: _reportColor(report),
                         icon: _reportIcon(report),
+                        category: report['category'] as String? ?? '',
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (_) => MyReportDetailsPage(
@@ -800,12 +801,14 @@ class _NoNearbyReports extends StatelessWidget {
 class _ReportFilter extends StatelessWidget {
   const _ReportFilter({
     required this.label,
-    required this.icon,
+    this.icon,
+    this.category,
     this.selected = false,
     required this.onTap,
   });
   final String label;
-  final IconData icon;
+  final IconData? icon;
+  final String? category;
   final bool selected;
   final VoidCallback onTap;
 
@@ -814,9 +817,10 @@ class _ReportFilter extends StatelessWidget {
     label: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          icon,
+        CategoryIcon(
+          category: category,
           size: 14,
+          fallbackIcon: icon,
           color: selected
               ? Theme.of(context).colorScheme.onPrimary
               : infraMutedTextColor(context),

@@ -85,8 +85,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
 
       expect(find.text('2 matching reports'), findsOneWidget);
-      expect(find.byIcon(Icons.add_road_rounded), findsWidgets);
-      expect(find.byIcon(Icons.apartment_rounded), findsWidgets);
+      expect(_assetIcon('assets/icons/roads.png'), findsWidgets);
+      expect(_assetIcon('assets/icons/public_buildings.png'), findsWidgets);
 
       final publicBuildingsFilter = find.text('Public Buildings').first;
       final categoryScroller = find
@@ -328,6 +328,11 @@ void main() {
     }
   });
 }
+
+Finder _assetIcon(String assetPath) => find.byWidgetPredicate((widget) {
+  if (widget is! Image || widget.image is! AssetImage) return false;
+  return (widget.image as AssetImage).assetName == assetPath;
+});
 
 Map<String, dynamic> _issue({
   required int id,

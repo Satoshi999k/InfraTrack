@@ -79,6 +79,7 @@ flutter:
     - assets/infratrack_mobile.html
     - assets/chatbot_character/chatbot_face/
     - assets/chatbot_character/thinking_animation/
+    - assets/icons/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

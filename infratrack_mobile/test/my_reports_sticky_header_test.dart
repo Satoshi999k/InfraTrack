@@ -59,7 +59,16 @@ void main() {
       expect(find.text('Central Mati, near the public market'), findsOneWidget);
       expect(find.text('Report activity'), findsNothing);
       expect(find.textContaining('Lat 6.9542'), findsNothing);
-      expect(find.byType(Image), findsNothing);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Image &&
+              widget.image is AssetImage &&
+              (widget.image as AssetImage).assetName ==
+                  'assets/icons/roads.png',
+        ),
+        findsWidgets,
+      );
 
       await tester.ensureVisible(
         find.text('Damaged road near the public market'),

@@ -661,7 +661,12 @@ class _MyReportCard extends StatelessWidget {
                         Expanded(
                           child: Row(
                             children: [
-                              Icon(report.icon, color: teal, size: 14),
+                              CategoryIcon(
+                                category: report.category,
+                                size: 14,
+                                fallbackIcon: report.icon,
+                                color: teal,
+                              ),
                               const SizedBox(width: 5),
                               Expanded(
                                 child: Text(
@@ -778,7 +783,14 @@ class _ReportThumbnailPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ColoredBox(
     color: report.color.withValues(alpha: .11),
-    child: Center(child: Icon(report.icon, color: report.color, size: 26)),
+    child: Center(
+      child: CategoryIcon(
+        category: report.category,
+        size: 26,
+        fallbackIcon: report.icon,
+        color: report.color,
+      ),
+    ),
   );
 }
 
@@ -882,7 +894,11 @@ class MyReportDetailsPage extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  _DetailMetaChip(icon: report.icon, label: report.category),
+                  _DetailMetaChip(
+                    icon: report.icon,
+                    category: report.category,
+                    label: report.category,
+                  ),
                   _DetailMetaChip(
                     icon: Icons.warning_amber_outlined,
                     label: report.severity,
@@ -2309,9 +2325,14 @@ class _DetailsBackButton extends StatelessWidget {
 }
 
 class _DetailMetaChip extends StatelessWidget {
-  const _DetailMetaChip({required this.icon, required this.label});
+  const _DetailMetaChip({
+    required this.icon,
+    required this.label,
+    this.category,
+  });
   final IconData icon;
   final String label;
+  final String? category;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -2324,7 +2345,12 @@ class _DetailMetaChip extends StatelessWidget {
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: teal),
+        CategoryIcon(
+          category: category,
+          size: 14,
+          fallbackIcon: icon,
+          color: teal,
+        ),
         const SizedBox(width: 5),
         Text(label, style: const TextStyle(color: inkSoft, fontSize: 10)),
       ],
@@ -2367,7 +2393,12 @@ class _DetailsHero extends StatelessWidget {
           if (report.image.isEmpty)
             Container(
               color: report.color.withValues(alpha: .18),
-              child: Icon(report.icon, size: 58, color: report.color),
+              child: CategoryIcon(
+                category: report.category,
+                size: 58,
+                fallbackIcon: report.icon,
+                color: report.color,
+              ),
             )
           else
             Image.network(
@@ -2375,7 +2406,12 @@ class _DetailsHero extends StatelessWidget {
               fit: BoxFit.cover,
               errorBuilder: (_, _, _) => Container(
                 color: report.color.withValues(alpha: .18),
-                child: Icon(report.icon, size: 58, color: report.color),
+                child: CategoryIcon(
+                  category: report.category,
+                  size: 58,
+                  fallbackIcon: report.icon,
+                  color: report.color,
+                ),
               ),
             ),
           const DecoratedBox(
@@ -2397,7 +2433,12 @@ class _DetailsHero extends StatelessWidget {
             bottom: 14,
             child: Row(
               children: [
-                Icon(report.icon, color: Colors.white, size: 16),
+                CategoryIcon(
+                  category: report.category,
+                  size: 16,
+                  fallbackIcon: report.icon,
+                  color: Colors.white,
+                ),
                 const SizedBox(width: 6),
                 const Text(
                   'COMMUNITY REPORT',

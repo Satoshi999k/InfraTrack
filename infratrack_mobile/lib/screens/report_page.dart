@@ -1729,7 +1729,12 @@ class _CategoryButton extends StatelessWidget {
                     : sand.withValues(alpha: .75),
                 borderRadius: BorderRadius.circular(11),
               ),
-              child: Icon(icon, color: color, size: 19),
+              child: CategoryIcon(
+                category: label,
+                size: 19,
+                fallbackIcon: icon,
+                color: color,
+              ),
             ),
             const SizedBox(width: 8),
             Expanded(

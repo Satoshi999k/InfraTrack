@@ -265,6 +265,7 @@ class _MapPageState extends State<MapPage> {
               onTap: () => _showReportDetails(report),
               child: _ReportMarker(
                 markerId: report.id,
+                category: report.category,
                 icon: _mapCategoryIcon(report.category),
                 color: report.color,
                 selected: _selectedReport == report.id,
@@ -728,9 +729,10 @@ class _MapFilterChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
+            CategoryIcon(
+              category: label,
               size: 15,
+              fallbackIcon: icon,
               color: selected ? Theme.of(context).colorScheme.onPrimary : color,
             ),
             const SizedBox(width: 6),
@@ -929,7 +931,12 @@ class _MapLegendRow extends StatelessWidget {
                 color: color.withValues(alpha: .11),
                 borderRadius: BorderRadius.circular(9),
               ),
-              child: Icon(icon, color: color, size: 15),
+              child: CategoryIcon(
+                category: label,
+                size: 15,
+                fallbackIcon: icon,
+                color: color,
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -1256,12 +1263,18 @@ class _ClusterReportThumbnail extends StatelessWidget {
     );
   }
 
-  Widget _fallback() => Icon(icon, color: report.color, size: 23);
+  Widget _fallback() => CategoryIcon(
+    category: report.category,
+    size: 23,
+    fallbackIcon: icon,
+    color: report.color,
+  );
 }
 
 class _ReportMarker extends StatelessWidget {
   const _ReportMarker({
     required this.markerId,
+    required this.category,
     required this.icon,
     required this.color,
     required this.selected,
@@ -1270,6 +1283,7 @@ class _ReportMarker extends StatelessWidget {
   });
 
   final String markerId;
+  final String category;
   final IconData icon;
   final Color color;
   final bool selected;
@@ -1333,7 +1347,12 @@ class _ReportMarker extends StatelessWidget {
                         mediaKind == 'video'
                     ? ColoredBox(
                         color: color.withValues(alpha: .12),
-                        child: Icon(icon, color: color, size: 23),
+                        child: CategoryIcon(
+                          category: category,
+                          size: 23,
+                          fallbackIcon: icon,
+                          color: color,
+                        ),
                       )
                     : Image.network(
                         mediaUrl!,
@@ -1341,7 +1360,12 @@ class _ReportMarker extends StatelessWidget {
                         alignment: Alignment.center,
                         errorBuilder: (_, _, _) => ColoredBox(
                           color: color.withValues(alpha: .12),
-                          child: Icon(icon, color: color, size: 23),
+                          child: CategoryIcon(
+                            category: category,
+                            size: 23,
+                            fallbackIcon: icon,
+                            color: color,
+                          ),
                         ),
                       ),
               ),

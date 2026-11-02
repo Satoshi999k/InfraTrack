@@ -272,6 +272,7 @@ class _NewsPageState extends State<NewsPage> {
                 for (final issue in displayedIssues)
                   _ReportUpdateCard(
                     icon: _issueIcon(issue),
+                    category: issue['category'] as String? ?? '',
                     title: issue['title'] as String? ?? 'Infrastructure report',
                     body:
                         '${issue['status'] ?? 'Reported'} · ${issue['location'] ?? 'Mati City'}',
@@ -651,6 +652,7 @@ class _NewsEmptyState extends StatelessWidget {
 class _ReportUpdateCard extends StatelessWidget {
   const _ReportUpdateCard({
     required this.icon,
+    required this.category,
     required this.title,
     required this.body,
     required this.color,
@@ -661,6 +663,7 @@ class _ReportUpdateCard extends StatelessWidget {
   });
 
   final IconData icon;
+  final String category;
   final String title;
   final String body;
   final Color color;
@@ -710,7 +713,12 @@ class _ReportUpdateCard extends StatelessWidget {
                       color: color.withValues(alpha: .11),
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: Icon(icon, color: color, size: 22),
+                    child: CategoryIcon(
+                      category: category,
+                      size: 22,
+                      fallbackIcon: icon,
+                      color: color,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -2237,6 +2245,7 @@ class _NewsFilterBar extends StatelessWidget {
                 'Announcements' => Icons.campaign_outlined,
                 _ => Icons.apps_rounded,
               },
+              category: categories[index],
               selected: selectedCategory == categories[index],
               onTap: () => onCategorySelected(categories[index]),
             ),
@@ -2251,12 +2260,14 @@ class _NewsFilterChip extends StatelessWidget {
   const _NewsFilterChip({
     required this.label,
     this.icon,
+    this.category,
     required this.selected,
     required this.onTap,
   });
 
   final String label;
   final IconData? icon;
+  final String? category;
   final bool selected;
   final VoidCallback onTap;
 
@@ -2299,12 +2310,13 @@ class _NewsFilterChip extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (icon != null) ...[
-                  Icon(
-                    icon,
+                  CategoryIcon(
+                    category: category,
                     color: selected
                         ? Theme.of(context).colorScheme.onPrimary
                         : infraMutedTextColor(context),
                     size: 15,
+                    fallbackIcon: icon,
                   ),
                   const SizedBox(width: 5),
                 ],
