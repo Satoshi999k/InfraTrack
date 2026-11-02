@@ -10933,6 +10933,49 @@ tbody tr:last-child td {
   color: #a4b7b9;
 }
 
+:root[data-theme="dark"] .news-carousel-manager,
+:root[data-theme="dark"] .news-carousel-preview-item,
+:root[data-theme="dark"] .news-carousel-card-setting {
+  border-color: #365158;
+  background: #1b3035;
+}
+
+:root[data-theme="dark"] .news-carousel-manager-heading h3,
+:root[data-theme="dark"] .news-carousel-preview-heading strong,
+:root[data-theme="dark"] .news-carousel-preview-copy strong,
+:root[data-theme="dark"] .news-carousel-card-setting strong {
+  color: #edf5f5;
+}
+
+:root[data-theme="dark"] .news-carousel-manager-heading p,
+:root[data-theme="dark"] .news-carousel-preview-heading span,
+:root[data-theme="dark"] .news-carousel-preview-copy span,
+:root[data-theme="dark"] .news-carousel-card-setting small,
+:root[data-theme="dark"] .news-carousel-preview-empty {
+  color: #a9bec0;
+}
+
+:root[data-theme="dark"] .news-carousel-card-setting.selected {
+  border-color: #318f87;
+  background: #174b49;
+}
+
+:root[data-theme="dark"] .news-carousel-preview-empty {
+  border-color: #365158;
+  background: #16272c;
+}
+
+:root[data-theme="dark"] .news-carousel-remove-button {
+  border-color: #714a43;
+  background: #352727;
+  color: #f3a08c;
+}
+
+:root[data-theme="dark"] .news-carousel-remove-button:hover:not(:disabled) {
+  border-color: #a86c60;
+  background: #443130;
+}
+
 :root[data-theme="dark"] .advisory-editor-modal {
   border-color: #344b51;
   background: #16272c;
