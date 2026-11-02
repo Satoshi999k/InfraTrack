@@ -1,4 +1,5 @@
 export const FCM_MULTICAST_BATCH_SIZE = 500;
+export const FCM_ADVISORY_DELAY_MS = 60_000;
 
 export function splitFcmTokens(tokens) {
   const batches = [];
@@ -11,7 +12,7 @@ export function splitFcmTokens(tokens) {
 export function createAndroidDeliveryConfig(imageUrl = null) {
   return {
     priority: "high",
-    ttl: "0s",
+    ttl: "60s",
     notification: {
       channelId: "infratrack_city_updates_v3",
       sound: "default",

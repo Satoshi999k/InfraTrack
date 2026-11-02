@@ -13,6 +13,7 @@ import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { getMessaging } from "firebase-admin/messaging";
 import {
   createAndroidDeliveryConfig,
+  FCM_ADVISORY_DELAY_MS,
   splitFcmTokens,
 } from "./fcmDelivery.js";
 import { createPortableDatabaseBackup } from "./databaseBackup.js";
@@ -666,8 +667,8 @@ async function queueAdvisoryNotifications({
       .filter(([, value]) => value !== null && value !== undefined)
       .map(([key, value]) => [key, String(value)]),
   );
-  try {
-    await Promise.all(
+  setTimeout(() => {
+    void Promise.all(
       splitFcmTokens(devices.map(({ token }) => token)).map((tokens) =>
         messaging.sendEachForMulticast({
           tokens,
@@ -679,13 +680,13 @@ async function queueAdvisoryNotifications({
           android: createAndroidDeliveryConfig(imageUrl),
         }),
       ),
-    );
-  } catch (error) {
-    console.error(
-      `FCM advisory delivery failed for advisory ${advisoryId}:`,
-      error.message,
-    );
-  }
+    ).catch((error) => {
+      console.error(
+        `FCM advisory delivery failed for advisory ${advisoryId}:`,
+        error.message,
+      );
+    });
+  }, FCM_ADVISORY_DELAY_MS);
 }
 
 async function dispatchNotification({ channel = "email", recipient, subject, body }) {
