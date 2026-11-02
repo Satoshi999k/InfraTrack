@@ -265,7 +265,15 @@ async function downloadMediaForConversion(mediaUrl) {
 
 function convertVideoFileToGif(sourcePath, outputPath) {
   return new Promise((resolve, reject) => {
-    const converter = spawn(ffmpegPath, ["-y", "-i", sourcePath, "-t", "8", "-vf", "fps=12,scale=480:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=sierra2_4a", outputPath]);
+    const converter = spawn(ffmpegPath, [
+      "-y",
+      "-threads", "2",
+      "-i", sourcePath,
+      "-t", "6",
+      "-vf", "fps=10,scale=360:-2:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=96[p];[s1][p]paletteuse=dither=sierra2_4a",
+      "-loop", "0",
+      outputPath,
+    ]);
     let errorOutput = "";
     converter.stderr.on("data", (chunk) => { errorOutput += chunk.toString(); });
     converter.on("error", reject);
@@ -3215,7 +3223,7 @@ app.post("/api/uploads/gif", upload.single("file"), (req, res) => {
   if (!req.file) return res.status(400).json({ error: "Please select a video" });
   const outputName = `${req.file.filename}.gif`;
   const outputPath = path.join(uploadDirectory, outputName);
-  const converter = spawn(ffmpegPath, ["-y", "-i", req.file.path, "-t", "8", "-vf", "fps=12,scale=480:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=sierra2_4a", outputPath]);
+  const converter = spawn(ffmpegPath, ["-y", "-threads", "2", "-i", req.file.path, "-t", "6", "-vf", "fps=10,scale=360:-2:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=96[p];[s1][p]paletteuse=dither=sierra2_4a", "-loop", "0", outputPath]);
   let errorOutput = "";
   converter.stderr.on("data", (chunk) => { errorOutput += chunk.toString(); });
   converter.on("close", (code) => {
@@ -3272,7 +3280,7 @@ app.post("/api/advisories/:id/convert-gif", async (req, res) => {
   if (!fs.existsSync(sourcePath)) return res.status(404).json({ error: "Attached video file was not found" });
   const outputName = `${path.parse(sourceName).name}-${Date.now()}.gif`;
   const outputPath = path.join(uploadDirectory, outputName);
-  const converter = spawn(ffmpegPath, ["-y", "-i", sourcePath, "-t", "8", "-vf", "fps=12,scale=480:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=sierra2_4a", outputPath]);
+  const converter = spawn(ffmpegPath, ["-y", "-threads", "2", "-i", sourcePath, "-t", "6", "-vf", "fps=10,scale=360:-2:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=96[p];[s1][p]paletteuse=dither=sierra2_4a", "-loop", "0", outputPath]);
   let errorOutput = "";
   converter.stderr.on("data", (chunk) => { errorOutput += chunk.toString(); });
   converter.on("close", async (code) => {

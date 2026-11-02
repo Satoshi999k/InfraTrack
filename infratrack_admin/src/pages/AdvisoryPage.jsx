@@ -187,26 +187,46 @@ export default function AdvisoryPage({
     if (media?.kind !== "video") return;
     setConvertingNew(true);
     setError("");
+    let lastConversionError = null;
     try {
-      const response = await apiFetch(`/uploads/convert-gif`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: media.src }),
-      });
-      const rawText = await response.text();
-      let data = null;
-      if (rawText.trim()) {
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => controller.abort(), 180000);
         try {
-          data = JSON.parse(rawText);
-        } catch {
-          throw new Error("The conversion service returned an invalid response.");
+          const response = await apiFetch(`/uploads/convert-gif`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url: media.src }),
+            signal: controller.signal,
+          });
+          const rawText = await response.text();
+          let data = null;
+          if (rawText.trim()) {
+            try {
+              data = JSON.parse(rawText);
+            } catch {
+              throw new Error(rawText.includes("Bad Request")
+                ? "The conversion request was rejected. Please upload the video again and retry."
+                : "The conversion service returned an invalid response.");
+            }
+          }
+          if (!response.ok) throw new Error(data?.error || "Could not convert video to GIF");
+          if (!data?.url) throw new Error("The conversion service did not return a converted GIF.");
+          setMedia({ kind: "gif", src: data.url });
+          return;
+        } catch (conversionError) {
+          lastConversionError = conversionError;
+        } finally {
+          window.clearTimeout(timeoutId);
         }
+        if (attempt === 0) await new Promise((resolve) => window.setTimeout(resolve, 1500));
       }
-      if (!response.ok) throw new Error(data.error || "Could not convert video to GIF");
-      if (!data?.url) throw new Error("The conversion service did not return a converted GIF.");
-      setMedia({ kind: "gif", src: data.url });
+      throw lastConversionError || new Error("Could not convert video to GIF");
     } catch (conversionError) {
-      setError(conversionError.message === "Failed to fetch"
+      const timedOut = conversionError.name === "AbortError";
+      setError(timedOut
+        ? "Video conversion timed out. Please try again with a shorter video."
+        : conversionError.message === "Failed to fetch"
         ? "The conversion service is unavailable. Please make sure the InfraTrack API is running, then try again."
         : conversionError.message);
     } finally {
