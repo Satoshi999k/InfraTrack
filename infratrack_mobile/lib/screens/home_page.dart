@@ -44,11 +44,12 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  List<({String image, String title, String subtitle})>
+  List<({String mediaUrl, bool isVideo, String title, String subtitle})>
   get _featuredStories => _issues.take(_featuredReportLimit).map((issue) {
-    final mediaUrl = publicMediaUrl(issue['media_url'] as String?);
+    final mediaUrl = publicMediaUrl(issue['media_url'] as String?) ?? '';
     return (
-      image: mediaUrl ?? '',
+      mediaUrl: mediaUrl,
+      isVideo: isVideoAdvisoryMedia(issue['media_kind'] as String?, mediaUrl),
       title: issue['title'] as String? ?? 'Infrastructure report',
       subtitle:
           '${issue['status'] ?? 'Reported'} · ${issue['location'] ?? 'Mati City'}',
@@ -923,7 +924,8 @@ class _FeaturedBanner extends StatelessWidget {
     required this.onPageChanged,
   });
 
-  final List<({String image, String title, String subtitle})> stories;
+  final List<({String mediaUrl, bool isVideo, String title, String subtitle})>
+  stories;
   final PageController controller;
   final int currentIndex;
   final ValueChanged<int> onPageChanged;
@@ -945,20 +947,42 @@ class _FeaturedBanner extends StatelessWidget {
               return Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.network(
-                    story.image,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => Container(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(colors: [deepNavy, teal]),
-                      ),
-                      child: const Icon(
-                        Icons.location_city,
-                        color: Colors.white54,
-                        size: 54,
+                  if (story.isVideo)
+                    _FeaturedVideoThumbnail(mediaUrl: story.mediaUrl)
+                  else
+                    Image.network(
+                      story.mediaUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => Container(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(colors: [deepNavy, teal]),
+                        ),
+                        child: const Icon(
+                          Icons.location_city,
+                          color: Colors.white54,
+                          size: 54,
+                        ),
                       ),
                     ),
-                  ),
+                  if (story.isVideo)
+                    const IgnorePointer(
+                      child: Center(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: Color(0x99092732),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Padding(
+                            padding: EdgeInsets.all(10),
+                            child: Icon(
+                              Icons.play_arrow_rounded,
+                              color: Colors.white,
+                              size: 28,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   const DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -1045,6 +1069,85 @@ class _FeaturedBanner extends StatelessWidget {
           ),
         ],
       ),
+    ),
+  );
+}
+
+class _FeaturedVideoThumbnail extends StatefulWidget {
+  const _FeaturedVideoThumbnail({required this.mediaUrl});
+
+  final String mediaUrl;
+
+  @override
+  State<_FeaturedVideoThumbnail> createState() =>
+      _FeaturedVideoThumbnailState();
+}
+
+class _FeaturedVideoThumbnailState extends State<_FeaturedVideoThumbnail> {
+  late final VideoPlayerController _controller;
+  late final Future<void> _initialization;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.mediaUrl));
+    _initialization = _controller.initialize();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => ColoredBox(
+    color: deepNavy,
+    child: FutureBuilder<void>(
+      future: _initialization,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return const Center(
+            child: Icon(
+              Icons.videocam_off_outlined,
+              color: Colors.white54,
+              size: 54,
+            ),
+          );
+        }
+        if (!_controller.value.isInitialized) {
+          return const Center(
+            child: Icon(
+              Icons.videocam_outlined,
+              color: Colors.white54,
+              size: 54,
+            ),
+          );
+        }
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final aspectRatio = _controller.value.aspectRatio;
+            final boxAspectRatio = constraints.maxWidth / constraints.maxHeight;
+            final width = aspectRatio > boxAspectRatio
+                ? constraints.maxHeight * aspectRatio
+                : constraints.maxWidth;
+            final height = aspectRatio > boxAspectRatio
+                ? constraints.maxHeight
+                : constraints.maxWidth / aspectRatio;
+
+            return ClipRect(
+              child: FittedBox(
+                fit: BoxFit.cover,
+                child: SizedBox(
+                  width: width,
+                  height: height,
+                  child: IgnorePointer(child: VideoPlayer(_controller)),
+                ),
+              ),
+            );
+          },
+        );
+      },
     ),
   );
 }

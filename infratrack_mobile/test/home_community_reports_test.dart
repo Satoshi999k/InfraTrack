@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -7,6 +8,9 @@ import 'package:http/testing.dart';
 import 'package:infatrack/api_service.dart';
 import 'package:infatrack/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:video_player/video_player.dart';
+import 'package:video_player_platform_interface/video_player_platform_interface.dart'
+    as video_platform;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -17,6 +21,8 @@ void main() {
       tester.view.physicalSize = const Size(800, 1200);
       tester.view.devicePixelRatio = 1;
       SharedPreferences.setMockInitialValues({});
+      final fakeVideoPlatform = _FakeVideoPlayerPlatform();
+      video_platform.VideoPlayerPlatform.instance = fakeVideoPlatform;
       final originalClientFactory = ApiService.httpClientFactory;
       var requestedHomeUpdates = false;
       const featuredTitle =
@@ -41,7 +47,14 @@ void main() {
           return http.Response(
             jsonEncode({
               'issues': [
-                _issue(8, featuredTitle, 'Reported', 'Brgy. Central'),
+                _issue(
+                  8,
+                  featuredTitle,
+                  'Reported',
+                  'Brgy. Central',
+                  mediaUrl: 'https://example.test/central-report.mp4',
+                  mediaKind: 'video',
+                ),
                 for (var index = 7; index >= 1; index--)
                   _issue(
                     index,
@@ -116,6 +129,8 @@ void main() {
         expect(featuredTitleText.maxLines, greaterThanOrEqualTo(2));
         expect(featuredTitleText.overflow, isNot(TextOverflow.ellipsis));
         expect(find.text(featuredTitle), findsOneWidget);
+        expect(find.byType(VideoPlayer), findsOneWidget);
+        expect(fakeVideoPlatform.playCount, 0);
         expect(find.text('Trako'), findsOneWidget);
         expect(
           find.textContaining('Need help with a report or city update?'),
@@ -205,6 +220,8 @@ Map<String, dynamic> _issue(
   String status,
   String location, {
   String? reporterBarangay,
+  String? mediaUrl,
+  String? mediaKind,
 }) => {
   'id': id,
   'public_id': '$id',
@@ -214,5 +231,78 @@ Map<String, dynamic> _issue(
   'status': status,
   'location': location,
   'reporter_barangay': reporterBarangay,
+  'media_url': mediaUrl,
+  'media_kind': mediaKind,
   'created_at': '2026-10-21T06:00:00.000Z',
 };
+
+class _FakeVideoPlayerPlatform extends video_platform.VideoPlayerPlatform {
+  int _nextPlayerId = 0;
+  final Map<int, StreamController<video_platform.VideoEvent>> _events = {};
+  int playCount = 0;
+
+  @override
+  Future<void> init() async {}
+
+  @override
+  Future<int?> createWithOptions(
+    video_platform.VideoCreationOptions options,
+  ) async {
+    final playerId = _nextPlayerId++;
+    final events = StreamController<video_platform.VideoEvent>();
+    events.add(
+      video_platform.VideoEvent(
+        eventType: video_platform.VideoEventType.initialized,
+        duration: const Duration(seconds: 3),
+        size: const Size(640, 480),
+      ),
+    );
+    _events[playerId] = events;
+    return playerId;
+  }
+
+  @override
+  Stream<video_platform.VideoEvent> videoEventsFor(int playerId) =>
+      _events[playerId]!.stream;
+
+  @override
+  Future<void> setPreventsDisplaySleepDuringVideoPlayback(
+    int playerId,
+    bool enabled,
+  ) async {}
+
+  @override
+  Future<void> setLooping(int playerId, bool looping) async {}
+
+  @override
+  Future<void> setVolume(int playerId, double volume) async {}
+
+  @override
+  Future<void> setPlaybackSpeed(int playerId, double speed) async {}
+
+  @override
+  Future<void> play(int playerId) async {
+    playCount++;
+    _events[playerId]!.add(
+      video_platform.VideoEvent(
+        eventType: video_platform.VideoEventType.isPlayingStateUpdate,
+        isPlaying: true,
+      ),
+    );
+  }
+
+  @override
+  Future<void> pause(int playerId) async {}
+
+  @override
+  Future<Duration> getPosition(int playerId) async => Duration.zero;
+
+  @override
+  Future<void> dispose(int playerId) async {
+    await _events.remove(playerId)?.close();
+  }
+
+  @override
+  Widget buildViewWithOptions(video_platform.VideoViewOptions options) =>
+      const ColoredBox(color: Colors.black);
+}

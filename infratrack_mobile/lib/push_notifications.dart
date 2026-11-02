@@ -28,7 +28,8 @@ NotificationDetails groupedNotificationDetails({
     channelDescription: 'Announcements and other InfraTrack notifications.',
     importance: Importance.high,
     priority: Priority.high,
-    icon: 'ic_notification',
+    icon: 'infratrack_notification',
+    largeIcon: const DrawableResourceAndroidBitmap('infratrack_launcher'),
     groupKey: _notificationGroupKey,
     setAsGroupSummary: groupSummary,
     groupAlertBehavior: GroupAlertBehavior.children,
@@ -104,7 +105,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     final notifications = FlutterLocalNotificationsPlugin();
     await notifications.initialize(
       settings: const InitializationSettings(
-        android: AndroidInitializationSettings('ic_notification'),
+        android: AndroidInitializationSettings('infratrack_notification'),
       ),
     );
     await PushNotifications.createAndroidNotificationChannel(notifications);
@@ -153,8 +154,10 @@ class PushNotifications {
 
   static Future<void> showGroupedNotification(
     FlutterLocalNotificationsPlugin notifications,
-    RemoteMessage message,
-  ) async {
+    RemoteMessage message, {
+    Future<Uint8List?> Function(String?) imageDownloader =
+        _downloadNotificationImage,
+  }) async {
     final title = message.notification?.title ?? message.data['title'];
     final body =
         message.notification?.body ??
@@ -205,8 +208,7 @@ class PushNotifications {
       payload: jsonEncode({'openNotifications': 'true'}),
     );
 
-    if (message.data['advisoryId'] == null) return;
-    final imageBytes = await _downloadNotificationImage(
+    final imageBytes = await imageDownloader(
       message.data['imageUrl']?.toString(),
     );
     if (imageBytes == null) return;
@@ -254,7 +256,7 @@ class PushNotifications {
 
     await _localNotifications.initialize(
       settings: const InitializationSettings(
-        android: AndroidInitializationSettings('ic_notification'),
+        android: AndroidInitializationSettings('infratrack_notification'),
       ),
       onDidReceiveNotificationResponse: (response) {
         final payload = response.payload;
