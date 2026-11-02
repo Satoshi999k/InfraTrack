@@ -13,7 +13,6 @@ import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { getMessaging } from "firebase-admin/messaging";
 import {
   createAndroidDeliveryConfig,
-  FCM_ADVISORY_DELAY_MS,
   splitFcmTokens,
 } from "./fcmDelivery.js";
 import { createPortableDatabaseBackup } from "./databaseBackup.js";
@@ -676,26 +675,28 @@ async function queueAdvisoryNotifications({
       .filter(([, value]) => value !== null && value !== undefined)
       .map(([key, value]) => [key, String(value)]),
   );
-  setTimeout(() => {
-    void Promise.all(
-      splitFcmTokens(devices.map(({ token }) => token)).map((tokens) =>
-        messaging.sendEachForMulticast({
-          tokens,
-          notification: {
-            title,
-            body: String(message).slice(0, 1000),
-          },
-          data,
-          android: createAndroidDeliveryConfig(imageUrl),
-        }),
-      ),
-    ).catch((error) => {
-      console.error(
-        `FCM advisory delivery failed for advisory ${advisoryId}:`,
-        error.message,
+  await Promise.all(
+    splitFcmTokens(devices.map(({ token }) => token)).map(async (tokens) => {
+      const result = await messaging.sendEachForMulticast({
+        tokens,
+        notification: {
+          title,
+          body: String(message).slice(0, 1000),
+        },
+        data,
+        android: createAndroidDeliveryConfig(imageUrl),
+      });
+      console.log(
+        `FCM advisory ${advisoryId}: ${result.successCount} delivered, ${result.failureCount} failed.`,
       );
-    });
-  }, FCM_ADVISORY_DELAY_MS);
+      return result;
+    }),
+  ).catch((error) => {
+    console.error(
+      `FCM advisory delivery failed for advisory ${advisoryId}:`,
+      error.message,
+    );
+  });
 }
 
 async function dispatchNotification({ channel = "email", recipient, subject, body }) {
@@ -1769,6 +1770,11 @@ app.get("/api/mobile/reports", async (req, res) => {
   );
   res.json({ reports: reportsWithProgress.map((report) => ({
     ...report,
+    location: resolveReportLocation({
+      latitude: report.latitude,
+      longitude: report.longitude,
+      location: report.location,
+    }),
     media_url: publicMediaUrl(req, report.media_url),
     media_thumbnail_url:
       publicMediaUrl(req, report.media_thumbnail_url) ||

@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   createAndroidDeliveryConfig,
-  FCM_ADVISORY_DELAY_MS,
   splitFcmTokens,
 } from "./fcmDelivery.js";
 
@@ -27,7 +26,4 @@ test("Android push delivery uses high priority and no delivery delay", () => {
     },
   });
 
-  test("advisory push delivery is scheduled for at least one minute", () => {
-    assert.equal(FCM_ADVISORY_DELAY_MS, 60_000);
-  });
 });

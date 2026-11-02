@@ -95,7 +95,23 @@ export function getBarangayForCoordinates(latitude, longitude) {
   const lng = Number(longitude);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
   const match = Object.entries(barangayPolygons).find(([, polygon]) => isPointInPolygon(lat, lng, polygon));
-  return match ? match[0] : null;
+  if (match) return match[0];
+  if (!isWithinMatiCity(lat, lng)) return null;
+
+  let nearest = null;
+  let nearestDistance = Number.POSITIVE_INFINITY;
+  for (const [barangay, polygon] of Object.entries(barangayPolygons)) {
+    const centroid = polygon.reduce(
+      (total, point) => [total[0] + point[0] / polygon.length, total[1] + point[1] / polygon.length],
+      [0, 0],
+    );
+    const distance = Math.hypot(lat - centroid[0], lng - centroid[1]);
+    if (distance < nearestDistance) {
+      nearestDistance = distance;
+      nearest = barangay;
+    }
+  }
+  return nearest;
 }
 
 export function resolveReportLocation({

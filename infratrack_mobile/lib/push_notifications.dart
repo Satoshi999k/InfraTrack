@@ -325,11 +325,19 @@ class PushNotifications {
   }
 
   Future<void> _registerToken(String token) async {
-    try {
-      await ApiService.registerPushToken(token);
-    } catch (error, stackTrace) {
-      debugPrint('Could not register InfraTrack push token: $error');
-      debugPrintStack(stackTrace: stackTrace);
+    for (var attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        await ApiService.registerPushToken(token);
+        return;
+      } catch (error, stackTrace) {
+        debugPrint(
+          'Could not register InfraTrack push token (attempt $attempt/3): $error',
+        );
+        debugPrintStack(stackTrace: stackTrace);
+        if (attempt < 3) {
+          await Future<void>.delayed(Duration(seconds: attempt * 2));
+        }
+      }
     }
   }
 
