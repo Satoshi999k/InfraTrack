@@ -10,6 +10,14 @@ export function isNewsCarouselFeatured(value) {
   return value === true || value === 1 || value === "1";
 }
 
+export function applyNewsCarouselSelection(advisories, advisoryId, featuredInNews) {
+  return advisories.map((advisory) =>
+    advisory.id === advisoryId
+      ? { ...advisory, featured_in_news: featuredInNews }
+      : advisory,
+  );
+}
+
 export function getNewsCarouselFeaturedCount(advisories = []) {
   return advisories.filter((advisory) =>
     isNewsCarouselFeatured(advisory.featured_in_news),

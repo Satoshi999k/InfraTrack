@@ -3885,9 +3885,9 @@ tbody tr:last-child td {
   margin-bottom: 16px;
   padding: 18px 20px;
   border: 1px solid #d8e4df;
-  border-left: 4px solid var(--teal);
   border-radius: 14px;
-  background: #f8fbfa;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(28 54 59 / 4%);
 }
 .news-carousel-manager-heading {
   display: flex;
@@ -3966,6 +3966,16 @@ tbody tr:last-child td {
   gap: 12px;
   cursor: pointer;
 }
+.news-carousel-card-setting-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.news-carousel-card-setting-content > span:first-child {
+  display: grid;
+  gap: 2px;
+}
 .news-carousel-card-setting label > span {
   display: grid;
   gap: 2px;
@@ -3981,28 +3991,19 @@ tbody tr:last-child td {
   color: var(--muted);
   font-size: calc(10px * var(--appearance-text-scale, 1));
 }
-.news-carousel-switch {
+.news-carousel-toggle {
   position: relative;
   width: 38px;
   height: 22px;
   flex: 0 0 38px;
-}
-.news-carousel-switch input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-}
-.news-carousel-switch > span {
-  position: absolute;
-  inset: 0;
+  padding: 0;
   border: 1px solid #bccbc7;
   border-radius: 999px;
   background: #dfe7e4;
   cursor: pointer;
   transition: background 160ms ease, border-color 160ms ease;
 }
-.news-carousel-switch > span::after {
+.news-carousel-toggle span {
   position: absolute;
   top: 3px;
   left: 3px;
@@ -4014,22 +4015,22 @@ tbody tr:last-child td {
   content: "";
   transition: transform 160ms ease;
 }
-.news-carousel-switch input:checked + span {
+.news-carousel-toggle.active {
   border-color: var(--teal);
   background: var(--teal);
 }
-.news-carousel-switch input:checked + span::after {
+.news-carousel-toggle.active span {
   transform: translateX(16px);
 }
-.news-carousel-switch input:focus-visible + span {
+.news-carousel-toggle:focus-visible {
   outline: 3px solid rgb(27 138 131 / 22%);
   outline-offset: 2px;
 }
-.news-carousel-switch input:disabled + span {
+.news-carousel-toggle:disabled {
   cursor: not-allowed;
   opacity: 0.48;
 }
-.news-carousel-switch.saving > span::after {
+.news-carousel-toggle:disabled:not([aria-checked="false"]) {
   animation: news-carousel-switch-pulse 700ms ease-in-out infinite alternate;
 }
 @keyframes news-carousel-switch-pulse {

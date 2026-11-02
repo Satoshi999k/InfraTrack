@@ -6,9 +6,22 @@ import {
   getAdvisoryAudience,
   isNewsCarouselOnlyUpdate,
   isNewsCarouselFeatured,
+  applyNewsCarouselSelection,
   validateAdvisoryDraft,
   validateNewsCarouselFeature,
 } from "./advisoryForm.js";
+
+test("news carousel selection updates the advisory in local state immediately", () => {
+  const advisories = [{ id: 7, featured_in_news: 0 }, { id: 8, featured_in_news: 1 }];
+  assert.deepEqual(
+    applyNewsCarouselSelection(advisories, 7, true),
+    [{ id: 7, featured_in_news: true }, { id: 8, featured_in_news: 1 }],
+  );
+  assert.deepEqual(
+    applyNewsCarouselSelection(advisories, 8, false),
+    [{ id: 7, featured_in_news: 0 }, { id: 8, featured_in_news: false }],
+  );
+});
 
 test("news carousel selector is recognized as a partial advisory update", () => {
   assert.equal(isNewsCarouselOnlyUpdate({ featuredInNews: true }), true);

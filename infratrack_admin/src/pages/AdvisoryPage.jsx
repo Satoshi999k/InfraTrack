@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { API_BASE, apiFetch } from "../api";
 import {
+  applyNewsCarouselSelection,
   getAdvisoryAudience,
   getNewsCarouselFeaturedCount,
   isNewsCarouselFeatured,
@@ -369,6 +370,10 @@ export default function AdvisoryPage({
 
     setSavingCarouselAdvisoryId(advisory.id);
     setError("");
+    const previousFeatured = isNewsCarouselFeatured(advisory.featured_in_news);
+    setAdvisories((current) =>
+      applyNewsCarouselSelection(current, advisory.id, featuredInNews),
+    );
     try {
       const response = await apiFetch(`/advisories/${advisory.id}`, {
         method: "PATCH",
@@ -377,11 +382,13 @@ export default function AdvisoryPage({
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not update the News carousel");
-      await loadAdvisories();
       onNotify?.(featuredInNews
         ? "Added to the News carousel."
         : "Removed from the News carousel.");
     } catch (carouselSaveError) {
+      setAdvisories((current) =>
+        applyNewsCarouselSelection(current, advisory.id, previousFeatured),
+      );
       setError(carouselSaveError.message);
     } finally {
       setSavingCarouselAdvisoryId(null);
@@ -587,24 +594,23 @@ export default function AdvisoryPage({
               <p>{advisory.message}</p>
               {publishedOnly && canManageNewsCarousel && (
                 <div className={`news-carousel-card-setting ${featured ? "selected" : ""}`}>
-                  <label htmlFor={`news-carousel-${advisory.id}`}>
+                  <div className="news-carousel-card-setting-content">
                     <span>
                       <strong>News carousel</strong>
                       <small>{carouselEligible ? (featured ? "Featured on the resident News screen" : "Available to feature") : "Photo or GIF required"}</small>
                     </span>
-                    <span className={`news-carousel-switch ${savingCarouselAdvisoryId === advisory.id ? "saving" : ""}`}>
-                      <input
-                        id={`news-carousel-${advisory.id}`}
-                        type="checkbox"
-                        role="switch"
-                        checked={featured}
-                        aria-label={`${featured ? "Remove" : "Add"} ${advisory.title} ${featured ? "from" : "to"} the News carousel`}
-                        disabled={!carouselEligible || carouselAtLimit || savingCarouselAdvisoryId === advisory.id}
-                        onChange={(event) => setPublishedNewsCarousel(advisory, event.target.checked)}
-                      />
+                    <button
+                      type="button"
+                      className={`news-carousel-toggle ${featured ? "active" : ""}`}
+                      role="switch"
+                      aria-checked={featured}
+                      aria-label={`${featured ? "Remove" : "Add"} ${advisory.title} ${featured ? "from" : "to"} the News carousel`}
+                      disabled={!carouselEligible || carouselAtLimit || savingCarouselAdvisoryId === advisory.id}
+                      onClick={() => setPublishedNewsCarousel(advisory, !featured)}
+                    >
                       <span aria-hidden="true" />
-                    </span>
-                  </label>
+                    </button>
+                  </div>
                 </div>
               )}
               <div className="advisory-card-footer">
