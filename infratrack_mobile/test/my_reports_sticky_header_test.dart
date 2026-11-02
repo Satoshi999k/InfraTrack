@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -7,6 +8,9 @@ import 'package:http/testing.dart';
 import 'package:infatrack/api_service.dart';
 import 'package:infatrack/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:video_player/video_player.dart';
+import 'package:video_player_platform_interface/video_player_platform_interface.dart'
+    as video_platform;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -15,6 +19,8 @@ void main() {
     WidgetTester tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
+    final fakeVideoPlatform = _FakeVideoPlayerPlatform();
+    video_platform.VideoPlayerPlatform.instance = fakeVideoPlatform;
     final originalClientFactory = ApiService.httpClientFactory;
     ApiService.httpClientFactory = () => MockClient((request) async {
       if (request.url.path.endsWith('/mobile/auth/login')) {
@@ -61,6 +67,7 @@ void main() {
       expect(find.text('Central Mati, near the public market'), findsOneWidget);
       expect(find.text('Report activity'), findsNothing);
       expect(find.textContaining('Lat 6.9542'), findsNothing);
+      expect(find.byType(VideoPlayer), findsOneWidget);
       expect(
         find.byWidgetPredicate(
           (widget) =>
@@ -80,9 +87,13 @@ void main() {
 
       expect(find.text('Issue details'), findsOneWidget);
       expect(find.text('VIDEO PREVIEW'), findsOneWidget);
+      await tester.tap(find.byIcon(Icons.play_arrow));
+      expect(fakeVideoPlatform.playCount, 1);
       expect(find.textContaining('GPS coordinates'), findsOneWidget);
       expect(find.textContaining('Lat 6.9542, Lon 126.2167'), findsOneWidget);
     } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
       ApiService.httpClientFactory = originalClientFactory;
       await ApiService.signOutForExpiredSession();
     }
@@ -145,4 +156,80 @@ void main() {
       await ApiService.signOutForExpiredSession();
     }
   });
+}
+
+class _FakeVideoPlayerPlatform extends video_platform.VideoPlayerPlatform {
+  int _nextPlayerId = 0;
+  final Map<int, StreamController<video_platform.VideoEvent>> _events = {};
+  int playCount = 0;
+
+  @override
+  Future<void> init() async {}
+
+  @override
+  Future<int?> createWithOptions(
+    video_platform.VideoCreationOptions options,
+  ) async {
+    final playerId = _nextPlayerId++;
+    final events = StreamController<video_platform.VideoEvent>();
+    events.add(
+      video_platform.VideoEvent(
+        eventType: video_platform.VideoEventType.initialized,
+        duration: const Duration(seconds: 3),
+        size: const Size(640, 480),
+      ),
+    );
+    _events[playerId] = events;
+    return playerId;
+  }
+
+  @override
+  Stream<video_platform.VideoEvent> videoEventsFor(int playerId) =>
+      _events[playerId]!.stream;
+
+  @override
+  Future<void> setPreventsDisplaySleepDuringVideoPlayback(
+    int playerId,
+    bool enabled,
+  ) async {}
+
+  @override
+  Future<void> setLooping(int playerId, bool looping) async {}
+
+  @override
+  Future<void> setVolume(int playerId, double volume) async {}
+
+  @override
+  Future<void> setPlaybackSpeed(int playerId, double speed) async {}
+
+  @override
+  Future<void> play(int playerId) async {
+    playCount++;
+    _events[playerId]!.add(
+      video_platform.VideoEvent(
+        eventType: video_platform.VideoEventType.isPlayingStateUpdate,
+        isPlaying: true,
+      ),
+    );
+  }
+
+  @override
+  Future<void> pause(int playerId) async {
+    _events[playerId]!.add(
+      video_platform.VideoEvent(
+        eventType: video_platform.VideoEventType.isPlayingStateUpdate,
+        isPlaying: false,
+      ),
+    );
+  }
+
+  @override
+  Future<Duration> getPosition(int playerId) async => Duration.zero;
+
+  @override
+  Future<void> dispose(int playerId) async {}
+
+  @override
+  Widget buildViewWithOptions(video_platform.VideoViewOptions options) =>
+      const ColoredBox(color: Colors.black);
 }

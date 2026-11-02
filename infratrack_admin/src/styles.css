@@ -2085,6 +2085,12 @@ tbody tr:last-child td {
   background-position: center;
   box-shadow: inset 0 0 0 1px #09273212;
 }
+.issue-thumb-video {
+  display: grid;
+  place-items: center;
+  background: var(--deep);
+  color: #fff;
+}
 .issue-thumb.road {
   background-image: url("https://picsum.photos/seed/infratrack-road/120/120");
 }
@@ -5470,7 +5476,8 @@ tbody tr:last-child td {
   width: min(100%, 1500px);
   max-height: 100%;
 }
-.issue-photo-viewer-content img {
+.issue-photo-viewer-content img,
+.issue-photo-viewer-content video {
   display: block;
   max-width: 100%;
   max-height: calc(100dvh - 100px);

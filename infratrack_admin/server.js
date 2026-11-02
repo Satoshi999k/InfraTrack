@@ -142,16 +142,22 @@ const uploadStorage = multer.diskStorage({
     callback(null, `${crypto.randomBytes(16).toString("hex")}${extension}`);
   },
 });
+const REPORT_MEDIA_MAX_SIZE_BYTES = 30 * 1024 * 1024;
+const mediaFileFilter = (_req, file, callback) => {
+  const isImage = /^image\//.test(file.mimetype);
+  const isVideo = /^video\//.test(file.mimetype);
+  if (isImage || isVideo) return callback(null, true);
+  callback(new Error("Unsupported file type. Please upload an image or video."));
+};
 const upload = multer({
   storage: uploadStorage,
   limits: { fileSize: 100 * 1024 * 1024 },
-  fileFilter: (_req, file, callback) => {
-    const isImage = /^image\//.test(file.mimetype);
-    const isVideo = /^video\//.test(file.mimetype);
-    const isGif = file.mimetype === "image/gif";
-    if (isImage || isVideo || isGif) return callback(null, true);
-    callback(new Error("Unsupported file type. Please upload an image or video."));
-  },
+  fileFilter: mediaFileFilter,
+});
+const reportMediaUpload = multer({
+  storage: uploadStorage,
+  limits: { fileSize: REPORT_MEDIA_MAX_SIZE_BYTES },
+  fileFilter: mediaFileFilter,
 });
 const profilePhotoUpload = multer({
   storage: uploadStorage,
@@ -165,7 +171,7 @@ const profilePhotoUpload = multer({
 });
 const severityAssessmentUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 20 * 1024 * 1024 },
+  limits: { fileSize: REPORT_MEDIA_MAX_SIZE_BYTES },
   fileFilter: (_req, file, callback) => {
     if (
       file.mimetype === "image/jpeg" ||
@@ -3010,13 +3016,13 @@ app.post("/api/advisories/:id/comments", async (req, res) => {
   res.status(201).json({ comment, ...(notificationWarning ? { warning: notificationWarning } : {}) });
 });
 app.post("/api/uploads", (req, res, next) => {
-  upload.fields([
+  reportMediaUpload.fields([
     { name: "file", maxCount: 1 },
     { name: "thumbnail", maxCount: 1 },
   ])(req, res, (error) => {
     if (error) {
       if (error.code === "LIMIT_FILE_SIZE") {
-        return res.status(413).json({ error: "Video is too large. Please choose a file under 100MB." });
+        return res.status(413).json({ error: "Report media must be 30 MB or smaller." });
       }
       return res.status(400).json({ error: error.message || "Unsupported file type. Please upload a valid image or video." });
     }

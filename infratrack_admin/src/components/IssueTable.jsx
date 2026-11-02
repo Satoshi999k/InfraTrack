@@ -1,4 +1,4 @@
-import { ChevronRight, Users } from "lucide-react";
+import { ChevronRight, Users, Video } from "lucide-react";
 
 export default function IssueTable({ issues, onOpenIssue }) {
   return (
@@ -30,18 +30,30 @@ export default function IssueTable({ issues, onOpenIssue }) {
                   ? createdAt.toLocaleDateString()
                   : "Not provided";
               const assignedTeam = issue.assigned_team || issue.assignedTeam;
+              const isVideo =
+                issue.media_kind === "video" ||
+                /\.(mp4|mov|m4v|webm|mkv)(?:[?#]|$)/i.test(
+                  issue.media_url || "",
+                );
 
               return (
                 <tr key={issue.id} onClick={() => onOpenIssue?.(issue)}>
                   <td>
                     <div className="issue-title">
-                      {issue.media_url ? (
+                      {issue.media_url && !isVideo ? (
                         <img
                           className="issue-thumb"
                           src={issue.media_url}
                           alt=""
                           loading="lazy"
                         />
+                      ) : isVideo ? (
+                        <span
+                          className="issue-thumb issue-thumb-video"
+                          aria-label="Video attachment"
+                        >
+                          <Video size={18} aria-hidden="true" />
+                        </span>
                       ) : (
                         <span
                           className={`issue-thumb ${(issue.category || "").toLowerCase()}`}

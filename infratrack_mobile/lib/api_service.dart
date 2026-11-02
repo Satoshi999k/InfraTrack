@@ -30,6 +30,7 @@ class ReportSeverityAssessment {
 
 const reportCommentMaxLength = 1000;
 const reportRatingCommentMaxLength = 500;
+const _maxReportVideoSizeBytes = 30 * 1024 * 1024;
 
 const _configuredApiBaseUrl = String.fromEnvironment('API_BASE_URL');
 const _productionApiBaseUrl = 'https://infratrack-3a8u.onrender.com/api';
@@ -835,6 +836,7 @@ class ApiService {
       throw Exception('Please sign in before assessing report severity.');
     }
     _requireVerifiedAccount();
+    await _validateReportVideoSize(evidence, isVideo: isVideo);
     final requestToken = _sessionToken;
     final request =
         http.MultipartRequest(
@@ -901,6 +903,7 @@ class ApiService {
       throw Exception('Please sign in before uploading report media.');
     }
     _requireVerifiedAccount();
+    await _validateReportVideoSize(file, isVideo: isVideo);
     final request =
         http.MultipartRequest('POST', Uri.parse('$apiBaseUrl/uploads'))
           ..headers['Accept'] = 'application/json'
@@ -940,6 +943,16 @@ class ApiService {
       throw Exception('The upload took too long. Please try again.');
     } finally {
       client.close();
+    }
+  }
+
+  static Future<void> _validateReportVideoSize(
+    File? file, {
+    required bool isVideo,
+  }) async {
+    if (!isVideo || file == null) return;
+    if (await file.length() > _maxReportVideoSizeBytes) {
+      throw Exception('Videos must be 30 MB or smaller.');
     }
   }
 }

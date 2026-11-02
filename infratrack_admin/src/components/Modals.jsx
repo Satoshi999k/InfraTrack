@@ -37,6 +37,7 @@ import {
   Sparkles,
   Star,
   Users,
+  Video,
   X,
 } from "lucide-react";
 import { apiFetch } from "../api";
@@ -1018,6 +1019,9 @@ export function IssueModal({ data, onClose, onSave }) {
   const [isUploadingAfterPhoto, setIsUploadingAfterPhoto] = useState(false);
   const [mediaError, setMediaError] = useState(false);
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
+  const isVideoMedia =
+    data.media_kind === "video" ||
+    /\.(mp4|mov|m4v|webm|mkv)(?:[?#]|$)/i.test(data.media_url || "");
   const beforePhotoInput = useRef(null);
   const afterPhotoInput = useRef(null);
   const imagePreviewTriggerRef = useRef(null);
@@ -1270,20 +1274,32 @@ export function IssueModal({ data, onClose, onSave }) {
           className={`issue-modal-hero ${data.category.toLowerCase()}${data.media_url && !mediaError ? " has-media" : ""}`}
         >
           {data.media_url && !mediaError && (
-            <img
-              className="issue-modal-media"
-              src={data.media_url}
-              alt={`Report attachment for ${data.title}`}
-              onError={() => setMediaError(true)}
-            />
+            isVideoMedia ? (
+              <video
+                className="issue-modal-media"
+                src={data.media_url}
+                controls
+                playsInline
+                preload="metadata"
+                aria-label={`Report video for ${data.title}`}
+                onError={() => setMediaError(true)}
+              />
+            ) : (
+              <img
+                className="issue-modal-media"
+                src={data.media_url}
+                alt={`Report attachment for ${data.title}`}
+                onError={() => setMediaError(true)}
+              />
+            )
           )}
           {(!data.media_url || mediaError) && (
             <div
               className="issue-modal-empty-media"
-              aria-label="No report photo available"
+              aria-label="No report media available"
             >
-              <ImageIcon size={24} />
-              <span>No report photo provided</span>
+              {isVideoMedia ? <Video size={24} /> : <ImageIcon size={24} />}
+              <span>No report media provided</span>
             </div>
           )}
           {data.media_url && !mediaError && (
@@ -1293,8 +1309,8 @@ export function IssueModal({ data, onClose, onSave }) {
               className="issue-modal-view-image"
               onClick={() => setImagePreviewOpen(true)}
             >
-              <ScanEye size={15} />
-              View full image
+              {isVideoMedia ? <Video size={15} /> : <ScanEye size={15} />}
+              View full {isVideoMedia ? "video" : "image"}
             </button>
           )}
           <div className="issue-modal-hero-badges">
@@ -1901,7 +1917,7 @@ export function IssueModal({ data, onClose, onSave }) {
             className="issue-photo-viewer"
             role="dialog"
             aria-modal="true"
-            aria-label="Submitted report photo"
+            aria-label={`Submitted report ${isVideoMedia ? "video" : "photo"}`}
             onClick={(event) => {
               event.stopPropagation();
               setImagePreviewOpen(false);
@@ -1920,12 +1936,23 @@ export function IssueModal({ data, onClose, onSave }) {
               >
                 <X size={20} />
               </button>
-              <img
-                src={data.media_url}
-                alt={`Full submitted photo for ${data.title}`}
-              />
+              {isVideoMedia ? (
+                <video
+                  src={data.media_url}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  aria-label={`Full submitted video for ${data.title}`}
+                />
+              ) : (
+                <img
+                  src={data.media_url}
+                  alt={`Full submitted photo for ${data.title}`}
+                />
+              )}
               <p>
-                Submitted photo · Report #{data.id}
+                Submitted {isVideoMedia ? "video" : "photo"} · Report #
+                {data.id}
               </p>
             </div>
           </div>,

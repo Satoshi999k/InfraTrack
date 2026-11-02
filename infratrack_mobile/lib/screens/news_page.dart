@@ -1982,11 +1982,15 @@ class _AdvisoryMedia extends StatefulWidget {
     required this.url,
     required this.kind,
     this.height = 170,
+    this.showControls = true,
+    this.videoFit = BoxFit.contain,
   });
 
   final String url;
   final String? kind;
   final double height;
+  final bool showControls;
+  final BoxFit videoFit;
 
   @override
   State<_AdvisoryMedia> createState() => _AdvisoryMediaState();
@@ -2182,28 +2186,53 @@ class _AdvisoryMediaState extends State<_AdvisoryMedia> {
     if (_controller == null ||
         !_controller!.value.isInitialized ||
         _controller!.value.hasError) {
-      return const SkeletonShimmer(
-        child: SkeletonBlock(height: 150, width: double.infinity, radius: 0),
+      return SkeletonShimmer(
+        child: SkeletonBlock(
+          height: widget.height,
+          width: double.infinity,
+          radius: 0,
+        ),
       );
     }
-    return AspectRatio(
-      aspectRatio: _controller!.value.aspectRatio,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          VideoPlayer(_controller!),
+    final video = Stack(
+      alignment: Alignment.center,
+      children: [
+        VideoPlayer(_controller!),
+        if (widget.showControls)
           IconButton.filled(
-            onPressed: () => setState(
-              () => _controller!.value.isPlaying
-                  ? _controller!.pause()
-                  : _controller!.play(),
-            ),
+            tooltip: _controller!.value.isPlaying
+                ? 'Pause video'
+                : 'Play video',
+            onPressed: () {
+              final controller = _controller!;
+              unawaited(
+                controller.value.isPlaying
+                    ? controller.pause()
+                    : controller.play(),
+              );
+              setState(() {});
+            },
             icon: Icon(
               _controller!.value.isPlaying ? Icons.pause : Icons.play_arrow,
             ),
           ),
-        ],
-      ),
+      ],
+    );
+    if (widget.videoFit == BoxFit.cover) {
+      return SizedBox.expand(
+        child: FittedBox(
+          fit: widget.videoFit,
+          child: SizedBox(
+            width: _controller!.value.size.width,
+            height: _controller!.value.size.height,
+            child: video,
+          ),
+        ),
+      );
+    }
+    return AspectRatio(
+      aspectRatio: _controller!.value.aspectRatio,
+      child: video,
     );
   }
 }

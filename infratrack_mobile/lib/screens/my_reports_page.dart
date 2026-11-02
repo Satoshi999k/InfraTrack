@@ -645,27 +645,29 @@ class _MyReportCard extends StatelessWidget {
                   width: 72,
                   height: 82,
                   child: report.mediaKind == 'video'
-                      ? Container(
-                          color: report.color.withValues(alpha: .14),
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              CategoryIcon(
-                                category: report.category,
-                                size: 30,
-                                fallbackIcon: report.icon,
-                                color: report.color,
-                              ),
-                              const Align(
-                                alignment: Alignment.bottomRight,
-                                child: Icon(
-                                  Icons.play_circle_fill_rounded,
-                                  color: Colors.white,
-                                  size: 24,
+                      ? Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Positioned.fill(
+                              child: ClipRect(
+                                child: _AdvisoryMedia(
+                                  url: report.image,
+                                  kind: report.mediaKind,
+                                  height: 82,
+                                  showControls: false,
+                                  videoFit: BoxFit.cover,
                                 ),
                               ),
-                            ],
-                          ),
+                            ),
+                            const Align(
+                              alignment: Alignment.bottomRight,
+                              child: Icon(
+                                Icons.play_circle_fill_rounded,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
+                          ],
                         )
                       : report.image.isEmpty
                       ? _ReportThumbnailPlaceholder(report: report)
@@ -2446,12 +2448,14 @@ class _DetailsHero extends StatelessWidget {
                 ),
               ),
             ),
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.transparent, Color(0xCC092732)],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
+          const IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.transparent, Color(0xCC092732)],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
               ),
             ),
           ),
