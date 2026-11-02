@@ -20,6 +20,7 @@ import {
 import { API_BASE, apiFetch } from "../api";
 import {
   getAdvisoryAudience,
+  getNewsCarouselFeaturedCount,
   isNewsCarouselFeatured,
   validateAdvisoryDraft,
   validateNewsCarouselFeature,
@@ -112,6 +113,7 @@ export default function AdvisoryPage({
   const [editingAdvisory, setEditingAdvisory] = useState(null);
   const [error, setError] = useState("");
   const [archivingAdvisoryId, setArchivingAdvisoryId] = useState(null);
+  const [savingCarouselAdvisoryId, setSavingCarouselAdvisoryId] = useState(null);
   const [convertingExisting, setConvertingExisting] = useState(false);
   const [convertingNew, setConvertingNew] = useState(false);
   const photoInput = useRef(null);
@@ -352,6 +354,40 @@ export default function AdvisoryPage({
     }
   };
 
+  const setPublishedNewsCarousel = async (advisory, featuredInNews) => {
+    const carouselError = validateNewsCarouselFeature({
+      featuredInNews,
+      featuredCount,
+      alreadyFeatured: isNewsCarouselFeatured(advisory.featured_in_news),
+      mediaKind: advisory.media?.kind || advisory.media_kind,
+      mediaUrl: advisory.media?.src || advisory.media_url,
+    });
+    if (carouselError) {
+      setError(carouselError);
+      return;
+    }
+
+    setSavingCarouselAdvisoryId(advisory.id);
+    setError("");
+    try {
+      const response = await apiFetch(`/advisories/${advisory.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ featuredInNews }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not update the News carousel");
+      await loadAdvisories();
+      onNotify?.(featuredInNews
+        ? "Added to the News carousel."
+        : "Removed from the News carousel.");
+    } catch (carouselSaveError) {
+      setError(carouselSaveError.message);
+    } finally {
+      setSavingCarouselAdvisoryId(null);
+    }
+  };
+
   const displayedAdvisories = publishedOnly
     ? advisories.slice(
         (currentAdvisoryPage - 1) * ADVISORIES_PER_PAGE,
@@ -366,9 +402,7 @@ export default function AdvisoryPage({
     : displayedAdvisories.length;
   const hasVideoPendingConversion = media?.kind === "video";
   const canManageNewsCarousel = user?.role === "lgu";
-  const featuredCount = advisories.filter((advisory) =>
-    isNewsCarouselFeatured(advisory.featured_in_news),
-  ).length;
+  const featuredCount = getNewsCarouselFeaturedCount(advisories);
 
   return (
     <div className={`advisory-grid ${publishedOnly ? "published-advisory-page" : ""}`}>
@@ -442,42 +476,6 @@ export default function AdvisoryPage({
             <Video size={16} /> {convertingNew ? "Converting…" : "Convert video to GIF"}
           </button>
         )}
-        {canManageNewsCarousel && (
-          <div className="advisory-featured-setting">
-            <label htmlFor="advisory-featured-in-news">
-              <input
-                id="advisory-featured-in-news"
-                type="checkbox"
-                checked={featuredInNews}
-                onChange={(event) => {
-                  const nextValue = event.target.checked;
-                  const featureError = validateNewsCarouselFeature({
-                    featuredInNews: nextValue,
-                    featuredCount,
-                    mediaKind: media?.kind,
-                    mediaUrl: media?.src,
-                  });
-                  if (featureError) {
-                    setError(featureError);
-                    return;
-                  }
-                  setError("");
-                  setFeaturedInNews(nextValue);
-                }}
-              />
-              <span>
-                <strong>Show in News carousel</strong>
-                <small>Feature this advisory for residents in the News screen.</small>
-              </span>
-            </label>
-            <small className="advisory-featured-count">
-              {featuredCount}/5 advisories featured
-              {!media || !["photo", "gif"].includes(media.kind)
-                ? " · Attach a photo or GIF to use the carousel."
-                : ""}
-            </small>
-          </div>
-        )}
         {user?.role !== "barangay_staff" && <>
           <label htmlFor="advisory-audience">Audience</label>
           <select id="advisory-audience" value={audience} onChange={(event) => setAudience(event.target.value)}>
@@ -523,6 +521,27 @@ export default function AdvisoryPage({
             <button type="button" className="text-link" onClick={onViewAll}>View all <span aria-hidden="true">→</span></button>
           )}
         </div>
+        {publishedOnly && canManageNewsCarousel && (
+          <section className="news-carousel-manager" aria-labelledby="news-carousel-manager-title">
+            <div className="news-carousel-manager-heading">
+              <div>
+                <span className="news-carousel-manager-icon" aria-hidden="true"><Image size={19} /></span>
+                <div>
+                  <h3 id="news-carousel-manager-title">Resident News carousel</h3>
+                  <p>Select photo or GIF advisories to highlight in the resident app.</p>
+                </div>
+              </div>
+              <strong className={featuredCount >= 5 ? "news-carousel-limit reached" : "news-carousel-limit"}>
+                {featuredCount} <span>/ 5</span>
+              </strong>
+            </div>
+            <div className="news-carousel-slot-track" aria-label={`${featuredCount} of 5 carousel slots used`}>
+              {Array.from({ length: 5 }, (_, index) => (
+                <span className={index < featuredCount ? "filled" : ""} key={index} />
+              ))}
+            </div>
+          </section>
+        )}
         <div className={publishedOnly ? "published-advisory-cards" : ""}>
         {isLoadingAdvisories ? (
           <div className="advisory-loading-list" role="status" aria-label="Loading advisories">
@@ -546,6 +565,11 @@ export default function AdvisoryPage({
           )
         ) : displayedAdvisories.map((advisory) => {
           const [label, AdvisoryIcon] = typeMeta[advisory.type];
+          const mediaKind = advisory.media?.kind || advisory.media_kind;
+          const mediaUrl = advisory.media?.src || advisory.media_url;
+          const featured = isNewsCarouselFeatured(advisory.featured_in_news);
+          const carouselEligible = ["photo", "image", "gif"].includes(String(mediaKind ?? "").toLowerCase()) && Boolean(mediaUrl);
+          const carouselAtLimit = featuredCount >= 5 && !featured;
           return (
             <div className={`advisory-card ${advisory.type === "alert" ? "advertisement" : advisory.type}`} key={advisory.id}>
               {(advisory.media || advisory.media_url) && (
@@ -561,6 +585,23 @@ export default function AdvisoryPage({
               </div>
               <h3>{advisory.title}</h3>
               <p>{advisory.message}</p>
+              {publishedOnly && canManageNewsCarousel && (
+                <div className={`news-carousel-card-setting ${featured ? "selected" : ""}`}>
+                  <label htmlFor={`news-carousel-${advisory.id}`}>
+                    <span>
+                      <strong>News carousel</strong>
+                      <small>{carouselEligible ? (featured ? "Featured on the resident News screen" : "Available to feature") : "Photo or GIF required"}</small>
+                    </span>
+                    <input
+                      id={`news-carousel-${advisory.id}`}
+                      type="checkbox"
+                      checked={featured}
+                      disabled={!carouselEligible || carouselAtLimit || savingCarouselAdvisoryId === advisory.id}
+                      onChange={(event) => setPublishedNewsCarousel(advisory, event.target.checked)}
+                    />
+                  </label>
+                </div>
+              )}
               <div className="advisory-card-footer">
                 <small>{advisory.created_at ? new Date(advisory.created_at).toLocaleString() : "Recently issued"}</small>
                 <div className="advisory-engagement-summary">
@@ -715,46 +756,6 @@ export default function AdvisoryPage({
               <button type="button" className="secondary-button advisory-convert-button" onClick={convertExistingVideo} disabled={convertingExisting}>
                 <Video size={16} /> {convertingExisting ? "Converting…" : "Convert existing video to GIF"}
               </button>
-            )}
-            {canManageNewsCarousel && (
-              <div className="advisory-featured-setting">
-                <label htmlFor="edit-advisory-featured-in-news">
-                  <input
-                    id="edit-advisory-featured-in-news"
-                    type="checkbox"
-                    checked={Boolean(editingAdvisory.featured_in_news)}
-                    onChange={(event) => {
-                      const nextValue = event.target.checked;
-                      const originalFeatured = advisories.find(
-                        (advisory) => advisory.id === editingAdvisory.id,
-                      )?.featured_in_news;
-                      const featureError = validateNewsCarouselFeature({
-                        featuredInNews: nextValue,
-                        featuredCount,
-                        alreadyFeatured: isNewsCarouselFeatured(originalFeatured),
-                        mediaKind: editingAdvisory.draftMedia?.kind,
-                        mediaUrl: editingAdvisory.draftMedia?.src,
-                      });
-                      if (featureError) {
-                        setError(featureError);
-                        return;
-                      }
-                      setError("");
-                      setEditingAdvisory((current) => ({
-                        ...current,
-                        featured_in_news: nextValue,
-                      }));
-                    }}
-                  />
-                  <span>
-                    <strong>Show in News carousel</strong>
-                    <small>Only photo and GIF advisories can be featured.</small>
-                  </span>
-                </label>
-                <small className="advisory-featured-count">
-                  {featuredCount}/5 advisories featured
-                </small>
-              </div>
             )}
             {error && <div className="login-error" role="alert">{error}</div>}
 

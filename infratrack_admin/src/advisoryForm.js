@@ -4,6 +4,12 @@ export function isNewsCarouselFeatured(value) {
   return value === true || value === 1 || value === "1";
 }
 
+export function getNewsCarouselFeaturedCount(advisories = []) {
+  return advisories.filter((advisory) =>
+    isNewsCarouselFeatured(advisory.featured_in_news),
+  ).length;
+}
+
 export function isNewsCarouselMedia(mediaKind, mediaUrl) {
   const kind = String(mediaKind ?? "").trim().toLowerCase();
   return Boolean(mediaUrl) && ["photo", "image", "gif"].includes(kind);
