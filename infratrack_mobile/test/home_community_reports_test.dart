@@ -19,6 +19,8 @@ void main() {
       SharedPreferences.setMockInitialValues({});
       final originalClientFactory = ApiService.httpClientFactory;
       var requestedHomeUpdates = false;
+      const featuredTitle =
+          'Central drainage repairs at the Barangay Central public market entrance';
       ApiService.httpClientFactory = () => MockClient((request) async {
         if (request.url.path.endsWith('/mobile/auth/login')) {
           return http.Response(
@@ -39,7 +41,8 @@ void main() {
           return http.Response(
             jsonEncode({
               'issues': [
-                for (var index = 1; index <= 7; index++)
+                _issue(8, featuredTitle, 'Reported', 'Brgy. Central'),
+                for (var index = 7; index >= 1; index--)
                   _issue(
                     index,
                     'Central approved $index',
@@ -47,12 +50,6 @@ void main() {
                     index.isEven ? 'Mati City' : 'Barangay Central',
                     reporterBarangay: 'Barangay Central',
                   ),
-                _issue(
-                  8,
-                  'Central awaiting review',
-                  'Reported',
-                  'Brgy. Central',
-                ),
                 _issue(9, 'Central resolved', 'Resolved', 'Brgy. Central'),
                 _issue(
                   10,
@@ -104,8 +101,21 @@ void main() {
             .widgetList<ReportCard>(find.byType(ReportCard))
             .toList();
 
-        expect(requestedHomeUpdates, isTrue);
+        expect(requestedHomeUpdates, isFalse);
         expect(reportCards, hasLength(7));
+        final featuredCarousel = tester.widget<PageView>(find.byType(PageView));
+        expect(
+          featuredCarousel.childrenDelegate,
+          isA<SliverChildBuilderDelegate>().having(
+            (delegate) => delegate.childCount,
+            'childCount',
+            5,
+          ),
+        );
+        final featuredTitleText = tester.widget<Text>(find.text(featuredTitle));
+        expect(featuredTitleText.maxLines, greaterThanOrEqualTo(2));
+        expect(featuredTitleText.overflow, isNot(TextOverflow.ellipsis));
+        expect(find.text(featuredTitle), findsOneWidget);
         expect(find.text('Trako'), findsOneWidget);
         expect(
           find.textContaining('Need help with a report or city update?'),
@@ -144,7 +154,7 @@ void main() {
         );
         expect(
           reportCards.map((card) => card.title),
-          isNot(contains('Central awaiting review')),
+          isNot(contains(featuredTitle)),
         );
         expect(
           reportCards.map((card) => card.title),
@@ -162,6 +172,8 @@ void main() {
           of: firstReportCard,
           matching: find.text('Central approved 1'),
         );
+        await tester.ensureVisible(firstReportTitle);
+        await tester.pumpAndSettle();
         await tester.tap(firstReportTitle);
         await tester.pumpAndSettle();
         await tester.ensureVisible(find.text('OFFICIAL FOLLOW-UP'));

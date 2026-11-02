@@ -23,6 +23,8 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> refresh() => _loadDashboardData();
 
+  static const _featuredReportLimit = 5;
+
   String get _firstName {
     final name = ApiService.currentUser?['name']?.toString().trim() ?? '';
     return name.isEmpty ? 'neighbor' : name.split(RegExp(r'\s+')).first;
@@ -43,7 +45,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   List<({String image, String title, String subtitle})>
-  get _featuredStories => _issues.take(5).map((issue) {
+  get _featuredStories => _issues.take(_featuredReportLimit).map((issue) {
     final mediaUrl = publicMediaUrl(issue['media_url'] as String?);
     return (
       image: mediaUrl ?? '',
@@ -76,7 +78,7 @@ class _HomePageState extends State<HomePage> {
     final notificationRevision = ApiService.notificationReadRevision.value;
     try {
       final results = await Future.wait([
-        ApiService.issues(homeUpdatesOnly: true),
+        ApiService.issues(),
         ApiService.reports(),
         ApiService.overview(),
         ApiService.notifications(),
@@ -984,8 +986,7 @@ class _FeaturedBanner extends StatelessWidget {
                         const SizedBox(height: 6),
                         Text(
                           story.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                          maxLines: 2,
                           style: infraHeading(
                             color: Colors.white,
                             fontSize: 19,
@@ -1001,11 +1002,15 @@ class _FeaturedBanner extends StatelessWidget {
                               size: 15,
                             ),
                             const SizedBox(width: 5),
-                            Text(
-                              story.subtitle,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 11,
+                            Flexible(
+                              child: Text(
+                                story.subtitle,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 11,
+                                ),
                               ),
                             ),
                           ],
