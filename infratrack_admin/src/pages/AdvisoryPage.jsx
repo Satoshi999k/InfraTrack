@@ -592,13 +592,18 @@ export default function AdvisoryPage({
                       <strong>News carousel</strong>
                       <small>{carouselEligible ? (featured ? "Featured on the resident News screen" : "Available to feature") : "Photo or GIF required"}</small>
                     </span>
-                    <input
-                      id={`news-carousel-${advisory.id}`}
-                      type="checkbox"
-                      checked={featured}
-                      disabled={!carouselEligible || carouselAtLimit || savingCarouselAdvisoryId === advisory.id}
-                      onChange={(event) => setPublishedNewsCarousel(advisory, event.target.checked)}
-                    />
+                    <span className={`news-carousel-switch ${savingCarouselAdvisoryId === advisory.id ? "saving" : ""}`}>
+                      <input
+                        id={`news-carousel-${advisory.id}`}
+                        type="checkbox"
+                        role="switch"
+                        checked={featured}
+                        aria-label={`${featured ? "Remove" : "Add"} ${advisory.title} ${featured ? "from" : "to"} the News carousel`}
+                        disabled={!carouselEligible || carouselAtLimit || savingCarouselAdvisoryId === advisory.id}
+                        onChange={(event) => setPublishedNewsCarousel(advisory, event.target.checked)}
+                      />
+                      <span aria-hidden="true" />
+                    </span>
                   </label>
                 </div>
               )}

@@ -61,6 +61,7 @@ import {
 } from "./progressWorkflow.js";
 import { verificationApprovalNotification } from "./verificationNotifications.js";
 import {
+  isNewsCarouselOnlyUpdate,
   validateNewsCarouselFeature,
 } from "./src/advisoryForm.js";
 import {
@@ -3389,20 +3390,20 @@ app.patch("/api/advisories/:id", async (req, res) => {
   if (!Number.isSafeInteger(advisoryId) || advisoryId <= 0) {
     return res.status(400).json({ error: "Invalid advisory ID" });
   }
-  if (!title?.trim() || !message?.trim()) return res.status(400).json({ error: "Title and message are required" });
+  const carouselOnlyUpdate = isNewsCarouselOnlyUpdate(body);
+  if (!carouselOnlyUpdate && (!title?.trim() || !message?.trim())) {
+    return res.status(400).json({ error: "Title and message are required" });
+  }
   if (hasFeaturedInNews && typeof featuredInNews !== "boolean") {
     return res.status(400).json({ error: "News carousel selection must be true or false." });
   }
   if (hasFeaturedInNews && editor?.role !== "lgu") {
     return res.status(403).json({ error: "Only LGU administrators can manage the News carousel." });
   }
-  const mediaFeatureError = validateNewsCarouselFeature({
-      featuredInNews: true,
-      featuredCount: 0,
-      mediaKind,
-      mediaUrl,
-    });
-  if (featuredInNews === true && mediaFeatureError) {
+  const mediaFeatureError = featuredInNews === true && !carouselOnlyUpdate
+    ? validateNewsCarouselFeature({ featuredInNews: true, featuredCount: 0, mediaKind, mediaUrl })
+    : null;
+  if (mediaFeatureError) {
     return res.status(400).json({ error: mediaFeatureError });
   }
   const scope = getAdvisoryScope(editor, "a");
@@ -3435,12 +3436,20 @@ app.patch("/api/advisories/:id", async (req, res) => {
     }
 
     const alreadyFeatured = Number(existing[0].featured_in_news) === 1;
+    const [currentMedia] = carouselOnlyUpdate
+      ? await connection.query(
+          "SELECT file_path, media_type FROM advisory_media WHERE advisory_id = ? ORDER BY id DESC LIMIT 1",
+          [advisoryId],
+        )
+      : [[]];
+    const effectiveMediaUrl = carouselOnlyUpdate ? currentMedia[0]?.file_path : mediaUrl;
+    const effectiveMediaKind = carouselOnlyUpdate ? currentMedia[0]?.media_type : mediaKind;
     const mediaIsEligible =
       validateNewsCarouselFeature({
         featuredInNews: true,
         featuredCount: 0,
-        mediaKind,
-        mediaUrl,
+        mediaKind: effectiveMediaKind,
+        mediaUrl: effectiveMediaUrl,
       }) === null;
     const shouldFeature = hasFeaturedInNews
       ? featuredInNews
@@ -3453,8 +3462,8 @@ app.patch("/api/advisories/:id", async (req, res) => {
         featuredInNews: true,
         featuredCount: Number(counts[0]?.featured_count ?? 0),
         alreadyFeatured,
-        mediaKind,
-        mediaUrl,
+        mediaKind: effectiveMediaKind,
+        mediaUrl: effectiveMediaUrl,
       });
       if (featureError) {
         await connection.rollback();
@@ -3464,11 +3473,11 @@ app.patch("/api/advisories/:id", async (req, res) => {
     }
 
     await connection.query(
-      `UPDATE advisories SET type = COALESCE(?, type), title = ?, message = ?, audience = COALESCE(?, audience), barangay = COALESCE(?, barangay), featured_in_news = ? WHERE id = ?${getAdvisoryScope(editor, "advisories").sql}`,
+      `UPDATE advisories SET type = COALESCE(?, type), title = COALESCE(?, title), message = COALESCE(?, message), audience = COALESCE(?, audience), barangay = COALESCE(?, barangay), featured_in_news = ? WHERE id = ?${getAdvisoryScope(editor, "advisories").sql}`,
       [
         type ?? null,
-        title.trim(),
-        message.trim(),
+        title?.trim() || null,
+        message?.trim() || null,
         targetAudience ?? null,
         editor?.role === "barangay_staff" ? editor.barangay : barangay ?? null,
         shouldFeature ? 1 : 0,
@@ -3476,12 +3485,14 @@ app.patch("/api/advisories/:id", async (req, res) => {
         ...scope.params,
       ],
     );
-    await connection.query("DELETE FROM advisory_media WHERE advisory_id = ?", [advisoryId]);
-    if (mediaUrl) {
-      await connection.query(
-        "INSERT INTO advisory_media (advisory_id, file_path, media_type) VALUES (?, ?, ?)",
-        [advisoryId, mediaUrl, mediaKind || "photo"],
-      );
+    if (!carouselOnlyUpdate) {
+      await connection.query("DELETE FROM advisory_media WHERE advisory_id = ?", [advisoryId]);
+      if (mediaUrl) {
+        await connection.query(
+          "INSERT INTO advisory_media (advisory_id, file_path, media_type) VALUES (?, ?, ?)",
+          [advisoryId, mediaUrl, mediaKind || "photo"],
+        );
+      }
     }
     const [advisories] = await connection.query("SELECT * FROM advisories WHERE id = ?", [advisoryId]);
     await connection.commit();

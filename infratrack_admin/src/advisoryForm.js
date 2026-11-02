@@ -1,5 +1,11 @@
 export const MAX_NEWS_CAROUSEL_ITEMS = 5;
 
+export function isNewsCarouselOnlyUpdate(body = {}) {
+  const keys = Object.keys(body ?? {});
+  return keys.length === 1 && Object.hasOwn(body, "featuredInNews");
+}
+
+
 export function isNewsCarouselFeatured(value) {
   return value === true || value === 1 || value === "1";
 }

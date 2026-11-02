@@ -4,10 +4,17 @@ import assert from "node:assert/strict";
 import {
   getNewsCarouselFeaturedCount,
   getAdvisoryAudience,
+  isNewsCarouselOnlyUpdate,
   isNewsCarouselFeatured,
   validateAdvisoryDraft,
   validateNewsCarouselFeature,
 } from "./advisoryForm.js";
+
+test("news carousel selector is recognized as a partial advisory update", () => {
+  assert.equal(isNewsCarouselOnlyUpdate({ featuredInNews: true }), true);
+  assert.equal(isNewsCarouselOnlyUpdate({ featuredInNews: false }), true);
+  assert.equal(isNewsCarouselOnlyUpdate({ featuredInNews: true, title: "Road update" }), false);
+});
 
 test("news carousel featured count handles API boolean representations", () => {
   assert.equal(

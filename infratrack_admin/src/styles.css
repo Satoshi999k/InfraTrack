@@ -3883,11 +3883,11 @@ tbody tr:last-child td {
 }
 .news-carousel-manager {
   margin-bottom: 16px;
-  padding: 16px;
+  padding: 18px 20px;
   border: 1px solid #d8e4df;
   border-left: 4px solid var(--teal);
   border-radius: 14px;
-  background: linear-gradient(135deg, #f8fbf9 0%, #f2f7f5 100%);
+  background: #f8fbfa;
 }
 .news-carousel-manager-heading {
   display: flex;
@@ -3970,6 +3970,9 @@ tbody tr:last-child td {
   display: grid;
   gap: 2px;
 }
+.news-carousel-card-setting label > .news-carousel-switch {
+  display: block;
+}
 .news-carousel-card-setting strong {
   color: var(--navy);
   font-size: calc(11px * var(--appearance-text-scale, 1));
@@ -3978,10 +3981,60 @@ tbody tr:last-child td {
   color: var(--muted);
   font-size: calc(10px * var(--appearance-text-scale, 1));
 }
-.news-carousel-card-setting input {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--teal);
+.news-carousel-switch {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  flex: 0 0 38px;
+}
+.news-carousel-switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.news-carousel-switch > span {
+  position: absolute;
+  inset: 0;
+  border: 1px solid #bccbc7;
+  border-radius: 999px;
+  background: #dfe7e4;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+.news-carousel-switch > span::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 3px rgb(15 45 53 / 24%);
+  content: "";
+  transition: transform 160ms ease;
+}
+.news-carousel-switch input:checked + span {
+  border-color: var(--teal);
+  background: var(--teal);
+}
+.news-carousel-switch input:checked + span::after {
+  transform: translateX(16px);
+}
+.news-carousel-switch input:focus-visible + span {
+  outline: 3px solid rgb(27 138 131 / 22%);
+  outline-offset: 2px;
+}
+.news-carousel-switch input:disabled + span {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+.news-carousel-switch.saving > span::after {
+  animation: news-carousel-switch-pulse 700ms ease-in-out infinite alternate;
+}
+@keyframes news-carousel-switch-pulse {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
 }
 .advisory-composer > .primary-button {
   min-height: 42px;
