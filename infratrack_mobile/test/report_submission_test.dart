@@ -86,6 +86,27 @@ void main() {
     }
   });
 
+  test('uses uploaded video posters and derives Cloudinary first frames', () {
+    expect(
+      reportVideoThumbnailUrl(
+        'https://example.test/central-report-poster.jpg',
+        'https://example.test/central-report.mp4',
+      ),
+      'https://example.test/central-report-poster.jpg',
+    );
+    expect(
+      reportVideoThumbnailUrl(
+        null,
+        'https://res.cloudinary.com/demo/video/upload/v1712345678/reports/central.mp4',
+      ),
+      'https://res.cloudinary.com/demo/video/upload/so_0/v1712345678/reports/central.jpg',
+    );
+    expect(
+      reportVideoThumbnailUrl(null, 'https://example.test/central-report.mp4'),
+      isNull,
+    );
+  });
+
   testWidgets('shows only the infrastructure categories in scope', (
     tester,
   ) async {

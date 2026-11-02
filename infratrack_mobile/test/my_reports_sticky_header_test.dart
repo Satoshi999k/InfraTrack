@@ -48,6 +48,7 @@ void main() {
                 'longitude': 126.2167,
                 'media_url': 'https://example.test/report.mp4',
                 'media_kind': 'video',
+                'media_thumbnail_url': 'https://example.test/report-poster.jpg',
                 'created_at': '2026-10-20T10:00:00.000Z',
               },
             ],
@@ -67,7 +68,17 @@ void main() {
       expect(find.text('Central Mati, near the public market'), findsOneWidget);
       expect(find.text('Report activity'), findsNothing);
       expect(find.textContaining('Lat 6.9542'), findsNothing);
-      expect(find.byType(VideoPlayer), findsOneWidget);
+      expect(find.byType(VideoPlayer), findsNothing);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Image &&
+              widget.image is NetworkImage &&
+              (widget.image as NetworkImage).url ==
+                  'https://example.test/report-poster.jpg',
+        ),
+        findsOneWidget,
+      );
       expect(
         find.byWidgetPredicate(
           (widget) =>
@@ -87,6 +98,7 @@ void main() {
 
       expect(find.text('Issue details'), findsOneWidget);
       expect(find.text('VIDEO PREVIEW'), findsOneWidget);
+      expect(find.byType(VideoPlayer), findsOneWidget);
       await tester.tap(find.byIcon(Icons.play_arrow));
       expect(fakeVideoPlatform.playCount, 1);
       expect(find.textContaining('GPS coordinates'), findsOneWidget);

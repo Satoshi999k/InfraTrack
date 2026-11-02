@@ -113,7 +113,7 @@ class _ReportPageState extends State<ReportPage> with WidgetsBindingObserver {
         aiAssessmentUnavailable = true;
       }
 
-      final mediaUrl = _capturedMedia == null
+      final uploadedMedia = _capturedMedia == null
           ? null
           : await _uploadEvidence(stage);
       stage.value = _ReportSubmissionStage.submitting;
@@ -127,7 +127,8 @@ class _ReportPageState extends State<ReportPage> with WidgetsBindingObserver {
         aiAnalysis: aiAnalysis,
         latitude: _position!.latitude,
         longitude: _position!.longitude,
-        mediaUrl: mediaUrl,
+        mediaUrl: uploadedMedia?.url,
+        mediaThumbnailUrl: uploadedMedia?.thumbnailUrl,
         mediaType: _capturedVideo ? 'video' : 'photo',
       );
       if (!mounted) return;
@@ -180,7 +181,7 @@ class _ReportPageState extends State<ReportPage> with WidgetsBindingObserver {
     }
   }
 
-  Future<String> _uploadEvidence(
+  Future<({String url, String? thumbnailUrl})> _uploadEvidence(
     ValueNotifier<_ReportSubmissionStage> stage,
   ) async {
     stage.value = _ReportSubmissionStage.uploadingEvidence;

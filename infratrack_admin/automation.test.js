@@ -104,12 +104,23 @@ test('unmapped or private report coordinates are not routed by reporter barangay
       latitude: 6.95321,
       longitude: 126.21202,
       location: 'Mati City',
+      reporterBarangay: 'Barangay Central',
     }),
     'Mati City (barangay unverified)',
   );
   assert.equal(
     resolveReportLocation({ location: 'Mati City' }),
     'Mati City (barangay unverified)',
+  );
+});
+
+test('reports without shared GPS use the reporter barangay when location is city-wide', () => {
+  assert.equal(
+    resolveReportLocation({
+      location: 'Mati City',
+      reporterBarangay: 'Barangay Central',
+    }),
+    'Brgy. Central',
   );
 });
 

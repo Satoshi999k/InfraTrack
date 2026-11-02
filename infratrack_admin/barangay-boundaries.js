@@ -98,14 +98,33 @@ export function getBarangayForCoordinates(latitude, longitude) {
   return match ? match[0] : null;
 }
 
-export function resolveReportLocation({ latitude, longitude, location, barangay }) {
+export function resolveReportLocation({
+  latitude,
+  longitude,
+  location,
+  barangay,
+  reporterBarangay,
+}) {
   const detectedBarangay = getBarangayForCoordinates(latitude, longitude);
   if (detectedBarangay) return detectedBarangay;
 
   const providedLocation = String(location || barangay || "").trim();
   const isGenericCityLocation =
     !providedLocation || /^(?:mati(?:\s+city)?|mati city)$/i.test(providedLocation);
+  const hasCoordinates =
+    latitude != null &&
+    latitude !== "" &&
+    longitude != null &&
+    longitude !== "";
+  const profileBarangay = String(reporterBarangay || "")
+    .replace(/^(?:brgy\.?|barangay)\s*/i, "")
+    .trim();
+  const isGenericReporterLocation =
+    !profileBarangay || /^(?:mati(?:\s+city)?|mati city)$/i.test(profileBarangay);
 
+  if (isGenericCityLocation && !hasCoordinates && !isGenericReporterLocation) {
+    return `Brgy. ${normalizeBarangayName(profileBarangay)}`;
+  }
   return isGenericCityLocation
     ? "Mati City (barangay unverified)"
     : providedLocation;

@@ -53,6 +53,30 @@ String? publicMediaUrl(String? value) {
   return mediaUri.replace(host: apiUri.host, port: apiUri.port).toString();
 }
 
+String? reportVideoThumbnailUrl(String? thumbnailUrl, String? mediaUrl) {
+  final uploadedThumbnail = publicMediaUrl(thumbnailUrl);
+  if (uploadedThumbnail != null && uploadedThumbnail.isNotEmpty) {
+    return uploadedThumbnail;
+  }
+
+  final mediaUri = Uri.tryParse(publicMediaUrl(mediaUrl) ?? '');
+  if (mediaUri == null ||
+      !mediaUri.host.endsWith('cloudinary.com') ||
+      !mediaUri.path.contains('/video/upload/')) {
+    return null;
+  }
+
+  final videoExtension = RegExp(r'\.(mp4|mov|webm|m4v)$', caseSensitive: false);
+  if (!videoExtension.hasMatch(mediaUri.path)) return null;
+  final transformedPath = mediaUri.path.replaceFirst(
+    '/video/upload/',
+    '/video/upload/so_0/',
+  );
+  return mediaUri
+      .replace(path: transformedPath.replaceFirst(videoExtension, '.jpg'))
+      .toString();
+}
+
 class ApiService {
   static const _sessionTokenKey = 'session_token';
   static const _sessionUserKey = 'session_user';
@@ -802,6 +826,7 @@ class ApiService {
     double? latitude,
     double? longitude,
     String? mediaUrl,
+    String? mediaThumbnailUrl,
     String? mediaType,
   }) async {
     _requireVerifiedAccount();
@@ -820,6 +845,7 @@ class ApiService {
         'latitude': latitude,
         'longitude': longitude,
         'mediaUrl': mediaUrl,
+        'mediaThumbnailUrl': mediaThumbnailUrl,
         'mediaType': mediaType,
       },
     );
@@ -898,7 +924,10 @@ class ApiService {
     }
   }
 
-  static Future<String> uploadMedia(File file, {required bool isVideo}) async {
+  static Future<({String url, String? thumbnailUrl})> uploadMedia(
+    File file, {
+    required bool isVideo,
+  }) async {
     if (_sessionToken == null) {
       throw Exception('Please sign in before uploading report media.');
     }
@@ -926,8 +955,11 @@ class ApiService {
       final response = await http.Response.fromStream(streamedResponse)
           .timeout(const Duration(seconds: 60));
       _markConnected();
-      return _decodeResponse(response, invalidateSession: true)['url']
-          as String;
+      final body = _decodeResponse(response, invalidateSession: true);
+      return (
+        url: body['url'] as String,
+        thumbnailUrl: body['thumbnailUrl'] as String?,
+      );
     } on SocketException {
       connectionIssue.value = 'Could not connect to InfraTrack. Check your internet connection and try again.';
       throw Exception(

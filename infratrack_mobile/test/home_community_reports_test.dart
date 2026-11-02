@@ -54,6 +54,8 @@ void main() {
                   'Brgy. Central',
                   mediaUrl: 'https://example.test/central-report.mp4',
                   mediaKind: 'video',
+                  mediaThumbnailUrl:
+                      'https://example.test/central-report-poster.jpg',
                 ),
                 for (var index = 7; index >= 1; index--)
                   _issue(
@@ -129,7 +131,17 @@ void main() {
         expect(featuredTitleText.maxLines, greaterThanOrEqualTo(2));
         expect(featuredTitleText.overflow, isNot(TextOverflow.ellipsis));
         expect(find.text(featuredTitle), findsOneWidget);
-        expect(find.byType(VideoPlayer), findsOneWidget);
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Image &&
+                widget.image is NetworkImage &&
+                (widget.image as NetworkImage).url ==
+                    'https://example.test/central-report-poster.jpg',
+          ),
+          findsOneWidget,
+        );
+        expect(find.byType(VideoPlayer), findsNothing);
         expect(fakeVideoPlatform.playCount, 0);
         expect(find.text('Trako'), findsOneWidget);
         expect(
@@ -222,6 +234,7 @@ Map<String, dynamic> _issue(
   String? reporterBarangay,
   String? mediaUrl,
   String? mediaKind,
+  String? mediaThumbnailUrl,
 }) => {
   'id': id,
   'public_id': '$id',
@@ -233,6 +246,7 @@ Map<String, dynamic> _issue(
   'reporter_barangay': reporterBarangay,
   'media_url': mediaUrl,
   'media_kind': mediaKind,
+  'media_thumbnail_url': mediaThumbnailUrl,
   'created_at': '2026-10-21T06:00:00.000Z',
 };
 

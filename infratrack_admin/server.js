@@ -73,6 +73,7 @@ import {
   canRateReport,
   validateReportRating,
 } from "./reportRating.js";
+import { cloudinaryVideoThumbnailUrl } from "./mediaThumbnails.js";
 import {
   aggregateReportCategories,
   normalizeReportCategory,
@@ -262,6 +263,22 @@ function convertVideoFileToGif(sourcePath, outputPath) {
     converter.stderr.on("data", (chunk) => { errorOutput += chunk.toString(); });
     converter.on("error", reject);
     converter.on("close", (code) => code === 0 ? resolve() : reject(new Error(`Could not convert video to GIF: ${errorOutput.slice(-300)}`)));
+  });
+}
+
+function generateVideoThumbnail(sourcePath, outputPath) {
+  return new Promise((resolve, reject) => {
+    const converter = spawn(
+      ffmpegPath,
+      ["-y", "-i", sourcePath, "-frames:v", "1", "-vf", "scale=640:-2", "-q:v", "5", outputPath],
+      { windowsHide: true },
+    );
+    let errorOutput = "";
+    converter.stderr.on("data", (chunk) => { errorOutput += chunk.toString(); });
+    converter.on("error", reject);
+    converter.on("close", (code) => code === 0
+      ? resolve()
+      : reject(new Error(`Could not create a video thumbnail: ${errorOutput.slice(-300)}`)));
   });
 }
 
@@ -859,8 +876,10 @@ async function initializeDatabase() {
   await pool.query(`CREATE TABLE IF NOT EXISTS media (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, report_id INT UNSIGNED NOT NULL,
     file_path VARCHAR(500) NOT NULL, media_type VARCHAR(40) NOT NULL,
+    thumbnail_path VARCHAR(500) NULL,
     CONSTRAINT media_report_fk FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE
   ) ENGINE=InnoDB`);
+  await pool.query("ALTER TABLE media ADD COLUMN IF NOT EXISTS thumbnail_path VARCHAR(500) NULL");
   await pool.query(`CREATE TABLE IF NOT EXISTS teams (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, name VARCHAR(160) NOT NULL UNIQUE,
     department VARCHAR(160), contact_phone VARCHAR(40), active BOOLEAN NOT NULL DEFAULT TRUE,
@@ -1420,6 +1439,7 @@ app.get("/api/mobile/issues", async (req, res) => {
     r.assigned_team, r.resolution_note, r.progress_percentage, r.created_at, r.updated_at,
     (SELECT m.file_path FROM media m WHERE m.report_id = r.id AND m.media_type <> 'resolution_photo' ORDER BY m.id ASC LIMIT 1) AS media_url,
     (SELECT m.media_type FROM media m WHERE m.report_id = r.id AND m.media_type <> 'resolution_photo' ORDER BY m.id ASC LIMIT 1) AS media_kind,
+    (SELECT m.thumbnail_path FROM media m WHERE m.report_id = r.id AND m.media_type <> 'resolution_photo' ORDER BY m.id ASC LIMIT 1) AS media_thumbnail_url,
     (SELECT m.file_path FROM media m WHERE m.report_id = r.id AND m.media_type = 'resolution_photo' ORDER BY m.id DESC LIMIT 1) AS resolution_media_url
     FROM reports r LEFT JOIN users u ON u.id = r.reporter_id
     WHERE ${statusFilter} ORDER BY r.created_at DESC`);
@@ -1443,6 +1463,9 @@ app.get("/api/mobile/issues", async (req, res) => {
   res.json({ issues: issuesWithProgress.map((issue) => ({
     ...issue,
     media_url: publicMediaUrl(req, issue.media_url),
+    media_thumbnail_url:
+      publicMediaUrl(req, issue.media_thumbnail_url) ||
+      cloudinaryVideoThumbnailUrl(issue.media_url),
     resolution_media_url: publicMediaUrl(req, issue.resolution_media_url),
   })) });
 });
@@ -1654,6 +1677,7 @@ app.get("/api/mobile/reports", async (req, res) => {
   const [reports] = await pool.query(`SELECT r.*, u.name AS reporter,
     (SELECT m.file_path FROM media m WHERE m.report_id = r.id AND m.media_type <> 'resolution_photo' ORDER BY m.id ASC LIMIT 1) AS media_url,
     (SELECT m.media_type FROM media m WHERE m.report_id = r.id AND m.media_type <> 'resolution_photo' ORDER BY m.id ASC LIMIT 1) AS media_kind,
+    (SELECT m.thumbnail_path FROM media m WHERE m.report_id = r.id AND m.media_type <> 'resolution_photo' ORDER BY m.id ASC LIMIT 1) AS media_thumbnail_url,
     (SELECT m.file_path FROM media m WHERE m.report_id = r.id AND m.media_type = 'resolution_photo' ORDER BY m.id DESC LIMIT 1) AS resolution_media_url
     FROM reports r LEFT JOIN users u ON u.id = r.reporter_id
     WHERE r.reporter_id = ? ORDER BY r.created_at DESC`, [req.auth.id]);
@@ -1675,6 +1699,9 @@ app.get("/api/mobile/reports", async (req, res) => {
   res.json({ reports: reportsWithProgress.map((report) => ({
     ...report,
     media_url: publicMediaUrl(req, report.media_url),
+    media_thumbnail_url:
+      publicMediaUrl(req, report.media_thumbnail_url) ||
+      cloudinaryVideoThumbnailUrl(report.media_url),
     resolution_media_url: publicMediaUrl(req, report.resolution_media_url),
   })) });
 });
@@ -1727,6 +1754,7 @@ app.post("/api/mobile/reports", async (req, res) => {
     aiSeverity = null,
     aiAnalysis = null,
     mediaUrl,
+    mediaThumbnailUrl,
     mediaType = "photo",
   } = req.body ?? {};
   const normalizedCategory = normalizeReportCategory(category);
@@ -1761,6 +1789,7 @@ app.post("/api/mobile/reports", async (req, res) => {
     if (!boundaryResult.valid) return res.status(422).json({ error: boundaryResult.reason });
   }
   let storedMediaUrl = null;
+  let storedMediaThumbnailUrl = null;
   if (mediaUrl != null) {
     try {
       if (typeof mediaUrl !== "string") throw new Error("Invalid report media URL");
@@ -1786,6 +1815,33 @@ app.post("/api/mobile/reports", async (req, res) => {
   if (mediaUrl != null && !["photo", "video", "gif"].includes(mediaType)) {
     return res.status(400).json({ error: "Invalid report media type" });
   }
+  if (mediaThumbnailUrl != null) {
+    if (!storedMediaUrl || mediaType !== "video") {
+      return res.status(400).json({ error: "A video thumbnail requires uploaded video media." });
+    }
+    try {
+      if (typeof mediaThumbnailUrl !== "string") {
+        throw new Error("Invalid report thumbnail URL");
+      }
+      const origin = `${req.protocol}://${req.get("host")}`;
+      const parsedThumbnailUrl = new URL(mediaThumbnailUrl, `${origin}/`);
+      if (isDurableMediaUrl(mediaThumbnailUrl)) {
+        storedMediaThumbnailUrl = parsedThumbnailUrl.toString();
+      } else {
+        const filename = path.basename(parsedThumbnailUrl.pathname);
+        if (
+          parsedThumbnailUrl.origin !== origin ||
+          parsedThumbnailUrl.pathname !== `/uploads/${filename}` ||
+          !fs.existsSync(path.join(uploadDirectory, filename))
+        ) {
+          throw new Error("Invalid report thumbnail URL");
+        }
+        storedMediaThumbnailUrl = `${origin}${parsedThumbnailUrl.pathname}`;
+      }
+    } catch {
+      return res.status(400).json({ error: "Invalid report video thumbnail URL" });
+    }
+  }
   const resolvedLocation = resolveReportLocation({
     latitude: parsedLat,
     longitude: parsedLng,
@@ -1806,8 +1862,8 @@ app.post("/api/mobile/reports", async (req, res) => {
     );
     if (storedMediaUrl) {
       await connection.query(
-        "INSERT INTO media (report_id, file_path, media_type) VALUES (?, ?, ?)",
-        [result.insertId, storedMediaUrl, mediaType],
+        "INSERT INTO media (report_id, file_path, media_type, thumbnail_path) VALUES (?, ?, ?, ?)",
+        [result.insertId, storedMediaUrl, mediaType, storedMediaThumbnailUrl],
       );
     }
     const [reports] = await connection.query("SELECT * FROM reports WHERE id = ?", [result.insertId]);
@@ -3043,6 +3099,7 @@ app.post("/api/uploads", (req, res, next) => {
     await removeTemporaryUpload(thumbnailFile);
     return res.status(400).json({ error: "A video thumbnail must be an image uploaded with a video." });
   }
+  let generatedThumbnailFile = null;
   try {
     if (process.env.VERCEL && !hasCloudinaryStorage && !hasSignedCloudinaryStorage) {
       return res.status(503).json({
@@ -3053,7 +3110,7 @@ app.post("/api/uploads", (req, res, next) => {
     if (cloudinaryUrl) {
       const thumbnailUrl = thumbnailFile
         ? await uploadToCloudinary(thumbnailFile)
-        : null;
+        : cloudinaryVideoThumbnailUrl(cloudinaryUrl);
       await removeTemporaryUpload(mediaFile);
       await removeTemporaryUpload(thumbnailFile);
       return res.status(201).json({
@@ -3064,10 +3121,20 @@ app.post("/api/uploads", (req, res, next) => {
         storage: "cloudinary",
       });
     }
+    if (mediaKind === "video" && !thumbnailFile) {
+      generatedThumbnailFile = {
+        path: path.join(
+          uploadDirectory,
+          `${crypto.randomBytes(16).toString("hex")}-poster.jpg`,
+        ),
+      };
+      await generateVideoThumbnail(mediaFile.path, generatedThumbnailFile.path);
+    }
+    const storedThumbnailFile = thumbnailFile || generatedThumbnailFile;
     res.status(201).json({
       url: `${req.protocol}://${req.get("host")}/uploads/${mediaFile.filename}`,
-      thumbnailUrl: thumbnailFile
-        ? `${req.protocol}://${req.get("host")}/uploads/${thumbnailFile.filename}`
+      thumbnailUrl: storedThumbnailFile
+        ? `${req.protocol}://${req.get("host")}/uploads/${path.basename(storedThumbnailFile.path)}`
         : null,
       mediaKind,
       originalName: mediaFile.originalname,
@@ -3076,6 +3143,7 @@ app.post("/api/uploads", (req, res, next) => {
   } catch (uploadError) {
     await removeTemporaryUpload(mediaFile);
     await removeTemporaryUpload(thumbnailFile);
+    await removeTemporaryUpload(generatedThumbnailFile);
     console.error("Unable to store advisory media:", uploadError.message);
     res.status(502).json({ error: `Could not store media: ${uploadError.message}` });
   }

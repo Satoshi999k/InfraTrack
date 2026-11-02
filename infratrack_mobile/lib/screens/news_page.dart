@@ -1986,15 +1986,13 @@ class _AdvisoryMedia extends StatefulWidget {
     required this.url,
     required this.kind,
     this.height = 170,
-    this.showControls = true,
-    this.videoFit = BoxFit.contain,
   });
 
   final String url;
   final String? kind;
   final double height;
-  final bool showControls;
-  final BoxFit videoFit;
+  final bool showControls = true;
+  final BoxFit videoFit = BoxFit.contain;
 
   @override
   State<_AdvisoryMedia> createState() => _AdvisoryMediaState();

@@ -15,6 +15,7 @@ typedef _ReportDetails = ({
   String coordinates,
   String age,
   String image,
+  String thumbnail,
   String mediaKind,
   String resolutionImage,
   String status,
@@ -56,6 +57,12 @@ _ReportDetails _reportDetailsFromApi(Map<String, dynamic> item) {
         : 'Lat ${item['latitude']}, Lon ${item['longitude']}',
     age: item['created_at']?.toString() ?? '',
     image: publicMediaUrl(item['media_url'] as String?) ?? '',
+    thumbnail:
+        reportVideoThumbnailUrl(
+          item['media_thumbnail_url'] as String?,
+          item['media_url'] as String?,
+        ) ??
+        '',
     mediaKind: (item['media_kind'] as String? ?? '').trim().toLowerCase(),
     resolutionImage:
         publicMediaUrl(item['resolution_media_url'] as String?) ?? '',
@@ -606,6 +613,7 @@ class _MyReportCard extends StatelessWidget {
     String coordinates,
     String age,
     String image,
+    String thumbnail,
     String mediaKind,
     String resolutionImage,
     String status,
@@ -649,15 +657,16 @@ class _MyReportCard extends StatelessWidget {
                           fit: StackFit.expand,
                           children: [
                             Positioned.fill(
-                              child: ClipRect(
-                                child: _AdvisoryMedia(
-                                  url: report.image,
-                                  kind: report.mediaKind,
-                                  height: 82,
-                                  showControls: false,
-                                  videoFit: BoxFit.cover,
-                                ),
-                              ),
+                              child: report.thumbnail.isEmpty
+                                  ? _ReportThumbnailPlaceholder(report: report)
+                                  : Image.network(
+                                      report.thumbnail,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, _, _) =>
+                                          _ReportThumbnailPlaceholder(
+                                            report: report,
+                                          ),
+                                    ),
                             ),
                             const Align(
                               alignment: Alignment.bottomRight,
@@ -801,6 +810,7 @@ class _ReportThumbnailPlaceholder extends StatelessWidget {
     String coordinates,
     String age,
     String image,
+    String thumbnail,
     String mediaKind,
     String resolutionImage,
     String status,
@@ -845,6 +855,7 @@ class MyReportDetailsPage extends StatelessWidget {
     String coordinates,
     String age,
     String image,
+    String thumbnail,
     String mediaKind,
     String resolutionImage,
     String status,
@@ -1220,6 +1231,7 @@ String _locationFor(
     String coordinates,
     String age,
     String image,
+    String thumbnail,
     String mediaKind,
     String resolutionImage,
     String status,
@@ -2406,6 +2418,7 @@ class _DetailsHero extends StatelessWidget {
     String coordinates,
     String age,
     String image,
+    String thumbnail,
     String mediaKind,
     String resolutionImage,
     String status,

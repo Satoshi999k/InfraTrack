@@ -44,12 +44,30 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  List<({String mediaUrl, bool isVideo, String title, String subtitle})>
+  List<
+    ({
+      String mediaUrl,
+      String? thumbnailUrl,
+      bool isVideo,
+      String title,
+      String subtitle,
+    })
+  >
   get _featuredStories => _issues.take(_featuredReportLimit).map((issue) {
     final mediaUrl = publicMediaUrl(issue['media_url'] as String?) ?? '';
+    final isVideo = isVideoAdvisoryMedia(
+      issue['media_kind'] as String?,
+      mediaUrl,
+    );
     return (
       mediaUrl: mediaUrl,
-      isVideo: isVideoAdvisoryMedia(issue['media_kind'] as String?, mediaUrl),
+      thumbnailUrl: isVideo
+          ? reportVideoThumbnailUrl(
+              issue['media_thumbnail_url'] as String?,
+              mediaUrl,
+            )
+          : null,
+      isVideo: isVideo,
       title: issue['title'] as String? ?? 'Infrastructure report',
       subtitle:
           '${issue['status'] ?? 'Reported'} · ${issue['location'] ?? 'Mati City'}',
@@ -924,7 +942,15 @@ class _FeaturedBanner extends StatelessWidget {
     required this.onPageChanged,
   });
 
-  final List<({String mediaUrl, bool isVideo, String title, String subtitle})>
+  final List<
+    ({
+      String mediaUrl,
+      String? thumbnailUrl,
+      bool isVideo,
+      String title,
+      String subtitle,
+    })
+  >
   stories;
   final PageController controller;
   final int currentIndex;
@@ -948,7 +974,7 @@ class _FeaturedBanner extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   if (story.isVideo)
-                    _FeaturedVideoThumbnail(mediaUrl: story.mediaUrl)
+                    _FeaturedVideoThumbnail(thumbnailUrl: story.thumbnailUrl)
                   else
                     Image.network(
                       story.mediaUrl,
@@ -1073,81 +1099,36 @@ class _FeaturedBanner extends StatelessWidget {
   );
 }
 
-class _FeaturedVideoThumbnail extends StatefulWidget {
-  const _FeaturedVideoThumbnail({required this.mediaUrl});
+class _FeaturedVideoThumbnail extends StatelessWidget {
+  const _FeaturedVideoThumbnail({required this.thumbnailUrl});
 
-  final String mediaUrl;
-
-  @override
-  State<_FeaturedVideoThumbnail> createState() =>
-      _FeaturedVideoThumbnailState();
-}
-
-class _FeaturedVideoThumbnailState extends State<_FeaturedVideoThumbnail> {
-  late final VideoPlayerController _controller;
-  late final Future<void> _initialization;
+  final String? thumbnailUrl;
 
   @override
-  void initState() {
-    super.initState();
-    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.mediaUrl));
-    _initialization = _controller.initialize();
+  Widget build(BuildContext context) {
+    final url = thumbnailUrl;
+    if (url == null || url.isEmpty) {
+      return const ColoredBox(
+        color: deepNavy,
+        child: Center(
+          child: Icon(Icons.videocam_outlined, color: Colors.white54, size: 54),
+        ),
+      );
+    }
+
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      errorBuilder: (_, _, _) => const ColoredBox(
+        color: deepNavy,
+        child: Center(
+          child: Icon(
+            Icons.videocam_off_outlined,
+            color: Colors.white54,
+            size: 54,
+          ),
+        ),
+      ),
+    );
   }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => ColoredBox(
-    color: deepNavy,
-    child: FutureBuilder<void>(
-      future: _initialization,
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return const Center(
-            child: Icon(
-              Icons.videocam_off_outlined,
-              color: Colors.white54,
-              size: 54,
-            ),
-          );
-        }
-        if (!_controller.value.isInitialized) {
-          return const Center(
-            child: Icon(
-              Icons.videocam_outlined,
-              color: Colors.white54,
-              size: 54,
-            ),
-          );
-        }
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final aspectRatio = _controller.value.aspectRatio;
-            final boxAspectRatio = constraints.maxWidth / constraints.maxHeight;
-            final width = aspectRatio > boxAspectRatio
-                ? constraints.maxHeight * aspectRatio
-                : constraints.maxWidth;
-            final height = aspectRatio > boxAspectRatio
-                ? constraints.maxHeight
-                : constraints.maxWidth / aspectRatio;
-
-            return ClipRect(
-              child: FittedBox(
-                fit: BoxFit.cover,
-                child: SizedBox(
-                  width: width,
-                  height: height,
-                  child: IgnorePointer(child: VideoPlayer(_controller)),
-                ),
-              ),
-            );
-          },
-        );
-      },
-    ),
-  );
 }
