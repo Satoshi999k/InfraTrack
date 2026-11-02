@@ -98,7 +98,7 @@ test('report coordinates override the generic Mati City location for routing', (
   );
 });
 
-test('unmapped or private report coordinates are not routed by reporter barangay', () => {
+test('unmapped public report coordinates resolve to the nearest Mati barangay', () => {
   assert.equal(
     resolveReportLocation({
       latitude: 6.95321,
@@ -106,7 +106,7 @@ test('unmapped or private report coordinates are not routed by reporter barangay
       location: 'Mati City',
       reporterBarangay: 'Barangay Central',
     }),
-    'Mati City (barangay unverified)',
+    'Brgy. Central',
   );
   assert.equal(
     resolveReportLocation({ location: 'Mati City' }),
