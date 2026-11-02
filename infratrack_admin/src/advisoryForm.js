@@ -33,6 +33,13 @@ export function applyNewsCarouselSelection(advisories, advisoryId, featuredInNew
   );
 }
 
+export function resolveConfirmedNewsCarouselSelection(responseAdvisory, requestedSelection) {
+  if (!responseAdvisory || !Object.hasOwn(responseAdvisory, "featured_in_news")) {
+    return requestedSelection;
+  }
+  return isNewsCarouselFeatured(responseAdvisory.featured_in_news);
+}
+
 export function mergeCreatedAdvisory(advisories, createdAdvisory, requestMedia = {}) {
   const merged = {
     ...createdAdvisory,

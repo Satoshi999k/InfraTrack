@@ -25,6 +25,7 @@ import {
   getFeaturedNewsCarouselAdvisories,
   isNewsCarouselFeatured,
   mergeCreatedAdvisory,
+  resolveConfirmedNewsCarouselSelection,
   validateAdvisoryDraft,
   validateNewsCarouselFeature,
 } from "../advisoryForm";
@@ -392,7 +393,10 @@ export default function AdvisoryPage({
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not update the News carousel");
-      const confirmedFeatured = Number(data.advisory?.featured_in_news) === 1;
+      const confirmedFeatured = resolveConfirmedNewsCarouselSelection(
+        data.advisory,
+        featuredInNews,
+      );
       setAdvisories((current) =>
         applyNewsCarouselSelection(current, advisory.id, confirmedFeatured),
       );

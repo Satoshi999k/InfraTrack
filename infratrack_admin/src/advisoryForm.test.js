@@ -7,6 +7,7 @@ import {
   isNewsCarouselOnlyUpdate,
   isNewsCarouselFeatured,
   applyNewsCarouselSelection,
+  resolveConfirmedNewsCarouselSelection,
   mergeCreatedAdvisory,
   getFeaturedNewsCarouselAdvisories,
   validateAdvisoryDraft,
@@ -32,6 +33,11 @@ test("news carousel selection matches API advisory ids with different primitive 
     applyNewsCarouselSelection(advisories, 42, true),
     [{ id: "42", featured_in_news: true }],
   );
+});
+
+test("news carousel keeps the requested selection when the API response omits the field", () => {
+  assert.equal(resolveConfirmedNewsCarouselSelection({}, true), true);
+  assert.equal(resolveConfirmedNewsCarouselSelection(undefined, false), false);
 });
 
 test("new carousel advisory is merged into UI state immediately with its media", () => {

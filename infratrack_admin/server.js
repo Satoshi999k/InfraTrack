@@ -3481,7 +3481,7 @@ app.patch("/api/advisories/:id", async (req, res) => {
     await connection.beginTransaction();
     transactionStarted = true;
     const [existing] = await connection.query(
-      "SELECT a.id, a.barangay, a.featured_in_news FROM advisories a WHERE a.id = ? FOR UPDATE",
+      "SELECT a.id, a.barangay, a.title, a.featured_in_news FROM advisories a WHERE a.id = ? FOR UPDATE",
       [advisoryId],
     );
     if (!existing.length || !scope.allows(existing[0])) {
@@ -3552,7 +3552,16 @@ app.patch("/api/advisories/:id", async (req, res) => {
     const [advisories] = await connection.query("SELECT * FROM advisories WHERE id = ?", [advisoryId]);
     await connection.commit();
     transactionStarted = false;
-    await writeAuditLog(req, { actorId: editor.id, action: "advisory_updated", resourceType: "advisory", resourceId: advisoryId, details: { title: title.trim() } });
+    await writeAuditLog(req, {
+      actorId: editor.id,
+      action: "advisory_updated",
+      resourceType: "advisory",
+      resourceId: advisoryId,
+      details: {
+        title: typeof title === "string" ? title.trim() : existing[0].title,
+        featured_in_news: shouldFeature ? 1 : 0,
+      },
+    });
     res.json({ advisory: advisories[0] });
   } catch (error) {
     if (transactionStarted) {
