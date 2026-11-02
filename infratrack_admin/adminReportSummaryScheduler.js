@@ -23,6 +23,22 @@ function shiftDate(dateString, days) {
   return date.toISOString().slice(0, 10);
 }
 
+export function getNextMonthlyEmailRetryAt(date = new Date()) {
+  const parts = getManilaDateParts(date);
+  let year = Number(parts.year);
+  let month = Number(parts.month) + 1;
+  if (month > 12) {
+    year++;
+    month = 1;
+  }
+  const utcDate = new Date(Date.UTC(year, month - 1, 1, -8));
+  return [
+    utcDate.getUTCFullYear(),
+    String(utcDate.getUTCMonth() + 1).padStart(2, "0"),
+    String(utcDate.getUTCDate()).padStart(2, "0"),
+  ].join("-") + ` ${String(utcDate.getUTCHours()).padStart(2, "0")}:00:00`;
+}
+
 export function getDueReportPeriods(date = new Date()) {
   const parts = getManilaDateParts(date);
   if (Number(parts.hour) < SCHEDULED_HOUR) return [];
@@ -86,14 +102,27 @@ export function formatAdminReportSummary(period, totals, categories) {
   };
 }
 
-async function sendPeriodSummary(connection, period, sendEmail, logger) {
+async function sendPeriodSummary(
+  connection,
+  period,
+  sendEmail,
+  logger,
+  currentTime,
+) {
   await connection.query(
     `INSERT IGNORE INTO admin_report_email_runs (period_type, period_start, recipient_id)
      SELECT ?, ?, id
      FROM users
      WHERE role IN ('admin', 'lgu')
        AND COALESCE(standing, 'Active') = 'Active'
-       AND TRIM(COALESCE(email, '')) <> ''`,
+       AND TRIM(COALESCE(email, '')) <> ''
+       AND NOT EXISTS (
+         SELECT 1
+         FROM admin_report_email_runs failed
+         WHERE failed.recipient_id = users.id
+           AND failed.status = 'failed'
+           AND failed.retry_after > UTC_TIMESTAMP()
+       )`,
     [period.type, period.start],
   );
 
@@ -124,6 +153,21 @@ async function sendPeriodSummary(connection, period, sendEmail, logger) {
   );
   const summary = formatAdminReportSummary(period, totals, categories);
 
+  const markFailed = async (recipientId, failureClass) => {
+    await connection.query(
+      `UPDATE admin_report_email_runs
+       SET status = 'failed', failure_class = ?, retry_after = ?
+       WHERE period_type = ? AND period_start = ? AND recipient_id = ? AND status = 'pending'`,
+      [
+        failureClass,
+        getNextMonthlyEmailRetryAt(currentTime),
+        period.type,
+        period.start,
+        recipientId,
+      ],
+    );
+  };
+
   for (const recipient of recipients) {
     try {
       const result = await sendEmail({
@@ -134,6 +178,7 @@ async function sendPeriodSummary(connection, period, sendEmail, logger) {
         logger.error(
           `Admin ${period.type} report email was not sent to account ${recipient.recipient_id} (${result.reason || "unknown delivery error"}).`,
         );
+        await markFailed(recipient.recipient_id, "delivery");
         continue;
       }
       await connection.query(
@@ -147,8 +192,15 @@ async function sendPeriodSummary(connection, period, sendEmail, logger) {
         `Admin ${period.type} report email failed for account ${recipient.recipient_id}:`,
         error.message,
       );
+      const isProviderQuotaFailure = Number(error.status) === 426;
+      await markFailed(
+        recipient.recipient_id,
+        isProviderQuotaFailure ? "provider_quota" : "delivery",
+      );
+      if (isProviderQuotaFailure) return true;
     }
   }
+  return false;
 }
 
 export function startAdminReportSummaryScheduler({
@@ -159,9 +211,12 @@ export function startAdminReportSummaryScheduler({
   now = () => new Date(),
 }) {
   let running = false;
+  let localQuotaRetryAfter = null;
   const checkAndSend = async () => {
     if (running) return;
-    const periods = getDueReportPeriods(now());
+    const currentTime = now();
+    if (localQuotaRetryAfter && currentTime < localQuotaRetryAfter) return;
+    const periods = getDueReportPeriods(currentTime);
     if (periods.length === 0) return;
     running = true;
     let connection;
@@ -174,8 +229,28 @@ export function startAdminReportSummaryScheduler({
       );
       lockAcquired = Number(lock.acquired) === 1;
       if (!lockAcquired) return;
+      const [[quotaCooldown]] = await connection.query(
+        `SELECT 1 AS blocked
+         FROM admin_report_email_runs
+         WHERE failure_class = 'provider_quota'
+           AND retry_after > UTC_TIMESTAMP()
+         LIMIT 1`,
+      );
+      if (quotaCooldown) return;
       for (const period of periods) {
-        await sendPeriodSummary(connection, period, sendEmail, logger);
+        const quotaExceeded = await sendPeriodSummary(
+          connection,
+          period,
+          sendEmail,
+          logger,
+          currentTime,
+        );
+        if (quotaExceeded) {
+          localQuotaRetryAfter = new Date(
+            `${getNextMonthlyEmailRetryAt(currentTime)}Z`,
+          );
+          break;
+        }
       }
     } catch (error) {
       logger.error("Scheduled admin report summary failed:", error.message);

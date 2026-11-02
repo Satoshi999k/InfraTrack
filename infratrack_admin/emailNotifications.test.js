@@ -62,6 +62,36 @@ test("sends a transactional email through the EmailJS server API", async () => {
   );
 });
 
+test("exposes the EmailJS HTTP status when delivery fails", async () => {
+  await assert.rejects(
+    sendEmailNotification(
+      {
+        recipient: "admin@example.com",
+        subject: "Weekly report",
+        body: "Report summary",
+      },
+      {
+        env: {
+          EMAILJS_SERVICE_ID: "service_test",
+          EMAILJS_TEMPLATE_ID: "template_test",
+          EMAILJS_PUBLIC_KEY: "test-public-key",
+          EMAILJS_PRIVATE_KEY: "test-private-key",
+        },
+        fetchImpl: async () => ({
+          ok: false,
+          status: 426,
+          text: async () => "Monthly request quota exceeded",
+        }),
+      },
+    ),
+    (error) => {
+      assert.match(error.message, /status 426/);
+      assert.equal(error.status, 426);
+      return true;
+    },
+  );
+});
+
 test("EmailJS is configured only when all server credentials and template IDs exist", () => {
   assert.equal(
     isEmailNotificationConfigured({

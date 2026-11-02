@@ -250,9 +250,11 @@ export async function sendEmailNotification(
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(
+      const error = new Error(
         `EmailJS email request failed with status ${response.status}: ${errorText.slice(0, 300)}`,
       );
+      error.status = response.status;
+      throw error;
     }
 
     return { sent: true, configured: true, provider: "emailjs" };
@@ -307,9 +309,11 @@ export async function sendEmailNotification(
     });
 
     if (!response.ok) {
-      throw new Error(
+      const error = new Error(
         `Resend email request failed with status ${response.status}`,
       );
+      error.status = response.status;
+      throw error;
     }
 
     const result = await response.json();

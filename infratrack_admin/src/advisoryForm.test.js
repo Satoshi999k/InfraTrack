@@ -2,11 +2,24 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  getNewsCarouselFeaturedCount,
   getAdvisoryAudience,
   isNewsCarouselFeatured,
   validateAdvisoryDraft,
   validateNewsCarouselFeature,
 } from "./advisoryForm.js";
+
+test("news carousel featured count handles API boolean representations", () => {
+  assert.equal(
+    getNewsCarouselFeaturedCount([
+      { featured_in_news: true },
+      { featured_in_news: 1 },
+      { featured_in_news: "1" },
+      { featured_in_news: 0 },
+    ]),
+    3,
+  );
+});
 
 test("advisory validation explains which required field is missing", () => {
   assert.equal(validateAdvisoryDraft("  ", "Message"), "Enter an advisory title.");

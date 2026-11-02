@@ -843,13 +843,18 @@ async function initializeDatabase() {
     period_type ENUM('weekly','monthly') NOT NULL,
     period_start DATE NOT NULL,
     recipient_id INT UNSIGNED NOT NULL,
-    status ENUM('pending','sent') NOT NULL DEFAULT 'pending',
+    status ENUM('pending','sent','failed') NOT NULL DEFAULT 'pending',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     sent_at TIMESTAMP NULL,
+    failure_class VARCHAR(32) NULL,
+    retry_after DATETIME NULL,
     PRIMARY KEY (period_type, period_start, recipient_id),
     CONSTRAINT admin_report_email_runs_user_fk
       FOREIGN KEY (recipient_id) REFERENCES users(id) ON DELETE CASCADE
   ) ENGINE=InnoDB`);
+  await pool.query("ALTER TABLE admin_report_email_runs MODIFY COLUMN status ENUM('pending','sent','failed') NOT NULL DEFAULT 'pending'");
+  await pool.query("ALTER TABLE admin_report_email_runs ADD COLUMN IF NOT EXISTS failure_class VARCHAR(32) NULL");
+  await pool.query("ALTER TABLE admin_report_email_runs ADD COLUMN IF NOT EXISTS retry_after DATETIME NULL");
   await pool.query(`CREATE TABLE IF NOT EXISTS reports (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, public_id VARCHAR(32) NOT NULL UNIQUE,
     title VARCHAR(255) NOT NULL, description TEXT NOT NULL, category VARCHAR(80) NOT NULL,
