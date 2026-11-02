@@ -11,6 +11,10 @@ import { tmpdir } from "node:os";
 import { spawn } from "node:child_process";
 import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { getMessaging } from "firebase-admin/messaging";
+import {
+  createAndroidDeliveryConfig,
+  splitFcmTokens,
+} from "./fcmDelivery.js";
 import { createPortableDatabaseBackup } from "./databaseBackup.js";
 import {
   describeMysqlDumpNotFound,
@@ -482,26 +486,21 @@ async function sendNotificationPush(notification) {
       .map(([key, value]) => [key, String(value)]),
   );
 
-  for (let offset = 0; offset < tokens.length; offset += 500) {
-    const batch = tokens.slice(offset, offset + 500);
-    const result = await messaging.sendEachForMulticast({
+  const batches = splitFcmTokens(tokens);
+  const results = await Promise.all(
+    batches.map((batch) => messaging.sendEachForMulticast({
       tokens: batch,
       notification: {
         title: notification.title,
         body: String(notification.message).slice(0, 1000),
       },
       data,
-      android: {
-        priority: "high",
-        notification: {
-          channelId: "infratrack_city_updates_v3",
-          sound: "default",
-          ...(notification.image_url
-            ? { imageUrl: notification.image_url }
-            : {}),
-        },
-      },
-    });
+      android: createAndroidDeliveryConfig(notification.image_url),
+    })),
+  );
+  for (let batchIndex = 0; batchIndex < results.length; batchIndex += 1) {
+    const batch = batches[batchIndex];
+    const result = results[batchIndex];
     for (let index = 0; index < result.responses.length; index += 1) {
       const response = result.responses[index];
       const errorCode = response.error?.code;
@@ -623,13 +622,69 @@ async function queueAdvisoryNotifications({
     "SELECT id, user_id, advisory_id, type, title, message FROM notifications WHERE advisory_id = ? AND type = ? AND title = ?",
     [advisoryId, notificationType, title],
   );
-  for (const notification of queuedNotifications) {
-    await deliverNotificationPush({
-      ...notification,
-      image_url: imageUrl,
-      media_kind: mediaKind,
-      media_url: mediaUrl,
-    });
+  if (!queuedNotifications.length) return;
+
+  const [devices] = await pool.query(
+    `SELECT DISTINCT tokens.token
+     FROM push_device_tokens tokens
+     JOIN users u ON u.id = tokens.user_id
+     LEFT JOIN user_preferences preferences ON preferences.user_id = tokens.user_id
+     WHERE u.role = 'resident'
+       AND COALESCE(preferences.allow_notifications, 1) = 1
+       AND (
+         ? = 1
+         OR LOWER(TRIM(u.barangay)) = LOWER(?)
+         OR LOWER(TRIM(
+           REPLACE(
+             REPLACE(LOWER(u.barangay), 'barangay ', ''),
+             'brgy. ',
+             ''
+           )
+         )) = LOWER(?)
+       )`,
+    [
+      allBarangays ? 1 : 0,
+      String(audience ?? ""),
+      targetBarangay,
+    ],
+  );
+  const messaging = getFirebaseMessagingClient();
+  if (!messaging || !devices.length) return;
+
+  const notification = queuedNotifications[0];
+  const data = Object.fromEntries(
+    Object.entries({
+      notificationId: notification.id,
+      advisoryId,
+      type: notification.type,
+      title,
+      message,
+      imageUrl,
+      mediaKind,
+      mediaUrl,
+    })
+      .filter(([, value]) => value !== null && value !== undefined)
+      .map(([key, value]) => [key, String(value)]),
+  );
+  try {
+    await Promise.all(
+      splitFcmTokens(devices.map(({ token }) => token)).map((tokens) =>
+        messaging.sendEachForMulticast({
+          tokens,
+          notification: {
+            title,
+            body: String(message).slice(0, 1000),
+          },
+          data,
+          android: createAndroidDeliveryConfig(imageUrl),
+        }),
+      ),
+    );
+  } catch (error) {
+    console.error(
+      `FCM advisory delivery failed for advisory ${advisoryId}:`,
+      error.message,
+    );
   }
 }
 
