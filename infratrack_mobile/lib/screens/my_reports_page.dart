@@ -15,6 +15,7 @@ typedef _ReportDetails = ({
   String coordinates,
   String age,
   String image,
+  String mediaKind,
   String resolutionImage,
   String status,
   Color color,
@@ -55,6 +56,7 @@ _ReportDetails _reportDetailsFromApi(Map<String, dynamic> item) {
         : 'Lat ${item['latitude']}, Lon ${item['longitude']}',
     age: item['created_at']?.toString() ?? '',
     image: publicMediaUrl(item['media_url'] as String?) ?? '',
+    mediaKind: (item['media_kind'] as String? ?? '').trim().toLowerCase(),
     resolutionImage:
         publicMediaUrl(item['resolution_media_url'] as String?) ?? '',
     status: status,
@@ -604,6 +606,7 @@ class _MyReportCard extends StatelessWidget {
     String coordinates,
     String age,
     String image,
+    String mediaKind,
     String resolutionImage,
     String status,
     Color color,
@@ -641,7 +644,30 @@ class _MyReportCard extends StatelessWidget {
                 child: SizedBox(
                   width: 72,
                   height: 82,
-                  child: report.image.isEmpty
+                  child: report.mediaKind == 'video'
+                      ? Container(
+                          color: report.color.withValues(alpha: .14),
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              CategoryIcon(
+                                category: report.category,
+                                size: 30,
+                                fallbackIcon: report.icon,
+                                color: report.color,
+                              ),
+                              const Align(
+                                alignment: Alignment.bottomRight,
+                                child: Icon(
+                                  Icons.play_circle_fill_rounded,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : report.image.isEmpty
                       ? _ReportThumbnailPlaceholder(report: report)
                       : Image.network(
                           report.image,
@@ -773,6 +799,7 @@ class _ReportThumbnailPlaceholder extends StatelessWidget {
     String coordinates,
     String age,
     String image,
+    String mediaKind,
     String resolutionImage,
     String status,
     Color color,
@@ -816,6 +843,7 @@ class MyReportDetailsPage extends StatelessWidget {
     String coordinates,
     String age,
     String image,
+    String mediaKind,
     String resolutionImage,
     String status,
     Color color,
@@ -1190,6 +1218,7 @@ String _locationFor(
     String coordinates,
     String age,
     String image,
+    String mediaKind,
     String resolutionImage,
     String status,
     Color color,
@@ -2375,6 +2404,7 @@ class _DetailsHero extends StatelessWidget {
     String coordinates,
     String age,
     String image,
+    String mediaKind,
     String resolutionImage,
     String status,
     Color color,
@@ -2390,7 +2420,9 @@ class _DetailsHero extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          if (report.image.isEmpty)
+          if (report.mediaKind == 'video' && report.image.isNotEmpty)
+            _ReportVideoPreview(mediaUrl: report.image, color: report.color)
+          else if (report.image.isEmpty)
             Container(
               color: report.color.withValues(alpha: .18),
               child: CategoryIcon(
@@ -2456,4 +2488,49 @@ class _DetailsHero extends StatelessWidget {
       ),
     ),
   );
+}
+
+class _ReportVideoPreview extends StatelessWidget {
+  const _ReportVideoPreview({required this.mediaUrl, required this.color});
+
+  final String mediaUrl;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: color.withValues(alpha: .14),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Center(
+            child: _AdvisoryMedia(url: mediaUrl, kind: 'video', height: 210),
+          ),
+          const Positioned(
+            left: 12,
+            top: 12,
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Color(0x66092732),
+                  borderRadius: BorderRadius.all(Radius.circular(12)),
+                ),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                  child: Text(
+                    'VIDEO PREVIEW',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

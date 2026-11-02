@@ -40,6 +40,8 @@ void main() {
                 'location': 'Central Mati, near the public market',
                 'latitude': 6.9542,
                 'longitude': 126.2167,
+                'media_url': 'https://example.test/report.mp4',
+                'media_kind': 'video',
                 'created_at': '2026-10-20T10:00:00.000Z',
               },
             ],
@@ -77,6 +79,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Issue details'), findsOneWidget);
+      expect(find.text('VIDEO PREVIEW'), findsOneWidget);
       expect(find.textContaining('GPS coordinates'), findsOneWidget);
       expect(find.textContaining('Lat 6.9542, Lon 126.2167'), findsOneWidget);
     } finally {

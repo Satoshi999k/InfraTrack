@@ -87,6 +87,15 @@ void main() {
       expect(find.text('2 matching reports'), findsOneWidget);
       expect(_assetIcon('assets/icons/roads.png'), findsWidgets);
       expect(_assetIcon('assets/icons/public_buildings.png'), findsWidgets);
+      final reportMarker = tester
+          .widget<MarkerLayer>(find.byType(MarkerLayer))
+          .markers
+          .singleWhere(
+            (marker) =>
+                marker.key?.toString().contains('report-cluster-') ?? false,
+          );
+      expect(reportMarker.point, const LatLng(6.9612515, 126.2069944));
+      expect(reportMarker.alignment, Alignment.topCenter);
 
       final publicBuildingsFilter = find.text('Public Buildings').first;
       final categoryScroller = find
@@ -172,6 +181,7 @@ void main() {
               marker.key?.toString().contains('report-cluster-') ?? false,
         );
         expect(clusterMarker.point, const LatLng(6.9612515, 126.2069944));
+        expect(clusterMarker.alignment, Alignment.topCenter);
         expect(
           markers.where(
             (marker) =>
@@ -273,10 +283,15 @@ void main() {
         ),
         hasLength(1),
       );
+      final reportMarker = markers.singleWhere(
+        (marker) => marker.key?.toString().contains('report-marker-') ?? false,
+      );
+      expect(reportMarker.alignment, Alignment.topCenter);
       final clusterMarker = markers.singleWhere(
         (marker) => marker.key?.toString().contains('report-cluster-') ?? false,
       );
       expect(clusterMarker.point, const LatLng(6.9532, 126.2121));
+      expect(clusterMarker.alignment, Alignment.topCenter);
       expect(find.text('4 matching reports'), findsOneWidget);
       expect(tester.takeException(), isNull);
     } finally {

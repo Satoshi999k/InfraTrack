@@ -243,7 +243,7 @@ class _MapPageState extends State<MapPage> {
             point: _clusterAnchorPoint(group),
             width: 54,
             height: 62,
-            alignment: Alignment.bottomCenter,
+            alignment: Alignment.topCenter,
             child: GestureDetector(
               key: ValueKey('report-cluster-visual-${group.first.id}'),
               onTap: () => _showCoincidentReports(group),
@@ -259,7 +259,7 @@ class _MapPageState extends State<MapPage> {
             point: report.point,
             width: 50,
             height: 58,
-            alignment: Alignment.bottomCenter,
+            alignment: Alignment.topCenter,
             child: GestureDetector(
               key: ValueKey('report-marker-visual-${report.id}'),
               onTap: () => _showReportDetails(report),
