@@ -253,7 +253,8 @@ async function removeTemporaryUpload(file) {
 async function downloadMediaForConversion(mediaUrl) {
   const parsedUrl = new URL(String(mediaUrl));
   if (!parsedUrl.hostname.endsWith(".cloudinary.com")) {
-    return path.join(uploadDirectory, path.basename(parsedUrl.pathname));
+    const localPath = path.join(uploadDirectory, path.basename(parsedUrl.pathname));
+    if (fs.existsSync(localPath)) return localPath;
   }
   const response = await fetch(parsedUrl);
   if (!response.ok) throw new Error(`Unable to download the uploaded video (${response.status}).`);

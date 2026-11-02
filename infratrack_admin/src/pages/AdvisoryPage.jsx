@@ -193,8 +193,17 @@ export default function AdvisoryPage({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: media.src }),
       });
-      const data = await response.json();
+      const rawText = await response.text();
+      let data = null;
+      if (rawText.trim()) {
+        try {
+          data = JSON.parse(rawText);
+        } catch {
+          throw new Error("The conversion service returned an invalid response.");
+        }
+      }
       if (!response.ok) throw new Error(data.error || "Could not convert video to GIF");
+      if (!data?.url) throw new Error("The conversion service did not return a converted GIF.");
       setMedia({ kind: "gif", src: data.url });
     } catch (conversionError) {
       setError(conversionError.message === "Failed to fetch"
