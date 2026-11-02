@@ -10258,7 +10258,8 @@ tbody tr:last-child td {
     padding: 16px;
   }
 
-  .issue-photo-viewer-content img {
+  .issue-photo-viewer-content img,
+  .issue-photo-viewer-content video {
     max-height: calc(100dvh - 88px);
   }
 

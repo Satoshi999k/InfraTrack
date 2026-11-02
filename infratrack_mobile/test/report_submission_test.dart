@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -49,6 +50,40 @@ void main() {
     GeolocatorPlatform.instance = originalLocationPlatform;
     ApiService.httpClientFactory = originalClientFactory;
     await ApiService.signOutForExpiredSession();
+  });
+
+  test('rejects report videos larger than 30 MB before upload', () async {
+    final temporaryDirectory = await Directory.systemTemp.createTemp(
+      'infratrack-video-limit-',
+    );
+    final videoFile = File(
+      '${temporaryDirectory.path}${Platform.pathSeparator}oversized.mp4',
+    );
+    var uploadAttempted = false;
+    ApiService.httpClientFactory = () => MockClient((request) async {
+      uploadAttempted = true;
+      return http.Response('Not found', 404);
+    });
+
+    try {
+      await videoFile.writeAsBytes(
+        List<int>.filled(30 * 1024 * 1024 + 1, 0),
+        flush: true,
+      );
+
+      await expectLater(
+        ApiService.uploadMedia(videoFile, isVideo: true),
+        throwsA(
+          predicate(
+            (error) =>
+                error.toString().contains('Videos must be 30 MB or smaller.'),
+          ),
+        ),
+      );
+      expect(uploadAttempted, isFalse);
+    } finally {
+      await temporaryDirectory.delete(recursive: true);
+    }
   });
 
   testWidgets('shows only the infrastructure categories in scope', (

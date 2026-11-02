@@ -2107,22 +2107,33 @@ class _AdvisoryMediaState extends State<_AdvisoryMedia> {
     width: double.infinity,
     child: ColoredBox(
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.broken_image_outlined,
-            color: infraMutedTextColor(context),
-            size: 28,
-          ),
-          const SizedBox(height: 5),
-          Text(
-            'Media could not be loaded',
-            style: TextStyle(color: infraMutedTextColor(context), fontSize: 11),
-          ),
-          TextButton(onPressed: _retryMedia, child: const Text('Retry')),
-        ],
-      ),
+      child: widget.showControls
+          ? Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.broken_image_outlined,
+                  color: infraMutedTextColor(context),
+                  size: 28,
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  'Media could not be loaded',
+                  style: TextStyle(
+                    color: infraMutedTextColor(context),
+                    fontSize: 11,
+                  ),
+                ),
+                TextButton(onPressed: _retryMedia, child: const Text('Retry')),
+              ],
+            )
+          : Center(
+              child: Icon(
+                Icons.broken_image_outlined,
+                color: infraMutedTextColor(context),
+                size: 24,
+              ),
+            ),
     ),
   );
 
