@@ -24,6 +24,7 @@ import {
   getNewsCarouselFeaturedCount,
   getFeaturedNewsCarouselAdvisories,
   isNewsCarouselFeatured,
+  mergeCreatedAdvisory,
   validateAdvisoryDraft,
   validateNewsCarouselFeature,
 } from "../advisoryForm";
@@ -257,6 +258,14 @@ export default function AdvisoryPage({
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not publish advisory");
+      if (data.advisory) {
+        setAdvisories((current) =>
+          mergeCreatedAdvisory(current, data.advisory, {
+            mediaUrl: media?.src,
+            mediaKind: media?.kind,
+          }),
+        );
+      }
       await loadAdvisories();
       setTitle(""); setMessage(""); setMedia(null); setFeaturedInNews(false); setPublished(true);
     } catch (publishError) {

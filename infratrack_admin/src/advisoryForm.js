@@ -33,6 +33,23 @@ export function applyNewsCarouselSelection(advisories, advisoryId, featuredInNew
   );
 }
 
+export function mergeCreatedAdvisory(advisories, createdAdvisory, requestMedia = {}) {
+  const merged = {
+    ...createdAdvisory,
+    media_url: createdAdvisory.media_url || requestMedia.mediaUrl || null,
+    media_kind: createdAdvisory.media_kind || requestMedia.mediaKind || null,
+  };
+  const existingIndex = advisories.findIndex(
+    (advisory) => String(advisory.id) === String(merged.id),
+  );
+  if (existingIndex >= 0) {
+    return advisories.map((advisory, index) =>
+      index === existingIndex ? { ...advisory, ...merged } : advisory,
+    );
+  }
+  return [merged, ...advisories];
+}
+
 export function getNewsCarouselFeaturedCount(advisories = []) {
   return advisories.filter((advisory) =>
     isNewsCarouselFeatured(advisory.featured_in_news),

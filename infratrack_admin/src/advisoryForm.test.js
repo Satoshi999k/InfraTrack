@@ -7,6 +7,7 @@ import {
   isNewsCarouselOnlyUpdate,
   isNewsCarouselFeatured,
   applyNewsCarouselSelection,
+  mergeCreatedAdvisory,
   getFeaturedNewsCarouselAdvisories,
   validateAdvisoryDraft,
   validateNewsCarouselFeature,
@@ -30,6 +31,26 @@ test("news carousel selection matches API advisory ids with different primitive 
   assert.deepEqual(
     applyNewsCarouselSelection(advisories, 42, true),
     [{ id: "42", featured_in_news: true }],
+  );
+});
+
+test("new carousel advisory is merged into UI state immediately with its media", () => {
+  assert.deepEqual(
+    mergeCreatedAdvisory([], {
+      id: 42,
+      title: "Road closure",
+      featured_in_news: 1,
+    }, {
+      mediaUrl: "/uploads/road.jpg",
+      mediaKind: "photo",
+    }),
+    [{
+      id: 42,
+      title: "Road closure",
+      featured_in_news: 1,
+      media_url: "/uploads/road.jpg",
+      media_kind: "photo",
+    }],
   );
 });
 
