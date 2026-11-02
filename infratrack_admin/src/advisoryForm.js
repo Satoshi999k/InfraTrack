@@ -27,7 +27,7 @@ export function getFeaturedNewsCarouselAdvisories(advisories) {
 
 export function applyNewsCarouselSelection(advisories, advisoryId, featuredInNews) {
   return advisories.map((advisory) =>
-    advisory.id === advisoryId
+    String(advisory.id) === String(advisoryId)
       ? { ...advisory, featured_in_news: featuredInNews }
       : advisory,
   );

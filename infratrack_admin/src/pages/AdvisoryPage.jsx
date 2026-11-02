@@ -383,6 +383,10 @@ export default function AdvisoryPage({
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not update the News carousel");
+      const confirmedFeatured = Number(data.advisory?.featured_in_news) === 1;
+      setAdvisories((current) =>
+        applyNewsCarouselSelection(current, advisory.id, confirmedFeatured),
+      );
       onNotify?.(featuredInNews
         ? "Added to the News carousel."
         : "Removed from the News carousel.");

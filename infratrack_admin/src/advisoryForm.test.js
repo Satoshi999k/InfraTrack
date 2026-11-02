@@ -24,6 +24,15 @@ test("news carousel selection updates the advisory in local state immediately", 
   );
 });
 
+test("news carousel selection matches API advisory ids with different primitive types", () => {
+  const advisories = [{ id: "42", featured_in_news: false }];
+
+  assert.deepEqual(
+    applyNewsCarouselSelection(advisories, 42, true),
+    [{ id: "42", featured_in_news: true }],
+  );
+});
+
 test("featured News carousel previews include only selected advisories with media", () => {
   assert.deepEqual(
     getFeaturedNewsCarouselAdvisories([

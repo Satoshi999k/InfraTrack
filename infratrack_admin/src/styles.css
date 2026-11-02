@@ -4033,6 +4033,7 @@ tbody tr:last-child td {
 .news-carousel-preview-empty {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 9px;
   min-height: 58px;
   padding: 12px;
@@ -4041,6 +4042,7 @@ tbody tr:last-child td {
   color: var(--muted);
   background: #fafcfb;
   font-size: calc(11px * var(--appearance-text-scale, 1));
+  text-align: center;
 }
 @media (max-width: 1100px) {
   .news-carousel-preview-list {
