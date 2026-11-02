@@ -7,6 +7,7 @@ import {
   isNewsCarouselOnlyUpdate,
   isNewsCarouselFeatured,
   applyNewsCarouselSelection,
+  getFeaturedNewsCarouselAdvisories,
   validateAdvisoryDraft,
   validateNewsCarouselFeature,
 } from "./advisoryForm.js";
@@ -20,6 +21,18 @@ test("news carousel selection updates the advisory in local state immediately", 
   assert.deepEqual(
     applyNewsCarouselSelection(advisories, 8, false),
     [{ id: 7, featured_in_news: 0 }, { id: 8, featured_in_news: false }],
+  );
+});
+
+test("featured News carousel previews include only selected advisories with media", () => {
+  assert.deepEqual(
+    getFeaturedNewsCarouselAdvisories([
+      { id: 1, featured_in_news: true, media: { kind: "photo", src: "/road.jpg" } },
+      { id: 2, featured_in_news: 1, media: { kind: "gif", src: "/alert.gif" } },
+      { id: 3, featured_in_news: true, media_kind: "video", media_url: "/clip.mp4" },
+      { id: 4, featured_in_news: false, media: { kind: "photo", src: "/other.jpg" } },
+    ]).map((advisory) => advisory.id),
+    [1, 2],
   );
 });
 

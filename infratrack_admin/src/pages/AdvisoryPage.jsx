@@ -22,6 +22,7 @@ import {
   applyNewsCarouselSelection,
   getAdvisoryAudience,
   getNewsCarouselFeaturedCount,
+  getFeaturedNewsCarouselAdvisories,
   isNewsCarouselFeatured,
   validateAdvisoryDraft,
   validateNewsCarouselFeature,
@@ -410,6 +411,7 @@ export default function AdvisoryPage({
   const hasVideoPendingConversion = media?.kind === "video";
   const canManageNewsCarousel = user?.role === "lgu";
   const featuredCount = getNewsCarouselFeaturedCount(advisories);
+  const featuredCarouselAdvisories = getFeaturedNewsCarouselAdvisories(advisories);
 
   return (
     <div className={`advisory-grid ${publishedOnly ? "published-advisory-page" : ""}`}>
@@ -546,6 +548,44 @@ export default function AdvisoryPage({
               {Array.from({ length: 5 }, (_, index) => (
                 <span className={index < featuredCount ? "filled" : ""} key={index} />
               ))}
+            </div>
+            <div className="news-carousel-preview">
+              <div className="news-carousel-preview-heading">
+                <strong>Currently featured</strong>
+                <span>{featuredCarouselAdvisories.length} post{featuredCarouselAdvisories.length === 1 ? "" : "s"}</span>
+              </div>
+              {featuredCarouselAdvisories.length > 0 ? (
+                <div className="news-carousel-preview-list">
+                  {featuredCarouselAdvisories.map((advisory) => {
+                    const mediaUrl = advisory.media?.src || advisory.media_url;
+                    const removing = savingCarouselAdvisoryId === advisory.id;
+                    return (
+                      <article className="news-carousel-preview-item" key={advisory.id}>
+                        <img src={mediaUrl} alt="" />
+                        <div className="news-carousel-preview-copy">
+                          <strong>{advisory.title}</strong>
+                          <span>{advisory.type === "alert" ? "Alert" : advisory.type === "announcement" ? "Announcement" : "Advisory"}</span>
+                        </div>
+                        <button
+                          type="button"
+                          className="news-carousel-remove-button"
+                          aria-label={`Remove ${advisory.title} from the News carousel`}
+                          disabled={removing}
+                          onClick={() => setPublishedNewsCarousel(advisory, false)}
+                        >
+                          {removing ? <span className="button-spinner" /> : <Trash2 size={15} />}
+                          <span>{removing ? "Removing" : "Remove"}</span>
+                        </button>
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="news-carousel-preview-empty">
+                  <Image size={20} />
+                  <span>No advisories are featured in the carousel yet.</span>
+                </div>
+              )}
             </div>
           </section>
         )}

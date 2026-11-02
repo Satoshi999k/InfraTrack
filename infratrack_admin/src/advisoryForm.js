@@ -10,6 +10,21 @@ export function isNewsCarouselFeatured(value) {
   return value === true || value === 1 || value === "1";
 }
 
+export function getFeaturedNewsCarouselAdvisories(advisories) {
+  return advisories.filter((advisory) => {
+    const media = advisory.media;
+    const mediaKind = media?.kind || advisory.media_kind;
+    const mediaUrl = media?.src || advisory.media_url;
+    const kind = String(mediaKind ?? "").toLowerCase();
+
+    return (
+      isNewsCarouselFeatured(advisory.featured_in_news) &&
+      ["photo", "image", "gif"].includes(kind) &&
+      Boolean(mediaUrl)
+    );
+  });
+}
+
 export function applyNewsCarouselSelection(advisories, advisoryId, featuredInNews) {
   return advisories.map((advisory) =>
     advisory.id === advisoryId
