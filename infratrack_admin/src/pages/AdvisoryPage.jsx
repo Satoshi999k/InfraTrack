@@ -18,7 +18,12 @@ import {
   X,
 } from "lucide-react";
 import { API_BASE, apiFetch } from "../api";
-import { getAdvisoryAudience, validateAdvisoryDraft } from "../advisoryForm";
+import {
+  getAdvisoryAudience,
+  isNewsCarouselFeatured,
+  validateAdvisoryDraft,
+  validateNewsCarouselFeature,
+} from "../advisoryForm";
 
 const ADVISORIES_PER_PAGE = 6;
 
@@ -97,6 +102,7 @@ export default function AdvisoryPage({
   const [message, setMessage] = useState("");
   const [type, setType] = useState("advertisement");
   const [media, setMedia] = useState(null);
+  const [featuredInNews, setFeaturedInNews] = useState(false);
   const [audience, setAudience] = useState("All barangays");
   const [published, setPublished] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
@@ -225,6 +231,16 @@ export default function AdvisoryPage({
       setError(validationError);
       return;
     }
+    const carouselError = validateNewsCarouselFeature({
+      featuredInNews: canManageNewsCarousel && featuredInNews,
+      featuredCount,
+      mediaKind: media?.kind,
+      mediaUrl: media?.src,
+    });
+    if (carouselError) {
+      setError(carouselError);
+      return;
+    }
     setError("");
     setPublished(false);
     publishInFlight.current = true;
@@ -233,12 +249,12 @@ export default function AdvisoryPage({
       const response = await apiFetch(`/advisories`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, title, message, audience: getAdvisoryAudience(user, audience), barangay: user?.barangay, mediaUrl: media?.src, mediaKind: media?.kind, mediaThumbnailUrl: media?.thumbnailUrl }),
+        body: JSON.stringify({ type, title, message, audience: getAdvisoryAudience(user, audience), barangay: user?.barangay, mediaUrl: media?.src, mediaKind: media?.kind, mediaThumbnailUrl: media?.thumbnailUrl, featuredInNews: canManageNewsCarousel && featuredInNews }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not publish advisory");
       await loadAdvisories();
-      setTitle(""); setMessage(""); setMedia(null); setPublished(true);
+      setTitle(""); setMessage(""); setMedia(null); setFeaturedInNews(false); setPublished(true);
     } catch (publishError) {
       setError(publishError.message === "Failed to fetch"
         ? "The API is unavailable. Please restart the InfraTrack backend and try again."
@@ -250,11 +266,13 @@ export default function AdvisoryPage({
   };
 
   const openEdit = (advisory) => {
+    setError("");
     setEditingAdvisory({
       ...advisory,
       draftTitle: advisory.title,
       draftMessage: advisory.message,
       draftType: advisory.type === "alert" ? "advertisement" : advisory.type,
+      featured_in_news: isNewsCarouselFeatured(advisory.featured_in_news),
       draftMedia: advisory.media || (advisory.media_url
         ? { kind: advisory.media_kind, src: advisory.media_url }
         : null),
@@ -266,14 +284,38 @@ export default function AdvisoryPage({
     if (!editingAdvisory.draftTitle.trim() || !editingAdvisory.draftMessage.trim()) {
       return;
     }
+    const carouselError = validateNewsCarouselFeature({
+      featuredInNews: editingAdvisory.featured_in_news,
+      featuredCount,
+      alreadyFeatured: isNewsCarouselFeatured(
+        advisories.find((advisory) => advisory.id === editingAdvisory.id)
+          ?.featured_in_news,
+      ),
+      mediaKind: editingAdvisory.draftMedia?.kind,
+      mediaUrl: editingAdvisory.draftMedia?.src,
+    });
+    if (carouselError) {
+      setError(carouselError);
+      return;
+    }
 
     try {
       const response = await apiFetch(`/advisories/${editingAdvisory.id}`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: editingAdvisory.draftType, title: editingAdvisory.draftTitle, message: editingAdvisory.draftMessage, mediaUrl: editingAdvisory.draftMedia?.src, mediaKind: editingAdvisory.draftMedia?.kind }),
+        body: JSON.stringify({
+          type: editingAdvisory.draftType,
+          title: editingAdvisory.draftTitle,
+          message: editingAdvisory.draftMessage,
+          mediaUrl: editingAdvisory.draftMedia?.src,
+          mediaKind: editingAdvisory.draftMedia?.kind,
+          ...(canManageNewsCarousel
+            ? { featuredInNews: editingAdvisory.featured_in_news }
+            : {}),
+        }),
       });
-      if (!response.ok) throw new Error("Could not save advisory");
-      await loadAdvisories(); setEditingAdvisory(null);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not save advisory");
+      await loadAdvisories(); setEditingAdvisory(null); setError("");
     } catch (saveError) { setError(saveError.message); }
   };
 
@@ -323,6 +365,10 @@ export default function AdvisoryPage({
     ? Math.min(currentAdvisoryPage * ADVISORIES_PER_PAGE, advisories.length)
     : displayedAdvisories.length;
   const hasVideoPendingConversion = media?.kind === "video";
+  const canManageNewsCarousel = user?.role === "lgu";
+  const featuredCount = advisories.filter((advisory) =>
+    isNewsCarouselFeatured(advisory.featured_in_news),
+  ).length;
 
   return (
     <div className={`advisory-grid ${publishedOnly ? "published-advisory-page" : ""}`}>
@@ -395,6 +441,42 @@ export default function AdvisoryPage({
           <button type="button" className="secondary-button advisory-convert-button" onClick={convertNewVideo} disabled={convertingNew}>
             <Video size={16} /> {convertingNew ? "Converting…" : "Convert video to GIF"}
           </button>
+        )}
+        {canManageNewsCarousel && (
+          <div className="advisory-featured-setting">
+            <label htmlFor="advisory-featured-in-news">
+              <input
+                id="advisory-featured-in-news"
+                type="checkbox"
+                checked={featuredInNews}
+                onChange={(event) => {
+                  const nextValue = event.target.checked;
+                  const featureError = validateNewsCarouselFeature({
+                    featuredInNews: nextValue,
+                    featuredCount,
+                    mediaKind: media?.kind,
+                    mediaUrl: media?.src,
+                  });
+                  if (featureError) {
+                    setError(featureError);
+                    return;
+                  }
+                  setError("");
+                  setFeaturedInNews(nextValue);
+                }}
+              />
+              <span>
+                <strong>Show in News carousel</strong>
+                <small>Feature this advisory for residents in the News screen.</small>
+              </span>
+            </label>
+            <small className="advisory-featured-count">
+              {featuredCount}/5 advisories featured
+              {!media || !["photo", "gif"].includes(media.kind)
+                ? " · Attach a photo or GIF to use the carousel."
+                : ""}
+            </small>
+          </div>
         )}
         {user?.role !== "barangay_staff" && <>
           <label htmlFor="advisory-audience">Audience</label>
@@ -634,6 +716,47 @@ export default function AdvisoryPage({
                 <Video size={16} /> {convertingExisting ? "Converting…" : "Convert existing video to GIF"}
               </button>
             )}
+            {canManageNewsCarousel && (
+              <div className="advisory-featured-setting">
+                <label htmlFor="edit-advisory-featured-in-news">
+                  <input
+                    id="edit-advisory-featured-in-news"
+                    type="checkbox"
+                    checked={Boolean(editingAdvisory.featured_in_news)}
+                    onChange={(event) => {
+                      const nextValue = event.target.checked;
+                      const originalFeatured = advisories.find(
+                        (advisory) => advisory.id === editingAdvisory.id,
+                      )?.featured_in_news;
+                      const featureError = validateNewsCarouselFeature({
+                        featuredInNews: nextValue,
+                        featuredCount,
+                        alreadyFeatured: isNewsCarouselFeatured(originalFeatured),
+                        mediaKind: editingAdvisory.draftMedia?.kind,
+                        mediaUrl: editingAdvisory.draftMedia?.src,
+                      });
+                      if (featureError) {
+                        setError(featureError);
+                        return;
+                      }
+                      setError("");
+                      setEditingAdvisory((current) => ({
+                        ...current,
+                        featured_in_news: nextValue,
+                      }));
+                    }}
+                  />
+                  <span>
+                    <strong>Show in News carousel</strong>
+                    <small>Only photo and GIF advisories can be featured.</small>
+                  </span>
+                </label>
+                <small className="advisory-featured-count">
+                  {featuredCount}/5 advisories featured
+                </small>
+              </div>
+            )}
+            {error && <div className="login-error" role="alert">{error}</div>}
 
             <div className="advisory-edit-actions">
               <button

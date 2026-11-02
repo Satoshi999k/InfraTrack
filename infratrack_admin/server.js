@@ -61,6 +61,9 @@ import {
 } from "./progressWorkflow.js";
 import { verificationApprovalNotification } from "./verificationNotifications.js";
 import {
+  validateNewsCarouselFeature,
+} from "./src/advisoryForm.js";
+import {
   canReplyToReport,
   isReportDiscussionOpen,
   validateReportComment,
@@ -889,6 +892,7 @@ async function initializeDatabase() {
   await pool.query(`CREATE TABLE IF NOT EXISTS advisories (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, type VARCHAR(30) NOT NULL DEFAULT 'gen', title VARCHAR(255) NOT NULL,
     message TEXT NOT NULL, audience VARCHAR(120) NOT NULL DEFAULT 'All barangays', status ENUM('draft','published','archived') NOT NULL DEFAULT 'published',
+    featured_in_news TINYINT(1) NOT NULL DEFAULT 0,
     created_by INT UNSIGNED NULL, published_at TIMESTAMP NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT advisories_author_fk FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
   ) ENGINE=InnoDB`);
@@ -897,6 +901,7 @@ async function initializeDatabase() {
     file_path VARCHAR(500) NOT NULL, media_type VARCHAR(40) NOT NULL, CONSTRAINT advisory_media_fk FOREIGN KEY (advisory_id) REFERENCES advisories(id) ON DELETE CASCADE
   ) ENGINE=InnoDB`);
   await pool.query("ALTER TABLE advisories ADD COLUMN IF NOT EXISTS barangay VARCHAR(120) NULL");
+  await pool.query("ALTER TABLE advisories ADD COLUMN IF NOT EXISTS featured_in_news TINYINT(1) NOT NULL DEFAULT 0");
   await pool.query(`CREATE TABLE IF NOT EXISTS advisory_comments (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, advisory_id INT UNSIGNED NOT NULL,
     author_id INT UNSIGNED NULL, parent_comment_id INT UNSIGNED NULL,
@@ -1471,7 +1476,7 @@ app.get("/api/mobile/advisories", async (req, res) => {
       }
     : { sql: " AND a.audience = 'All barangays'", params: [] };
   const [advisories] = await pool.query(`SELECT a.id, a.type, a.title, a.message,
-    a.audience, a.barangay, a.published_at, a.created_at,
+    a.audience, a.barangay, a.featured_in_news, a.published_at, a.created_at,
     am.file_path AS media_url, am.media_type AS media_kind,
     (SELECT COUNT(*) FROM advisory_reactions ar WHERE ar.advisory_id = a.id) AS reaction_count,
     ${req.auth ? "EXISTS (SELECT 1 FROM advisory_reactions mine WHERE mine.advisory_id = a.id AND mine.user_id = ?) " : "0 "}
@@ -3164,14 +3169,116 @@ app.post("/api/advisories/:id/convert-gif", async (req, res) => {
   });
 });
 app.post("/api/advisories", async (req, res) => {
-  const { type = "gen", title, message, audience = "All barangays", barangay, mediaUrl, mediaKind, mediaThumbnailUrl } = req.body ?? {};
+  const body = req.body ?? {};
+  const {
+    type = "gen",
+    title,
+    message,
+    audience = "All barangays",
+    barangay,
+    mediaUrl,
+    mediaKind,
+    mediaThumbnailUrl,
+    featuredInNews = false,
+  } = body;
   const publisher = req.auth;
   const adminId = publisher.id;
   const targetBarangay = publisher?.role === "barangay_staff" ? publisher.barangay : barangay ?? null;
   const targetAudience = publisher?.role === "barangay_staff" ? publisher.barangay : audience;
   if (!title?.trim() || !message?.trim()) return res.status(400).json({ error: "Title and message are required" });
-  const [result] = await pool.query("INSERT INTO advisories (type, title, message, audience, barangay, created_by, published_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)", [type, title.trim(), message.trim(), targetAudience, targetBarangay, adminId ?? null]);
-  if (mediaUrl) await pool.query("INSERT INTO advisory_media (advisory_id, file_path, media_type) VALUES (?, ?, ?)", [result.insertId, mediaUrl, mediaKind || "photo"]);
+  if (typeof featuredInNews !== "boolean") {
+    return res.status(400).json({ error: "News carousel selection must be true or false." });
+  }
+  if (featuredInNews && publisher?.role !== "lgu") {
+    return res.status(403).json({ error: "Only LGU administrators can manage the News carousel." });
+  }
+  const mediaError = validateNewsCarouselFeature({
+    featuredInNews,
+    featuredCount: 0,
+    mediaKind,
+    mediaUrl,
+  });
+  if (mediaError) return res.status(400).json({ error: mediaError });
+
+  const connection = await pool.getConnection();
+  let transactionStarted = false;
+  let carouselLockAcquired = false;
+  let result;
+  try {
+    if (featuredInNews) {
+      const [locks] = await connection.query(
+        "SELECT GET_LOCK('infratrack-news-carousel', 10) AS acquired",
+      );
+      if (Number(locks[0]?.acquired) !== 1) {
+        return res.status(503).json({
+          error: "News carousel settings are busy. Please try again.",
+        });
+      }
+      carouselLockAcquired = true;
+    }
+
+    await connection.beginTransaction();
+    transactionStarted = true;
+    if (featuredInNews) {
+      const [counts] = await connection.query(
+        "SELECT COUNT(*) AS featured_count FROM advisories WHERE status = 'published' AND featured_in_news = 1",
+      );
+      const featureError = validateNewsCarouselFeature({
+        featuredInNews,
+        featuredCount: Number(counts[0]?.featured_count ?? 0),
+        mediaKind,
+        mediaUrl,
+      });
+      if (featureError) {
+        await connection.rollback();
+        transactionStarted = false;
+        return res.status(409).json({ error: featureError });
+      }
+    }
+
+    const [insertResult] = await connection.query(
+      "INSERT INTO advisories (type, title, message, audience, barangay, featured_in_news, created_by, published_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+      [
+        type,
+        title.trim(),
+        message.trim(),
+        targetAudience,
+        targetBarangay,
+        featuredInNews ? 1 : 0,
+        adminId ?? null,
+      ],
+    );
+    result = insertResult;
+    if (mediaUrl) {
+      await connection.query(
+        "INSERT INTO advisory_media (advisory_id, file_path, media_type) VALUES (?, ?, ?)",
+        [result.insertId, mediaUrl, mediaKind || "photo"],
+      );
+    }
+    await connection.commit();
+    transactionStarted = false;
+  } catch (error) {
+    if (transactionStarted) {
+      try {
+        await connection.rollback();
+      } catch (rollbackError) {
+        console.error("Could not roll back advisory creation", rollbackError);
+      }
+    }
+    throw error;
+  } finally {
+    if (carouselLockAcquired) {
+      try {
+        await connection.query(
+          "SELECT RELEASE_LOCK('infratrack-news-carousel')",
+        );
+      } catch (error) {
+        console.error("Could not release the News carousel lock", error);
+      }
+    }
+    connection.release();
+  }
+
   await queueAdvisoryNotifications({
     advisoryId: result.insertId,
     advisoryType: type,
@@ -3192,22 +3299,60 @@ app.post("/api/advisories", async (req, res) => {
   res.status(201).json({ advisory: advisories[0] });
 });
 app.patch("/api/advisories/:id", async (req, res) => {
-  const { type, title, message, audience, barangay, mediaUrl, mediaKind } = req.body ?? {};
+  const body = req.body ?? {};
+  const {
+    type,
+    title,
+    message,
+    audience,
+    barangay,
+    mediaUrl,
+    mediaKind,
+    featuredInNews,
+  } = body;
+  const hasFeaturedInNews = Object.hasOwn(body, "featuredInNews");
   const editor = req.auth;
   const advisoryId = Number(req.params.id);
   if (!Number.isSafeInteger(advisoryId) || advisoryId <= 0) {
     return res.status(400).json({ error: "Invalid advisory ID" });
   }
   if (!title?.trim() || !message?.trim()) return res.status(400).json({ error: "Title and message are required" });
+  if (hasFeaturedInNews && typeof featuredInNews !== "boolean") {
+    return res.status(400).json({ error: "News carousel selection must be true or false." });
+  }
+  if (hasFeaturedInNews && editor?.role !== "lgu") {
+    return res.status(403).json({ error: "Only LGU administrators can manage the News carousel." });
+  }
+  const mediaFeatureError = validateNewsCarouselFeature({
+      featuredInNews: true,
+      featuredCount: 0,
+      mediaKind,
+      mediaUrl,
+    });
+  if (featuredInNews === true && mediaFeatureError) {
+    return res.status(400).json({ error: mediaFeatureError });
+  }
   const scope = getAdvisoryScope(editor, "a");
   const targetAudience = editor?.role === "barangay_staff" ? editor.barangay : audience;
   const connection = await pool.getConnection();
   let transactionStarted = false;
+  let carouselLockAcquired = false;
   try {
+    if (hasFeaturedInNews) {
+      const [locks] = await connection.query(
+        "SELECT GET_LOCK('infratrack-news-carousel', 10) AS acquired",
+      );
+      if (Number(locks[0]?.acquired) !== 1) {
+        return res.status(503).json({
+          error: "News carousel settings are busy. Please try again.",
+        });
+      }
+      carouselLockAcquired = true;
+    }
     await connection.beginTransaction();
     transactionStarted = true;
     const [existing] = await connection.query(
-      "SELECT a.id, a.barangay FROM advisories a WHERE a.id = ? FOR UPDATE",
+      "SELECT a.id, a.barangay, a.featured_in_news FROM advisories a WHERE a.id = ? FOR UPDATE",
       [advisoryId],
     );
     if (!existing.length || !scope.allows(existing[0])) {
@@ -3216,9 +3361,47 @@ app.patch("/api/advisories/:id", async (req, res) => {
       return res.status(404).json({ error: "Advisory not found" });
     }
 
+    const alreadyFeatured = Number(existing[0].featured_in_news) === 1;
+    const mediaIsEligible =
+      validateNewsCarouselFeature({
+        featuredInNews: true,
+        featuredCount: 0,
+        mediaKind,
+        mediaUrl,
+      }) === null;
+    const shouldFeature = hasFeaturedInNews
+      ? featuredInNews
+      : alreadyFeatured && mediaIsEligible;
+    if (shouldFeature) {
+      const [counts] = await connection.query(
+        "SELECT COUNT(*) AS featured_count FROM advisories WHERE status = 'published' AND featured_in_news = 1",
+      );
+      const featureError = validateNewsCarouselFeature({
+        featuredInNews: true,
+        featuredCount: Number(counts[0]?.featured_count ?? 0),
+        alreadyFeatured,
+        mediaKind,
+        mediaUrl,
+      });
+      if (featureError) {
+        await connection.rollback();
+        transactionStarted = false;
+        return res.status(409).json({ error: featureError });
+      }
+    }
+
     await connection.query(
-      `UPDATE advisories SET type = COALESCE(?, type), title = ?, message = ?, audience = COALESCE(?, audience), barangay = COALESCE(?, barangay) WHERE id = ?${getAdvisoryScope(editor, "advisories").sql}`,
-      [type ?? null, title.trim(), message.trim(), targetAudience ?? null, editor?.role === "barangay_staff" ? editor.barangay : barangay ?? null, advisoryId, ...scope.params],
+      `UPDATE advisories SET type = COALESCE(?, type), title = ?, message = ?, audience = COALESCE(?, audience), barangay = COALESCE(?, barangay), featured_in_news = ? WHERE id = ?${getAdvisoryScope(editor, "advisories").sql}`,
+      [
+        type ?? null,
+        title.trim(),
+        message.trim(),
+        targetAudience ?? null,
+        editor?.role === "barangay_staff" ? editor.barangay : barangay ?? null,
+        shouldFeature ? 1 : 0,
+        advisoryId,
+        ...scope.params,
+      ],
     );
     await connection.query("DELETE FROM advisory_media WHERE advisory_id = ?", [advisoryId]);
     if (mediaUrl) {
@@ -3242,6 +3425,15 @@ app.patch("/api/advisories/:id", async (req, res) => {
     }
     throw error;
   } finally {
+    if (carouselLockAcquired) {
+      try {
+        await connection.query(
+          "SELECT RELEASE_LOCK('infratrack-news-carousel')",
+        );
+      } catch (error) {
+        console.error("Could not release the News carousel lock", error);
+      }
+    }
     connection.release();
   }
 });

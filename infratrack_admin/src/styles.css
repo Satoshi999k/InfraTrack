@@ -3843,6 +3843,44 @@ tbody tr:last-child td {
   padding: 11px 12px;
   background: #f7f8f5;
 }
+.advisory-featured-setting {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid #dfe8e3;
+  border-radius: 12px;
+  background: #f7f8f5;
+}
+.advisory-featured-setting label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--navy);
+  cursor: pointer;
+}
+.advisory-featured-setting input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  margin: 2px 0 0;
+  accent-color: var(--teal);
+}
+.advisory-featured-setting label span {
+  display: grid;
+  gap: 3px;
+}
+.advisory-featured-setting strong {
+  font-size: calc(11px * var(--appearance-text-scale, 1));
+}
+.advisory-featured-setting small {
+  color: #64787a;
+  font-size: calc(10px * var(--appearance-text-scale, 1));
+  line-height: 1.4;
+}
+.advisory-featured-setting .advisory-featured-count {
+  padding-left: 26px;
+}
 .advisory-composer > .primary-button {
   min-height: 42px;
   margin-top: 14px;
@@ -10589,6 +10627,21 @@ tbody tr:last-child td {
   border-color: #365158;
   background: #1b3035;
   color: #e2ebeb;
+}
+
+:root[data-theme="dark"] .advisory-composer .advisory-featured-setting,
+:root[data-theme="dark"] .advisory-editor-modal .advisory-featured-setting {
+  border-color: #365158;
+  background: #1b3035;
+}
+
+:root[data-theme="dark"] .advisory-featured-setting label,
+:root[data-theme="dark"] .advisory-featured-setting strong {
+  color: #e2ebeb;
+}
+
+:root[data-theme="dark"] .advisory-featured-setting small {
+  color: #a4b7b9;
 }
 
 :root[data-theme="dark"] .advisory-editor-modal {

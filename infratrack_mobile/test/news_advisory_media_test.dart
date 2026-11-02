@@ -46,4 +46,47 @@ void main() {
     );
     expect(isRotatingAdvisoryMedia('gif', null), isFalse);
   });
+
+  test(
+    'news carousel uses only featured image advisories and caps at five',
+    () {
+      final advisories = [
+        {
+          'id': 1,
+          'featured_in_news': 0,
+          'media_kind': 'photo',
+          'media_url': 'https://example.test/unfeatured.jpg',
+        },
+        {
+          'id': 2,
+          'featured_in_news': 1,
+          'media_kind': 'photo',
+          'media_url': 'https://example.test/2.jpg',
+        },
+        {
+          'id': 3,
+          'featured_in_news': true,
+          'media_kind': 'gif',
+          'media_url': 'https://example.test/3.gif',
+        },
+        {
+          'id': 4,
+          'featured_in_news': true,
+          'media_kind': 'video',
+          'media_url': 'https://example.test/4.mp4',
+        },
+        for (var id = 5; id <= 8; id++)
+          {
+            'id': id,
+            'featured_in_news': true,
+            'media_kind': 'photo',
+            'media_url': 'https://example.test/$id.jpg',
+          },
+      ];
+
+      final featured = featuredNewsCarouselAdvisories(advisories);
+
+      expect(featured.map((advisory) => advisory['id']), [2, 3, 5, 6, 7]);
+    },
+  );
 }

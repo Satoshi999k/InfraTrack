@@ -76,7 +76,13 @@ void main() {
         return http.Response(
           jsonEncode({
             'advisories': [
-              _advisory(1, 'Community equipment showcase', 'alert'),
+              {
+                ..._advisory(1, 'Community equipment showcase', 'alert'),
+                'featured_in_news': true,
+                'media_url': 'https://example.test/equipment.jpg',
+                'media_kind': 'image',
+                'created_at': DateTime.now().toIso8601String(),
+              },
               _advisory(2, 'Water service schedule', 'maint'),
               _advisory(3, 'Roadworks update', 'gen'),
             ],
@@ -94,7 +100,7 @@ void main() {
       expect(find.text('Report updates'), findsOneWidget);
       expect(find.text('City advisories'), findsOneWidget);
       expect(find.text('Road repair on Rizal Street'), findsOneWidget);
-      expect(find.text('Community equipment showcase'), findsOneWidget);
+      expect(find.text('Community equipment showcase'), findsNWidgets(2));
       expect(find.text('ADVERTISEMENT'), findsOneWidget);
       expect(find.text('Emergency'), findsNothing);
       expect(find.text('MAINTENANCE'), findsOneWidget);
@@ -116,15 +122,16 @@ void main() {
 
       expect(find.text('Drainage clearing'), findsOneWidget);
       expect(find.text('Road repair on Rizal Street'), findsNothing);
-      expect(find.text('Community equipment showcase'), findsOneWidget);
+      expect(find.text('Community equipment showcase'), findsNWidgets(2));
       expect(find.text('Roadworks update'), findsOneWidget);
 
-      await tester.ensureVisible(find.text('Advertisement'));
-      await tester.tap(find.text('Advertisement'));
+      final advertisementFilter = find.text('Advertisement').last;
+      await tester.ensureVisible(advertisementFilter);
+      await tester.tap(advertisementFilter);
       await tester.pumpAndSettle();
 
       expect(find.text('Drainage clearing'), findsOneWidget);
-      expect(find.text('Community equipment showcase'), findsOneWidget);
+      expect(find.text('Community equipment showcase'), findsNWidgets(2));
       expect(find.text('Water service schedule'), findsNothing);
       expect(find.text('Roadworks update'), findsNothing);
     } finally {
@@ -353,6 +360,7 @@ void main() {
             'advisories': [
               {
                 ..._advisory(7, 'Advisory with unavailable media', 'alert'),
+                'featured_in_news': true,
                 'media_url': 'https://example.test/missing-image.jpg',
                 'media_kind': 'image',
               },

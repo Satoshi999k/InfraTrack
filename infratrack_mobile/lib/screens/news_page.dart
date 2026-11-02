@@ -19,6 +19,20 @@ bool isRotatingAdvisoryMedia(String? mediaKind, String? mediaUrl) {
       const {'gif', 'jpg', 'jpeg', 'png', 'webp', 'avif'}.contains(extension);
 }
 
+List<Map<String, dynamic>> featuredNewsCarouselAdvisories(
+  Iterable<Map<String, dynamic>> advisories,
+) => advisories
+    .where((advisory) {
+      final featured = advisory['featured_in_news'];
+      if (featured != true && featured != 1 && featured != '1') return false;
+      return isRotatingAdvisoryMedia(
+        advisory['media_kind'] as String?,
+        publicMediaUrl(advisory['media_url'] as String?),
+      );
+    })
+    .take(5)
+    .toList();
+
 String _newsDate(String? value) {
   final date = DateTime.tryParse(value ?? '')?.toLocal();
   if (date == null) return '';
@@ -131,28 +145,18 @@ class _NewsPageState extends State<NewsPage> {
   }
 
   List<({String image, String title, String subtitle, String date})>
-  get _stories => _advisories
-      .map((advisory) {
-        final mediaUrl = publicMediaUrl(advisory['media_url'] as String?);
-        if (mediaUrl == null ||
-            !isRotatingAdvisoryMedia(
-              advisory['media_kind'] as String?,
-              mediaUrl,
-            )) {
-          return null;
-        }
-        return (
-          image: mediaUrl,
-          title: advisory['title'] as String? ?? 'City advisory',
-          subtitle: _advisoryType(advisory['type'] as String?),
-          date: _newsDate(
-            advisory['published_at']?.toString() ??
-                advisory['created_at']?.toString(),
-          ),
-        );
-      })
-      .whereType<({String image, String title, String subtitle, String date})>()
-      .toList();
+  get _stories => featuredNewsCarouselAdvisories(_advisories).map((advisory) {
+    final mediaUrl = publicMediaUrl(advisory['media_url'] as String?);
+    return (
+      image: mediaUrl!,
+      title: advisory['title'] as String? ?? 'City advisory',
+      subtitle: _advisoryType(advisory['type'] as String?),
+      date: _newsDate(
+        advisory['published_at']?.toString() ??
+            advisory['created_at']?.toString(),
+      ),
+    );
+  }).toList();
 
   String _advisoryType(String? type) => switch (type?.toLowerCase()) {
     'alert' => 'Advertisement',
