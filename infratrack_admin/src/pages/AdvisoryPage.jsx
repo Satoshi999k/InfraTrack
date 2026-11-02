@@ -120,6 +120,7 @@ export default function AdvisoryPage({
   const [savingCarouselAdvisoryId, setSavingCarouselAdvisoryId] = useState(null);
   const [convertingExisting, setConvertingExisting] = useState(false);
   const [convertingNew, setConvertingNew] = useState(false);
+  const [uploadingMedia, setUploadingMedia] = useState(null);
   const photoInput = useRef(null);
   const videoInput = useRef(null);
   const publishInFlight = useRef(false);
@@ -128,6 +129,11 @@ export default function AdvisoryPage({
 
   const uploadMedia = async (file, target) => {
     if (!file) return;
+    const kind = file.type.startsWith("video/") || /\.gif$/i.test(file.name)
+      ? "video"
+      : "image";
+    setUploadingMedia({ target, kind, name: file.name });
+    setError("");
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -169,8 +175,11 @@ export default function AdvisoryPage({
       };
       if (target === "edit") setEditingAdvisory((current) => ({ ...current, draftMedia: uploaded }));
       else setMedia(uploaded);
+      onNotify?.(`${kind === "video" ? "Video" : "Image"} uploaded.`);
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "Could not upload media.");
+    } finally {
+      setUploadingMedia(null);
     }
   };
 
@@ -475,19 +484,30 @@ export default function AdvisoryPage({
             type="button"
             className={media?.kind === "photo" ? "attached" : ""}
             onClick={() => photoInput.current?.click()}
+            disabled={Boolean(uploadingMedia)}
           >
-            <Camera size={16} /> Add photo
+            {uploadingMedia?.target === "new" && uploadingMedia.kind === "image"
+              ? <><span className="button-spinner" /> Uploading image…</>
+              : <><Camera size={16} /> Add photo</>}
           </button>
           <button
             type="button"
             className={media?.kind === "video" || media?.kind === "gif" ? "attached" : ""}
             onClick={() => videoInput.current?.click()}
+            disabled={Boolean(uploadingMedia)}
           >
-            <Video size={16} /> Add video
+            {uploadingMedia?.target === "new" && uploadingMedia.kind === "video"
+              ? <><span className="button-spinner" /> Uploading video…</>
+              : <><Video size={16} /> Add video</>}
           </button>
         </div>
-        <input ref={photoInput} hidden type="file" accept="image/*" onChange={(event) => uploadMedia(event.target.files?.[0], "new")} />
-        <input ref={videoInput} hidden type="file" accept="video/*,.gif" onChange={(event) => uploadMedia(event.target.files?.[0], "new")} />
+        <input ref={photoInput} hidden type="file" accept="image/*" onChange={(event) => { uploadMedia(event.target.files?.[0], "new"); event.target.value = ""; }} />
+        <input ref={videoInput} hidden type="file" accept="video/*,.gif" onChange={(event) => { uploadMedia(event.target.files?.[0], "new"); event.target.value = ""; }} />
+        {uploadingMedia?.target === "new" && (
+          <div className="advisory-media-upload-status" role="status" aria-live="polite">
+            Uploading {uploadingMedia.kind === "video" ? "video" : "image"}: {uploadingMedia.name}
+          </div>
+        )}
         {media && (
           <div className="advisory-media-preview">
             {media.kind === "video" ? <video src={media.src} controls /> : <img src={media.src} alt="Attached advisory media" />}
@@ -792,20 +812,31 @@ export default function AdvisoryPage({
                 type="button"
                 className={editingAdvisory.draftMedia?.kind === "photo" ? "attached" : ""}
                 onClick={() => editPhotoInput.current?.click()}
+                disabled={Boolean(uploadingMedia)}
               >
-                <Camera size={16} /> Add photo
+                {uploadingMedia?.target === "edit" && uploadingMedia.kind === "image"
+                  ? <><span className="button-spinner" /> Uploading image…</>
+                  : <><Camera size={16} /> Add photo</>}
               </button>
               <button
                 type="button"
                 className={editingAdvisory.draftMedia?.kind === "gif" || editingAdvisory.draftMedia?.kind === "video" ? "attached" : ""}
                 onClick={() => editVideoInput.current?.click()}
+                disabled={Boolean(uploadingMedia)}
               >
-                <Video size={16} /> Add video
+                {uploadingMedia?.target === "edit" && uploadingMedia.kind === "video"
+                  ? <><span className="button-spinner" /> Uploading video…</>
+                  : <><Video size={16} /> Add video</>}
               </button>
             </div>
 
-            <input ref={editPhotoInput} hidden type="file" accept="image/*" onChange={(event) => uploadMedia(event.target.files?.[0], "edit")} />
-            <input ref={editVideoInput} hidden type="file" accept="video/*,.gif" onChange={(event) => uploadMedia(event.target.files?.[0], "edit")} />
+            <input ref={editPhotoInput} hidden type="file" accept="image/*" onChange={(event) => { uploadMedia(event.target.files?.[0], "edit"); event.target.value = ""; }} />
+            <input ref={editVideoInput} hidden type="file" accept="video/*,.gif" onChange={(event) => { uploadMedia(event.target.files?.[0], "edit"); event.target.value = ""; }} />
+            {uploadingMedia?.target === "edit" && (
+              <div className="advisory-media-upload-status" role="status" aria-live="polite">
+                Uploading {uploadingMedia.kind === "video" ? "video" : "image"}: {uploadingMedia.name}
+              </div>
+            )}
 
             {editingAdvisory.draftMedia && (
               <div className="advisory-media-preview advisory-edit-preview">

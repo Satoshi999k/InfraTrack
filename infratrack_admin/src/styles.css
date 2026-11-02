@@ -4731,6 +4731,17 @@ tbody tr:last-child td {
   font-weight: 700;
   cursor: pointer;
 }
+.media-picker button:disabled {
+  cursor: wait;
+  opacity: 0.78;
+}
+.advisory-media-upload-status {
+  margin-top: 8px;
+  color: var(--teal);
+  font-size: calc((10px) * var(--appearance-text-scale, 1));
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
 .advisory-convert-button {
   margin-top: 16px;
   min-height: 44px;
