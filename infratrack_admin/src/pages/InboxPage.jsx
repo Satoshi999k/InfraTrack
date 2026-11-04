@@ -1,4 +1,13 @@
 import { useState } from "react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  CircleX,
+  Paperclip,
+  RotateCcw,
+  Send,
+  UserPlus,
+} from "lucide-react";
 
 const initialThreads = [
   {
@@ -51,7 +60,7 @@ const initialThreads = [
     assignee: "Engr. Santos",
     messages: [
       { author: "Ana Lumaad", text: "The road beside the covered court has a large crack. Please inspect it when possible.", time: "Yesterday, 3:20 PM" },
-      { author: "You", text: "Our crew completed the temporary repair and will schedule a permanent inspection.", time: "Yesterday, 4:05 PM", admin: true },
+      { author: "You", text: "Our crew completed the temporary repair and scheduled an inspection.", time: "Yesterday, 4:05 PM", admin: true },
     ],
   },
 ];
@@ -66,23 +75,29 @@ export default function InboxPage() {
   const visibleThreads = filter === "All" ? threads : threads.filter((thread) => thread.status === filter);
 
   function updateActive(updates) {
-    setThreads((current) => current.map((thread) => thread.id === activeId ? { ...thread, ...updates } : thread));
+    setThreads((current) => current.map((thread) => (
+      thread.id === activeId ? { ...thread, ...updates } : thread
+    )));
   }
 
   function openThread(id) {
     setActiveId(id);
     setMobileOpen(true);
-    setThreads((current) => current.map((thread) => thread.id === id ? { ...thread, unread: false } : thread));
+    setThreads((current) => current.map((thread) => (
+      thread.id === id ? { ...thread, unread: false } : thread
+    )));
   }
 
   function sendReply() {
     const text = reply.trim();
     if (!text) return;
-    setThreads((current) => current.map((thread) => thread.id === activeId ? {
-      ...thread,
-      status: thread.status === "New" ? "In progress" : thread.status,
-      messages: [...thread.messages, { author: "You", text, time: "Just now", admin: true }],
-    } : thread));
+    setThreads((current) => current.map((thread) => (
+      thread.id === activeId ? {
+        ...thread,
+        status: thread.status === "New" ? "In progress" : thread.status,
+        messages: [...thread.messages, { author: "You", text, time: "Just now", admin: true }],
+      } : thread
+    )));
     setReply("");
   }
 
@@ -91,24 +106,29 @@ export default function InboxPage() {
       <aside className="inbox-thread-list" id="inbox-thread-list" aria-label="Support threads">
         <div className="inbox-thread-list-head">
           <div>
+            <p className="inbox-overline">Support inbox</p>
             <h2>Citizen conversations</h2>
-            <span>{threads.filter((thread) => thread.unread).length} unread</span>
           </div>
-          <button className="icon-btn" type="button" aria-label="Filter inbox"><span className="msy">filter_list</span></button>
+          <span className="inbox-unread-total">{threads.filter((thread) => thread.unread).length} unread</span>
         </div>
+
         <div className="inbox-tabs" role="tablist" aria-label="Inbox status">
           {["All", "New", "In progress", "Resolved"].map((status) => (
-            <button key={status} type="button" className={`inbox-tab${filter === status ? " active" : ""}`} onClick={() => setFilter(status)}>
+            <button key={status} type="button" role="tab" aria-selected={filter === status} className={`inbox-tab${filter === status ? " active" : ""}`} onClick={() => setFilter(status)}>
               {status}
             </button>
           ))}
         </div>
+
         <div className="inbox-thread-items">
           {visibleThreads.map((thread) => (
             <button key={thread.id} type="button" className={`inbox-thread-row${thread.id === activeId ? " active" : ""}${thread.unread ? " unread" : ""}`} onClick={() => openThread(thread.id)}>
               <span className="inbox-avatar">{thread.initials}</span>
               <span className="inbox-thread-copy">
-                <strong>{thread.citizen}</strong>
+                <span className="inbox-thread-name-line">
+                  <strong>{thread.citizen}</strong>
+                  {thread.unread && <i aria-label="Unread" />}
+                </span>
                 <b>{thread.subject}</b>
                 <small>{thread.preview}</small>
               </span>
@@ -123,32 +143,49 @@ export default function InboxPage() {
 
       <div className="inbox-conversation" id="inbox-conversation">
         <header className="inbox-conversation-head">
-          <button className="inbox-back" type="button" onClick={() => setMobileOpen(false)} aria-label="Back to conversations"><span className="msy">arrow_back</span></button>
+          <button className="inbox-back icon-button" type="button" onClick={() => setMobileOpen(false)} aria-label="Back to conversations">
+            <ArrowLeft size={18} />
+          </button>
           <div className="inbox-conversation-title">
+            <p>{active.citizen}</p>
             <h2>{active.subject}</h2>
-            <p>{active.citizen} · {active.status}</p>
           </div>
+          <span className={`inbox-thread-status ${active.status === "Resolved" ? "resolved" : ""}`}>
+            {active.status}
+          </span>
           <div className="inbox-actions">
-            <button className="btn-secondary" type="button" onClick={() => updateActive({ assignee: "You" })}><span className="msy">person_add</span> Assign</button>
-            <button className="btn-secondary" type="button" onClick={() => updateActive({ status: active.status === "Resolved" ? "In progress" : "Resolved" })}>
-              <span className="msy">{active.status === "Resolved" ? "restart_alt" : "task_alt"}</span>
-              {active.status === "Resolved" ? "Reopen" : "Mark resolved"}
+            <button className="inbox-action" type="button" onClick={() => updateActive({ assignee: "You" })}>
+              <UserPlus size={16} />
+              <span>Assign</span>
             </button>
-            <button className="btn-secondary" type="button" onClick={() => updateActive({ status: "Resolved" })}>Close</button>
+            {active.status === "Resolved" ? (
+              <button className="inbox-action" type="button" onClick={() => updateActive({ status: "In progress" })}>
+                <RotateCcw size={16} />
+                <span>Reopen</span>
+              </button>
+            ) : (
+              <button className="inbox-action primary" type="button" onClick={() => updateActive({ status: "Resolved" })}>
+                <CheckCircle2 size={16} />
+                <span>Mark resolved</span>
+              </button>
+            )}
+            <button className="inbox-action" type="button" onClick={() => updateActive({ status: "Resolved" })}>
+              <CircleX size={16} />
+              <span>Close</span>
+            </button>
           </div>
         </header>
 
         <div className="inbox-message-area">
           <div className="inbox-citizen-context">
             <div><span>Category</span><strong>{active.category}</strong></div>
-            <div><span>Urgency</span><strong>{active.priority}</strong></div>
+            <div><span>Urgency</span><strong className={active.priority === "Urgent" ? "urgent-text" : ""}>{active.priority}</strong></div>
             <div><span>Barangay</span><strong>{active.barangay}</strong></div>
             <div><span>Subject</span><strong>{active.subject}</strong></div>
+            <div><span>Assigned to</span><strong>{active.assignee}</strong></div>
           </div>
-          <div className="inbox-message-context">
-            <span>Assigned to</span>
-            <strong>{active.assignee}</strong>
-          </div>
+
+          <div className="inbox-message-date">Today</div>
           {active.messages.map((message, index) => (
             <div className={`inbox-message-row${message.admin ? " admin" : ""}`} key={`${message.time}-${index}`}>
               {!message.admin && <span className="inbox-avatar">{active.initials}</span>}
@@ -162,10 +199,16 @@ export default function InboxPage() {
         </div>
 
         <div className="inbox-composer">
-          <button type="button" className="icon-btn" aria-label="Attach a file"><span className="msy">attach_file</span></button>
+          <button type="button" className="icon-button inbox-attach" aria-label="Attach a file">
+            <Paperclip size={18} />
+          </button>
           <label className="sr-only" htmlFor="inbox-reply">Message</label>
-          <textarea id="inbox-reply" value={reply} onChange={(event) => setReply(event.target.value)} placeholder="Write a reply…" />
-          <button type="button" className="btn-primary" onClick={sendReply}><span className="msy">send</span> Send</button>
+          <textarea id="inbox-reply" value={reply} onChange={(event) => setReply(event.target.value)} placeholder="Message…" rows={1} />
+          <button type="button" className="inbox-send" onClick={sendReply} disabled={!reply.trim()}>
+            <Send size={17} />
+            <span>Send</span>
+          </button>
+          <span className="inbox-composer-hint">Attach files or enter to send</span>
         </div>
       </div>
     </section>
