@@ -22,7 +22,6 @@ import {
   MapPin,
   Menu,
   Megaphone,
-  MessageSquare,
   Monitor,
   Moon,
   Palette,
@@ -46,7 +45,6 @@ import MapPage, { LeafletInfrastructureMap } from "./pages/MapPage";
 import { BrandMark } from "./components/BrandMark";
 import UsersPage from "./pages/UsersPage";
 import AdvisoryPage from "./pages/AdvisoryPage";
-import InboxPage from "./pages/InboxPage";
 import SettingsPage from "./pages/SettingsPage";
 import Login from "./Login";
 import { API_BASE, apiFetch } from "./api";
@@ -74,7 +72,6 @@ const navIcons = {
   queue: ClipboardList,
   map: MapIcon,
   analytics: BarChart3,
-  inbox: MessageSquare,
   users: Users,
   announce: Megaphone,
   published: FileText,
@@ -321,7 +318,6 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
       isBarangayStaff ? user.barangay : "Operations",
       "Analytics & Reports",
     ],
-    inbox: [isBarangayStaff ? user.barangay : "Operations", "Inbox"],
     users: [
       isBarangayStaff ? user.barangay || "Barangay" : "Administration",
       isBarangayStaff ? "Residents" : "User Management",
@@ -649,7 +645,6 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
                 <Icon icon={navIcons[id]} />
                 <span>{label}</span>
                 {id === "queue" && <b>{pendingIssueCount}</b>}
-                {id === "inbox" && <b>2</b>}
               </button>
             ))}
           </div>
@@ -1166,8 +1161,6 @@ function PageContent({
     );
   } else if (page === "analytics") {
     pageView = <AnalyticsLive user={user} />;
-  } else if (page === "inbox") {
-    pageView = <InboxPage />;
   } else if (page === "users") {
     pageView = <UsersPage users={users} onOpenUser={onOpenUser} user={user} />;
   } else if (page === "announce") {

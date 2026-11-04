@@ -5,7 +5,6 @@ const operations = {
     ["queue", "Issue Queue"],
     ["map", "Infrastructure Map"],
     ["analytics", "Analytics & Reports"],
-    ["inbox", "Inbox"],
   ],
 };
 

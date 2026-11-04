@@ -13,7 +13,6 @@ test("barangay staff see scoped operations and barangay work, not LGU user manag
       "queue",
       "map",
       "analytics",
-      "inbox",
       "users",
       "announce",
       "published",
@@ -27,7 +26,6 @@ test("barangay staff see scoped operations and barangay work, not LGU user manag
 test("barangay staff cannot access LGU-only pages but retain account settings", () => {
   assert.equal(canAccessAdminPage("barangay_staff", "users"), true);
   assert.equal(canAccessAdminPage("barangay_staff", "announce"), true);
-  assert.equal(canAccessAdminPage("barangay_staff", "inbox"), true);
   assert.equal(canAccessAdminPage("barangay_staff", "settings"), true);
   assert.equal(canAccessAdminPage("barangay_staff", "backup"), false);
   assert.equal(canAccessAdminPage("resident", "overview"), false);
