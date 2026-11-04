@@ -203,7 +203,19 @@ export default function InboxPage() {
             <Paperclip size={18} />
           </button>
           <label className="sr-only" htmlFor="inbox-reply">Message</label>
-          <textarea id="inbox-reply" value={reply} onChange={(event) => setReply(event.target.value)} placeholder="Message…" rows={1} />
+          <textarea
+            id="inbox-reply"
+            value={reply}
+            onChange={(event) => setReply(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                sendReply();
+              }
+            }}
+            placeholder="Message…"
+            rows={1}
+          />
           <button type="button" className="inbox-send" onClick={sendReply} disabled={!reply.trim()}>
             <Send size={17} />
             <span>Send</span>
