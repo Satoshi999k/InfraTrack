@@ -11,6 +11,7 @@ import {
   Ban,
   BarChart3,
   Bell,
+  Building2,
   Flag,
   CalendarDays,
   CheckCircle2,
