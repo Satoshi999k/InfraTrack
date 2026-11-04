@@ -24,12 +24,13 @@ NotificationDetails groupedNotificationDetails({
 }) => NotificationDetails(
   android: AndroidNotificationDetails(
     infraTrackNotificationChannelId,
-    'InfraTrack updates',
+    'InfraTrack notifications',
     channelDescription: 'Announcements and other InfraTrack notifications.',
     importance: Importance.high,
     priority: Priority.high,
     icon: 'infratrack_notification',
     largeIcon: const DrawableResourceAndroidBitmap('infratrack_launcher'),
+    subText: 'InfraTrack',
     groupKey: _notificationGroupKey,
     setAsGroupSummary: groupSummary,
     groupAlertBehavior: GroupAlertBehavior.children,
@@ -121,7 +122,7 @@ class PushNotifications {
 
   static final instance = PushNotifications._();
   static const _channelId = infraTrackNotificationChannelId;
-  static const _channelName = 'InfraTrack updates';
+  static const _channelName = 'InfraTrack notifications';
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
 
