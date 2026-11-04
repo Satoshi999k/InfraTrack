@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -66,13 +66,24 @@ const initialThreads = [
 ];
 
 export default function InboxPage() {
-  const [threads, setThreads] = useState(initialThreads);
+  const [threads, setThreads] = useState(() => {
+    try {
+      const saved = window.localStorage.getItem("infratrack-admin-inbox");
+      return saved ? JSON.parse(saved) : initialThreads;
+    } catch {
+      return initialThreads;
+    }
+  });
   const [activeId, setActiveId] = useState(1);
   const [filter, setFilter] = useState("All");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [reply, setReply] = useState("");
   const active = threads.find((thread) => thread.id === activeId) ?? threads[0];
   const visibleThreads = filter === "All" ? threads : threads.filter((thread) => thread.status === filter);
+
+  useEffect(() => {
+    window.localStorage.setItem("infratrack-admin-inbox", JSON.stringify(threads));
+  }, [threads]);
 
   function updateActive(updates) {
     setThreads((current) => current.map((thread) => (

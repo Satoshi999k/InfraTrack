@@ -34,3 +34,8 @@ test("inbox composer has an explicit visible textarea surface", () => {
   assert.match(redesignComposer, /\.inbox-composer textarea\s*\{[^}]*border:\s*1px solid/);
   assert.match(redesignComposer, /\.inbox-composer textarea\s*\{[^}]*background:\s*#fff/);
 });
+
+test("inbox state survives browser refreshes", () => {
+  assert.match(source, /infratrack-admin-inbox/);
+  assert.match(source, /localStorage\.setItem/);
+});
