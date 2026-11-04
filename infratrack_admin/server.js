@@ -450,6 +450,13 @@ function getFirebaseMessagingClient() {
     ) {
       throw new Error("Firebase service-account JSON is missing required fields.");
     }
+    if (
+      String(serviceAccount.project_id) !== "infratrack-78cd3"
+    ) {
+      throw new Error(
+        `Firebase service-account project "${serviceAccount.project_id}" does not match mobile project "infratrack-78cd3".`,
+      );
+    }
     const app =
       getApps().find((candidate) => candidate.name === "infratrack-push") ??
       initializeApp(
@@ -689,6 +696,20 @@ async function queueAdvisoryNotifications({
       console.log(
         `FCM advisory ${advisoryId}: ${result.successCount} delivered, ${result.failureCount} failed.`,
       );
+      for (let index = 0; index < result.responses.length; index += 1) {
+        const response = result.responses[index];
+        const errorCode = response.error?.code;
+        if (
+          !response.success &&
+          (errorCode === "messaging/registration-token-not-registered" ||
+            errorCode === "messaging/invalid-registration-token")
+        ) {
+          await pool.query(
+            "DELETE FROM push_device_tokens WHERE token = ?",
+            [tokens[index]],
+          );
+        }
+      }
       return result;
     }),
   ).catch((error) => {
@@ -2000,6 +2021,20 @@ app.post("/api/mobile/push-tokens", async (req, res) => {
     [req.auth.id, token, platform],
   );
   res.status(204).end();
+});
+app.get("/api/mobile/push-status", async (req, res) => {
+  const [rows] = await pool.query(
+    `SELECT COUNT(*) AS registered_tokens, MAX(updated_at) AS last_registered_at
+     FROM push_device_tokens
+     WHERE user_id = ?`,
+    [req.auth.id],
+  );
+  const messaging = getFirebaseMessagingClient();
+  res.json({
+    registered: Number(rows[0]?.registered_tokens ?? 0),
+    last_registered_at: rows[0]?.last_registered_at ?? null,
+    firebase_configured: Boolean(messaging),
+  });
 });
 app.delete("/api/mobile/push-tokens", async (req, res) => {
   const token = String(req.body?.token ?? "").trim();

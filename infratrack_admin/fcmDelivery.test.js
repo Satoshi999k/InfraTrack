@@ -15,10 +15,9 @@ test("FCM tokens are split into Firebase multicast batches", () => {
   assert.equal(batches[1].length, 1);
 });
 
-test("Android push delivery uses high priority and no delivery delay", () => {
+test("Android push delivery uses high priority without an expiration TTL", () => {
   assert.deepEqual(createAndroidDeliveryConfig("https://example.com/image.jpg"), {
     priority: "high",
-    ttl: "60s",
     notification: {
       channelId: "infratrack_city_updates_v3",
       sound: "default",
