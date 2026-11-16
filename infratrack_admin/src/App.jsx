@@ -47,7 +47,7 @@ import UsersPage from "./pages/UsersPage";
 import AdvisoryPage from "./pages/AdvisoryPage";
 import SettingsPage from "./pages/SettingsPage";
 import Login from "./Login";
-import { API_BASE, apiFetch } from "./api";
+import { API_BASE, apiFetch, SESSION_EXPIRED_EVENT } from "./api";
 import { countIssueQueueStatuses } from "./issueQueue";
 import {
   clearAuthSession,
@@ -90,18 +90,30 @@ function Icon({ icon: IconComponent, size = 18 }) {
 export default function App() {
   useEffect(() => initializeAppearance(), []);
 
+  const [sessionExpired, setSessionExpired] = useState(false);
   const [currentUser, setCurrentUser] = useState(() => {
     const { user } = getStoredAuthSession();
     return user;
   });
 
+  useEffect(() => {
+    const handleSessionExpired = () => setSessionExpired(true);
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+    return () =>
+      window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+  }, []);
+
   const handleLogin = (user) => {
+    setSessionExpired(false);
     setCurrentUser(user);
   };
 
   const handleLogout = () => {
-    apiFetch("/auth/logout", { method: "POST" }).catch(() => {});
+    if (!sessionExpired) {
+      apiFetch("/auth/logout", { method: "POST" }).catch(() => {});
+    }
     clearAuthSession();
+    setSessionExpired(false);
     setCurrentUser(null);
   };
 
@@ -119,6 +131,7 @@ export default function App() {
       user={currentUser}
       onLogout={handleLogout}
       onUserUpdated={handleUserUpdated}
+      sessionExpired={sessionExpired}
     />
   );
 }
@@ -150,7 +163,7 @@ async function fetchUserReports(residentId) {
   return data.reports ?? [];
 }
 
-function Dashboard({ user, onLogout, onUserUpdated }) {
+function Dashboard({ user, onLogout, onUserUpdated, sessionExpired }) {
   const userName = user.name || "Operations Team";
   const isBarangayStaff = user.role === "barangay_staff";
   const navGroups = getNavigationGroups(user.role);
@@ -190,6 +203,7 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
     setToast({ id: ++toastSequence.current, message, tone });
 
   useEffect(() => {
+    if (sessionExpired) return undefined;
     let active = true;
 
     const refreshDashboard = async () => {
@@ -299,7 +313,7 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
       stopIssuePolling();
       stopNotificationPolling();
     };
-  }, [isBarangayStaff, user.id]);
+  }, [isBarangayStaff, sessionExpired, user.id]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -934,7 +948,7 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
         </header>
 
         <section className="content">
-          {apiError && (
+          {apiError && !sessionExpired && (
             <div
               role="alert"
               style={{
@@ -1121,6 +1135,34 @@ function Dashboard({ user, onLogout, onUserUpdated }) {
             <CheckCircle2 size={18} />
           )}
           <span>{toast.message}</span>
+        </div>
+      )}
+      {sessionExpired && (
+        <div className="modal-backdrop session-expired-backdrop">
+          <section
+            className="session-expired-dialog"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="session-expired-title"
+            aria-describedby="session-expired-description"
+          >
+            <div className="session-expired-icon" aria-hidden="true">
+              <ShieldAlert size={27} strokeWidth={1.8} />
+            </div>
+            <h2 id="session-expired-title">Your session has ended</h2>
+            <p id="session-expired-description">
+              For your security, please sign in again to continue using
+              InfraTrack Admin.
+            </p>
+            <button
+              className="primary-button session-expired-confirm"
+              type="button"
+              onClick={onLogout}
+              autoFocus
+            >
+              OK
+            </button>
+          </section>
         </div>
       )}
     </div>

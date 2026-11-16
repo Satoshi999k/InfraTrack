@@ -7,11 +7,23 @@ export const API_BASE =
 	(configuredApiUrl && (apiEnv.DEV || !isLocalApiUrl) ? configuredApiUrl : "") ||
 	(apiEnv.DEV ? "http://localhost:3001/api" : "/api");
 
+export const SESSION_EXPIRED_EVENT = "infratrack:session-expired";
+
 export function apiFetch(path, options = {}) {
 	const token =
 		(globalThis.localStorage && globalThis.localStorage.getItem("infratrack.adminToken")) ||
 		(globalThis.sessionStorage && globalThis.sessionStorage.getItem("infratrack.adminToken"));
 	const headers = new Headers(options.headers || {});
 	if (token) headers.set("Authorization", `Bearer ${token}`);
-	return fetch(`${API_BASE}${path}`, { ...options, headers });
+	return fetch(`${API_BASE}${path}`, { ...options, headers }).then((response) => {
+		const activeToken =
+			(globalThis.localStorage &&
+				globalThis.localStorage.getItem("infratrack.adminToken")) ||
+			(globalThis.sessionStorage &&
+				globalThis.sessionStorage.getItem("infratrack.adminToken"));
+		if (token && token === activeToken && response.status === 401) {
+			globalThis.window?.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+		}
+		return response;
+	});
 }
