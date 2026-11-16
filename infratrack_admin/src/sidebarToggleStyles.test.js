@@ -17,21 +17,17 @@ function getStyles(selector) {
   return styles;
 }
 
-test("sidebar toggle is large, high-contrast, and inset inside the sidebar", () => {
+test("sidebar toggle is a small circular control attached to the sidebar edge", () => {
   const toggle = getStyles(".sidebar-toggle");
 
-  assert.equal(toggle.right, "12px");
-  assert.equal(toggle.width, "36px");
-  assert.equal(toggle.height, "36px");
-  assert.equal(toggle.border, "2px solid #fff");
+  assert.equal(toggle.top, "4px");
+  assert.equal(toggle.right, "-13px");
+  assert.equal(toggle.width, "26px");
+  assert.equal(toggle.height, "26px");
+  assert.equal(toggle["border-radius"], "50%");
   assert.equal(toggle.color, "#fff");
 });
 
-test("collapsed sidebar keeps the toggle centered beneath the brand mark", () => {
-  const collapsedToggle = getStyles(".sidebar-collapsed .sidebar-toggle");
-  const collapsedHeading = getStyles(".sidebar-collapsed .sidebar-heading");
-
-  assert.equal(collapsedToggle.right, "50%");
-  assert.equal(collapsedToggle.transform, "translateX(50%)");
-  assert.equal(collapsedHeading["padding-bottom"], "46px");
+test("collapsed sidebar does not reposition the edge toggle", () => {
+  assert.deepEqual(getStyles(".sidebar-collapsed .sidebar-toggle"), {});
 });
