@@ -6855,11 +6855,22 @@ tbody tr:last-child td {
   text-align: center;
 }
 
-.verification-image-frame a,
+.verification-image-frame .verification-image-open,
 .verification-image-frame img {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+.verification-image-frame .verification-image-open {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+}
+
+.verification-image-frame .verification-image-open:focus-visible {
+  outline-offset: -3px;
 }
 
 .verification-image-frame img {
@@ -6867,11 +6878,101 @@ tbody tr:last-child td {
   background: #dce8e4;
 }
 
+.verification-image-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  background: rgba(5, 20, 25, 0.88);
+  backdrop-filter: blur(5px);
+  animation: backdrop-enter 0.16s ease-out both;
+}
+
+.verification-image-viewer-content {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  width: min(100%, 1100px);
+  max-height: 100%;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 16px;
+  background: #10272d;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+  animation: modal-enter 0.18s ease-out both;
+}
+
+.verification-image-viewer-content img {
+  display: block;
+  width: 100%;
+  height: min(78vh, 760px);
+  object-fit: contain;
+  border-radius: 8px;
+  background: #08191e;
+}
+
+.verification-image-viewer-content p {
+  max-width: 100%;
+  margin: 0;
+  color: #e7f0ef;
+  font-size: 13px;
+  text-align: center;
+}
+
+.verification-image-viewer-close {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  z-index: 1;
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  background: rgba(8, 25, 30, 0.78);
+  color: #fff;
+  cursor: pointer;
+}
+
+.verification-image-viewer-close:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
 .verification-image-card small {
   display: block;
   margin-top: 5px;
   color: #64736f;
   font-size: calc((11px) * var(--appearance-text-scale, 1));
+}
+
+@media (max-width: 600px) {
+  .verification-image-viewer {
+    padding: 14px;
+  }
+
+  .verification-image-viewer-content {
+    padding: 10px;
+  }
+
+  .verification-image-viewer-content img {
+    height: min(76vh, 620px);
+  }
+
+  .verification-image-viewer-close {
+    top: 16px;
+    right: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .verification-image-viewer,
+  .verification-image-viewer-content {
+    animation: none;
+  }
 }
 
 .verification-actions {

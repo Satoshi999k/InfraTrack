@@ -56,6 +56,7 @@ import {
   groupAdvisoryComments,
   normalizeAdvisoryEngagement,
 } from "../../advisoryActivity.js";
+import { createVerificationImagePreview } from "../verificationImagePreview.js";
 
 export function Modal({
   data,
@@ -1988,7 +1989,16 @@ export function UserModal({
   const [recentReports, setRecentReports] = useState([]);
   const [reportsLoading, setReportsLoading] = useState(true);
   const [reportsError, setReportsError] = useState("");
+  const [imagePreview, setImagePreview] = useState(null);
+  const imagePreviewRef = useRef(null);
+  const imagePreviewTriggerRef = useRef(null);
+  const imagePreviewCloseRef = useRef(null);
   const hasVerificationEvidence = Boolean(user.id_front_url && user.selfie_url);
+  imagePreviewRef.current = imagePreview;
+  const openImagePreview = (src, label, trigger) => {
+    imagePreviewTriggerRef.current = trigger;
+    setImagePreview(createVerificationImagePreview(src, label, trigger));
+  };
 
   useEffect(() => {
     const previousFocus = document.activeElement;
@@ -1997,11 +2007,20 @@ export function UserModal({
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
         event.preventDefault();
+        if (imagePreviewRef.current) {
+          setImagePreview(null);
+          return;
+        }
         onClose();
         return;
       }
 
       if (event.key !== "Tab") return;
+      if (imagePreviewRef.current) {
+        event.preventDefault();
+        imagePreviewCloseRef.current?.focus();
+        return;
+      }
       const focusableElements = modalRef.current?.querySelectorAll(
         'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
       );
@@ -2024,6 +2043,17 @@ export function UserModal({
       if (previousFocus instanceof HTMLElement) previousFocus.focus();
     };
   }, [onClose]);
+
+  useEffect(() => {
+    if (!imagePreview) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    imagePreviewCloseRef.current?.focus();
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      imagePreviewTriggerRef.current?.focus();
+    };
+  }, [imagePreview]);
 
   useEffect(() => {
     let active = true;
@@ -2188,16 +2218,19 @@ export function UserModal({
                 label={`${user.id_type || "Government ID"} · front`}
                 src={user.id_front_url}
                 empty="No ID front submitted"
+                onPreview={openImagePreview}
               />
               <VerificationImage
                 label={`${user.id_type || "Government ID"} · back`}
                 src={user.id_back_url}
                 empty="No ID back submitted"
+                onPreview={openImagePreview}
               />
               <VerificationImage
                 label="Live selfie"
                 src={user.selfie_url}
                 empty="No selfie submitted"
+                onPreview={openImagePreview}
               />
             </div>
             {user.verification === "Verified" ? (
@@ -2463,24 +2496,63 @@ export function UserModal({
           </div>
         </div>
       </div>
+      {imagePreview &&
+        createPortal(
+          <div
+            className="verification-image-viewer"
+            onClick={(event) => {
+              event.stopPropagation();
+              setImagePreview(null);
+            }}
+          >
+            <section
+              className="verification-image-viewer-content"
+              role="dialog"
+              aria-modal="true"
+              aria-label={`Full image: ${imagePreview.label}`}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <button
+                ref={imagePreviewCloseRef}
+                className="verification-image-viewer-close"
+                type="button"
+                aria-label="Close full image"
+                onClick={() => setImagePreview(null)}
+              >
+                <X size={20} />
+              </button>
+              <img
+                src={imagePreview.src}
+                alt={`${imagePreview.label} submitted for verification`}
+              />
+              <p>{imagePreview.label}</p>
+            </section>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
 
-function VerificationImage({ label, src, empty }) {
+export function VerificationImage({ label, src, empty, onPreview }) {
   return (
     <div className="verification-image-card">
       <strong>{label}</strong>
       <div className="verification-image-frame">
         {src ? (
-          <a href={src} target="_blank" rel="noreferrer">
+          <button
+            type="button"
+            className="verification-image-open"
+            aria-label={`View full image: ${label}`}
+            onClick={(event) => onPreview(src, label, event.currentTarget)}
+          >
             <img src={src} alt={`${label} submitted for verification`} />
-          </a>
+          </button>
         ) : (
           <span>{empty}</span>
         )}
       </div>
-      {src && <small>Open full image</small>}
+      {src && <small>View full image</small>}
     </div>
   );
 }
