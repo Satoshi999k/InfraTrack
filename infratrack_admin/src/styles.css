@@ -650,7 +650,7 @@ a:focus-visible,
 .sidebar-toggle {
   position: absolute;
   top: 4px;
-  right: -13px;
+  right: -27px;
   z-index: 2;
   display: grid;
   width: 26px;
@@ -662,6 +662,9 @@ a:focus-visible,
   color: #fff;
   box-shadow: 0 2px 6px #061b2390;
   cursor: pointer;
+}
+.sidebar-toggle svg {
+  transform: translateX(1px);
 }
 .sidebar-toggle:hover {
   background: var(--user-action-accent-hover, #14756f);
@@ -9228,6 +9231,10 @@ tbody tr:last-child td {
   .sidebar-collapsed .sidebar {
     padding-right: 10px;
     padding-left: 10px;
+  }
+
+  .sidebar-collapsed .sidebar-toggle {
+    right: -23px;
   }
 
   .sidebar-collapsed .brand {

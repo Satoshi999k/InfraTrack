@@ -9,25 +9,37 @@ const stylesheet = postcss.parse(
 
 function getStyles(selector) {
   const styles = {};
-  stylesheet.walkRules(selector, (rule) => {
-    rule.walkDecls((declaration) => {
-      styles[declaration.prop] = declaration.value;
-    });
+  let rule;
+  stylesheet.walkRules((candidate) => {
+    if (!rule && candidate.selector === selector) rule = candidate;
+  });
+
+  rule?.walkDecls((declaration) => {
+    styles[declaration.prop] = declaration.value;
   });
   return styles;
 }
 
-test("sidebar toggle is a small circular control attached to the sidebar edge", () => {
+test("sidebar toggle is centered over the sidebar edge despite sidebar padding", () => {
   const toggle = getStyles(".sidebar-toggle");
 
-  assert.equal(toggle.top, "4px");
-  assert.equal(toggle.right, "-13px");
+  assert.equal(toggle.right, "-27px");
   assert.equal(toggle.width, "26px");
   assert.equal(toggle.height, "26px");
   assert.equal(toggle["border-radius"], "50%");
-  assert.equal(toggle.color, "#fff");
+  assert.equal(toggle.display, "grid");
+  assert.equal(toggle["place-items"], "center");
 });
 
-test("collapsed sidebar does not reposition the edge toggle", () => {
-  assert.deepEqual(getStyles(".sidebar-collapsed .sidebar-toggle"), {});
+test("collapsed sidebar centers the toggle over its narrower edge", () => {
+  const collapsedToggle = getStyles(".sidebar-collapsed .sidebar-toggle");
+
+  assert.equal(collapsedToggle.right, "-23px");
+});
+
+test("chevron is optically centered inside the circular toggle", () => {
+  assert.equal(
+    getStyles(".sidebar-toggle svg").transform,
+    "translateX(1px)",
+  );
 });
