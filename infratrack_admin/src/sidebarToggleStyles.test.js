@@ -43,3 +43,10 @@ test("chevron is optically centered inside the circular toggle", () => {
     "translateX(1px)",
   );
 });
+
+test("sidebar toggle stacks above the sticky header where they meet", () => {
+  const sidebarLayer = Number(getStyles(".sidebar")["z-index"]);
+  const headerLayer = Number(getStyles(".topbar")["z-index"]);
+
+  assert.ok(sidebarLayer > headerLayer);
+});
