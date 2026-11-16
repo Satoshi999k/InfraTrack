@@ -66,6 +66,7 @@ import {
   formatAnalyticsTrendLabel,
   getAnalyticsCategoryRows,
 } from "./analyticsDisplay.js";
+import { getSidebarToggle } from "./sidebarToggle.js";
 
 const navIcons = {
   overview: LayoutDashboard,
@@ -170,6 +171,7 @@ function Dashboard({ user, onLogout, onUserUpdated, sessionExpired }) {
   const adminBadge = getAdminBadge(userName, user.role);
   const [page, setPage] = useState("overview");
   const [drawer, setDrawer] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [query, setQuery] = useState("");
   const [modal, setModal] = useState(null);
   const [issues, setIssues] = useState([]);
@@ -627,23 +629,43 @@ function Dashboard({ user, onLogout, onUserUpdated, sessionExpired }) {
   };
 
   return (
-    <div className="app-shell">
+    <div
+      className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}
+    >
       <aside className={`sidebar ${drawer ? "open" : ""}`}>
-        <div className="brand">
-          <div className="brand-mark">
-            <BrandMark className="brand-mark-icon" />
+        <div className="sidebar-heading">
+          <div className="brand">
+            <div className="brand-mark">
+              <BrandMark className="brand-mark-icon" />
+            </div>
+            <div className="brand-copy">
+              <strong className="brand-wordmark">
+                <span>Infra</span>
+                <span className="brand-wordmark-accent">Track</span>
+              </strong>
+              <small>
+                {isBarangayStaff
+                  ? `${user.barangay || "Barangay"} Staff Portal`
+                  : "Admin Portal · Mati"}
+              </small>
+            </div>
           </div>
-          <div>
-            <strong className="brand-wordmark">
-              <span>Infra</span>
-              <span className="brand-wordmark-accent">Track</span>
-            </strong>
-            <small>
-              {isBarangayStaff
-                ? `${user.barangay || "Barangay"} Staff Portal`
-                : "Admin Portal · Mati"}
-            </small>
-          </div>
+          <button
+            type="button"
+            className="sidebar-toggle"
+            aria-label={getSidebarToggle(sidebarCollapsed).label}
+            aria-expanded={!sidebarCollapsed}
+            onClick={() =>
+              setSidebarCollapsed(
+                getSidebarToggle(sidebarCollapsed).nextCollapsed,
+              )
+            }
+          >
+            <Icon
+              icon={sidebarCollapsed ? ChevronRight : ChevronLeft}
+              size={16}
+            />
+          </button>
         </div>
 
         {navGroups.map((group) => (
@@ -654,6 +676,14 @@ function Dashboard({ user, onLogout, onUserUpdated, sessionExpired }) {
                 className={`nav-link ${page === id ? "active" : ""}`}
                 data-tour-target={`nav-${id}`}
                 key={id}
+                title={sidebarCollapsed ? label : undefined}
+                aria-label={
+                  sidebarCollapsed
+                    ? id === "queue" && pendingIssueCount > 0
+                      ? `${label}, ${pendingIssueCount} pending reports`
+                      : label
+                    : undefined
+                }
                 onClick={() => navigate(id)}
               >
                 <Icon icon={navIcons[id]} />
@@ -668,12 +698,32 @@ function Dashboard({ user, onLogout, onUserUpdated, sessionExpired }) {
         <button
           className="nav-link"
           type="button"
+          title={
+            sidebarCollapsed
+              ? isBarangayStaff
+                ? "Account settings"
+                : "Settings"
+              : undefined
+          }
+          aria-label={
+            sidebarCollapsed
+              ? isBarangayStaff
+                ? "Account settings"
+                : "Settings"
+              : undefined
+          }
           onClick={() => navigate("settings")}
         >
           <Icon icon={Settings} />
           <span>{isBarangayStaff ? "Account settings" : "Settings"}</span>
         </button>
-        <button className="nav-link" type="button" onClick={handleLogout}>
+        <button
+          className="nav-link"
+          type="button"
+          title={sidebarCollapsed ? "Log out" : undefined}
+          aria-label={sidebarCollapsed ? "Log out" : undefined}
+          onClick={handleLogout}
+        >
           <Icon icon={LogOut} />
           <span>Log out</span>
         </button>
