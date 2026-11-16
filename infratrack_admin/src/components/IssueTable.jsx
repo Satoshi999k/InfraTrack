@@ -1,4 +1,5 @@
 import { ChevronRight, Users, Video } from "lucide-react";
+import { getIssueMediaPreview } from "../issuePreview.js";
 
 export default function IssueTable({ issues, onOpenIssue }) {
   return (
@@ -30,20 +31,34 @@ export default function IssueTable({ issues, onOpenIssue }) {
                   ? createdAt.toLocaleDateString()
                   : "Not provided";
               const assignedTeam = issue.assigned_team || issue.assignedTeam;
-              const isVideo =
-                issue.media_kind === "video" ||
-                /\.(mp4|mov|m4v|webm|mkv)(?:[?#]|$)/i.test(
-                  issue.media_url || "",
-                );
+              const { isVideo, thumbnailUrl } = getIssueMediaPreview(issue);
 
               return (
                 <tr key={issue.id} onClick={() => onOpenIssue?.(issue)}>
                   <td>
                     <div className="issue-title">
-                      {issue.media_url && !isVideo ? (
+                      {thumbnailUrl && isVideo ? (
+                        <span
+                          className="issue-thumb-video-preview"
+                          aria-label="Video attachment"
+                        >
+                          <img
+                            className="issue-thumb issue-thumb-video-image"
+                            src={thumbnailUrl}
+                            alt=""
+                            loading="lazy"
+                            onError={(event) => {
+                              event.currentTarget.style.visibility = "hidden";
+                            }}
+                          />
+                          <span className="issue-thumb-play" aria-hidden="true">
+                            <Video size={13} />
+                          </span>
+                        </span>
+                      ) : thumbnailUrl ? (
                         <img
                           className="issue-thumb"
-                          src={issue.media_url}
+                          src={thumbnailUrl}
                           alt=""
                           loading="lazy"
                         />

@@ -2091,6 +2091,31 @@ tbody tr:last-child td {
   background: var(--deep);
   color: #fff;
 }
+.issue-thumb-video-preview {
+  position: relative;
+  display: block;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--deep);
+}
+.issue-thumb-video-preview .issue-thumb-video-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+.issue-thumb-play {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(transparent 35%, rgba(9, 39, 50, 0.6));
+}
 .issue-thumb.road {
   background-image: url("https://picsum.photos/seed/infratrack-road/120/120");
 }

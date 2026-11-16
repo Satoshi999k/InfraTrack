@@ -2755,6 +2755,7 @@ app.get("/api/issues", async (req, res) => {
     ) AS same_reporter_duplicate,
     (SELECT m.file_path FROM media m WHERE m.report_id = r.id AND m.media_type <> 'resolution_photo' ORDER BY m.id ASC LIMIT 1) AS media_url,
     (SELECT m.media_type FROM media m WHERE m.report_id = r.id AND m.media_type <> 'resolution_photo' ORDER BY m.id ASC LIMIT 1) AS media_kind,
+    (SELECT m.thumbnail_path FROM media m WHERE m.report_id = r.id AND m.media_type <> 'resolution_photo' ORDER BY m.id ASC LIMIT 1) AS media_thumbnail_url,
     (SELECT m.file_path FROM media m WHERE m.report_id = r.id AND m.media_type = 'resolution_photo' ORDER BY m.id DESC LIMIT 1) AS resolution_media_url,
     (SELECT COUNT(*) FROM media m WHERE m.report_id = r.id AND m.media_type <> 'resolution_photo') AS media_count,
     (SELECT COUNT(*) FROM media m WHERE m.report_id = r.id AND m.media_type IN ('photo', 'gif')) AS photo_count,
@@ -2768,6 +2769,9 @@ app.get("/api/issues", async (req, res) => {
     issues: issues.map((issue) => ({
       ...issue,
       media_url: publicMediaUrl(req, issue.media_url),
+      media_thumbnail_url:
+        publicMediaUrl(req, issue.media_thumbnail_url) ||
+        cloudinaryVideoThumbnailUrl(issue.media_url),
       resolution_media_url: publicMediaUrl(req, issue.resolution_media_url),
     })),
   });
