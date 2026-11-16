@@ -663,7 +663,7 @@ function Dashboard({ user, onLogout, onUserUpdated, sessionExpired }) {
           >
             <Icon
               icon={sidebarCollapsed ? ChevronRight : ChevronLeft}
-              size={16}
+              size={20}
             />
           </button>
         </div>

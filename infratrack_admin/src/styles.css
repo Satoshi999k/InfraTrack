@@ -647,20 +647,23 @@ a:focus-visible,
 .sidebar-heading {
   position: relative;
 }
+.sidebar-heading .brand {
+  padding-right: 44px;
+}
 .sidebar-toggle {
   position: absolute;
-  top: 10px;
-  right: -25px;
+  top: 12px;
+  right: 12px;
   z-index: 2;
   display: grid;
-  width: 26px;
-  height: 26px;
+  width: 36px;
+  height: 36px;
   place-items: center;
-  border: 1px solid #ffffff24;
-  border-radius: 50%;
-  background: var(--user-action-accent, var(--teal));
+  border: 2px solid #fff;
+  border-radius: 10px;
+  background: var(--teal);
   color: #fff;
-  box-shadow: 0 3px 10px #061b2390;
+  box-shadow: 0 0 0 2px var(--deep), 0 3px 10px #061b2390;
   cursor: pointer;
 }
 .sidebar-toggle:hover {
@@ -1944,12 +1947,15 @@ a:focus-visible,
 .queue-filters {
   display: flex;
   flex: 0 1 auto;
+  flex-wrap: nowrap;
   gap: 6px;
-  flex-wrap: wrap;
+  max-width: 100%;
+  overflow-x: auto;
   margin: 0;
 }
 .queue-filters .filter {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 5px;
   border-radius: 9px;
@@ -6431,8 +6437,8 @@ tbody tr:last-child td {
     width: 100%;
   }
   .queue-filters {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    flex-wrap: nowrap;
+    overflow-x: auto;
   }
   .queue-filters .filter {
     justify-content: center;
@@ -9233,6 +9239,10 @@ tbody tr:last-child td {
     padding-left: 0;
   }
 
+  .sidebar-collapsed .sidebar-heading {
+    padding-bottom: 46px;
+  }
+
   .sidebar-collapsed .brand-copy,
   .sidebar-collapsed .nav-label,
   .sidebar-collapsed .nav-link > span {
@@ -9240,7 +9250,10 @@ tbody tr:last-child td {
   }
 
   .sidebar-collapsed .sidebar-toggle {
-    right: -17px;
+    top: auto;
+    right: 50%;
+    bottom: 8px;
+    transform: translateX(50%);
   }
 
   .sidebar-collapsed .nav-link {
